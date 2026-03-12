@@ -1,0 +1,16 @@
+node_modules/
+tmp/
+
+# Local secrets and runtime credentials
+.env
+cookie.json
+cookie.txt
+
+# Local bot config
+config.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
