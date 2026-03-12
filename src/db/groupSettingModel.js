@@ -3,11 +3,11 @@ const mongoose = require("mongoose");
 const groupSettingSchema = new mongoose.Schema(
     {
         groupId: { type: String, required: true, unique: true },
-        welcomeEnabled: { type: Boolean, default: false },
-        kickEnabled: { type: Boolean, default: false },
-        autoKickRejoinEnabled: { type: Boolean, default: false },
+        welcomeEnabled: { type: Boolean, default: true },
+        kickEnabled: { type: Boolean, default: true },
+        autoKickRejoinEnabled: { type: Boolean, default: true },
         bannedWordMuteEnabled: { type: Boolean, default: false },
-        commandAccessEnabled: { type: Boolean, default: false },
+        commandAccessEnabled: { type: Boolean, default: true },
         commandAccessKey: { type: String, default: "" },
     },
     {
