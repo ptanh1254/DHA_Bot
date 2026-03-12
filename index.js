@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 const mongoose = require("mongoose");
 const { Zalo } = require("zca-js");
 
@@ -115,7 +115,7 @@ async function startBot() {
             helloCommand: `${prefix}hello`.toLowerCase(),
             thongTinCommand: `${prefix}thongtin`.toLowerCase(),
             checkTTCommand: `${prefix}checktt`.toLowerCase(),
-            kickCommand: `${prefix}kick`.toLowerCase(),
+            kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
             camNoiBayCommand: `${prefix}camnoibay`.toLowerCase(),
