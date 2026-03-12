@@ -197,6 +197,151 @@ async function upsertJoinMeta(User, threadId, memberProfile, actorMeta) {
     );
 }
 
+function toSafeName(name, fallback = "Nguoi dung") {
+    const value = String(name || "").trim();
+    return value || fallback;
+}
+
+function toSafeActor(actorMeta = {}) {
+    return {
+        userId: String(actorMeta?.userId || "").trim(),
+        displayName: toSafeName(actorMeta?.displayName, "Nguoi bi an"),
+    };
+}
+
+function buildKickHistoryOperations(
+    threadId,
+    memberProfiles,
+    actorMeta,
+    actorOverrideByUserId = new Map()
+) {
+    const now = new Date();
+    const operations = [];
+
+    for (const member of memberProfiles) {
+        const memberId = String(member?.userId || "").trim();
+        if (!memberId) continue;
+
+        const actor = resolveEffectiveActor(memberId, actorMeta, actorOverrideByUserId);
+        const safeActor = toSafeActor(actor);
+        const safeMemberName = toSafeName(member?.displayName, `UID ${memberId}`);
+
+        operations.push({
+            updateOne: {
+                filter: { groupId: threadId, userId: memberId },
+                update: {
+                    $set: {
+                        lastKickedByUserId: safeActor.userId,
+                        lastKickedByName: safeActor.displayName,
+                        lastKnownName: safeMemberName,
+                        lastKickAt: now,
+                    },
+                    $inc: {
+                        kickCount: 1,
+                    },
+                    $setOnInsert: {
+                        groupId: threadId,
+                        userId: memberId,
+                        firstKickedByUserId: safeActor.userId,
+                        firstKickedByName: safeActor.displayName,
+                        firstKnownName: safeMemberName,
+                        firstKickAt: now,
+                    },
+                },
+                upsert: true,
+            },
+        });
+    }
+
+    return operations;
+}
+
+async function persistKickHistory(
+    KickHistory,
+    threadId,
+    memberProfiles,
+    actorMeta,
+    actorOverrideByUserId = new Map()
+) {
+    if (!KickHistory) return;
+    const operations = buildKickHistoryOperations(
+        threadId,
+        memberProfiles,
+        actorMeta,
+        actorOverrideByUserId
+    );
+    if (operations.length === 0) return;
+
+    try {
+        await KickHistory.bulkWrite(operations, { ordered: false });
+    } catch (error) {
+        console.error("Loi luu lich su kick:", error);
+    }
+}
+
+async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory, setting) {
+    if (!KickHistory) return false;
+    if (setting?.autoKickRejoinEnabled !== true) return false;
+
+    const memberId = String(memberProfile?.userId || "").trim();
+    if (!memberId) return false;
+
+    let history = null;
+    try {
+        history = await KickHistory.findOne({ groupId: threadId, userId: memberId }).lean();
+    } catch (error) {
+        console.error("Loi doc lich su kick:", error);
+        return false;
+    }
+
+    if (!history || (Number(history?.kickCount) || 0) <= 0) {
+        return false;
+    }
+
+    try {
+        const result = await api.removeUserFromGroup([memberId], threadId);
+        const failedIds = Array.isArray(result?.errorMembers)
+            ? result.errorMembers.map((id) => normalizeUserId(id))
+            : [];
+        const failedSet = new Set(failedIds);
+        if (failedSet.has(memberId)) {
+            await api.sendMessage(
+                {
+                    msg: `AutoKick that bai voi ${toSafeName(memberProfile?.displayName, "thanh vien moi")}.`,
+                },
+                threadId,
+                1
+            );
+            return false;
+        }
+
+        const oldName = toSafeName(
+            history?.firstKnownName || history?.lastKnownName || memberProfile?.displayName,
+            "Khong ro"
+        );
+        const kickedBy = toSafeName(
+            history?.firstKickedByName || history?.lastKickedByName,
+            "Nguoi bi an"
+        );
+
+        await api.sendMessage(
+            {
+                msg: [
+                    `\ud83d\udeab ${toSafeName(memberProfile?.displayName, "Thanh vien")} da tung bi kick va vua bi auto kick.`,
+                    `Nguoi nay da tung bi kick boi: ${kickedBy}`,
+                    `Ten cu: ${oldName}`,
+                ].join("\n"),
+            },
+            threadId,
+            1
+        );
+        return true;
+    } catch (error) {
+        console.error("Loi auto kick thanh vien quay lai:", error);
+        return false;
+    }
+}
+
 function buildLeaveKickMessage(type, members, actorMeta, actorOverrideByUserId = new Map()) {
     const actorName = actorMeta?.displayName || (actorMeta?.userId ? `UID ${actorMeta.userId}` : "");
 
@@ -376,7 +521,14 @@ async function sendLeaveImageBundle(api, threadId, memberProfiles) {
     }
 }
 
-function createGroupEventHandler({ api, GroupSetting, User, kickIntentStore }) {
+function createGroupEventHandler({
+    api,
+    GroupSetting,
+    User,
+    KickHistory,
+    kickIntentStore,
+    botUserId = "",
+}) {
     return async function onGroupEvent(groupEvent) {
         try {
             const type = String(groupEvent?.type || "").toLowerCase();
@@ -400,14 +552,23 @@ function createGroupEventHandler({ api, GroupSetting, User, kickIntentStore }) {
                     const profile = await fetchMemberProfile(api, member.userId, member);
                     await upsertJoinMeta(User, threadId, profile, actorMeta);
 
+                    const autoKicked = await tryAutoKickRejoinMember(
+                        api,
+                        threadId,
+                        profile,
+                        KickHistory,
+                        setting
+                    );
+                    if (autoKicked) {
+                        continue;
+                    }
+
                     if (setting?.welcomeEnabled === true) {
                         await sendWelcomeForMember(api, threadId, profile);
                     }
                 }
                 return;
             }
-
-            if (setting?.kickEnabled !== true) return;
 
             const actorOverrideByUserId = new Map();
             if (type === "remove_member" && kickIntentStore) {
@@ -425,6 +586,19 @@ function createGroupEventHandler({ api, GroupSetting, User, kickIntentStore }) {
             const memberProfiles = await Promise.all(
                 members.map((member) => fetchMemberProfile(api, member.userId, member))
             );
+
+            if (type === "remove_member") {
+                await persistKickHistory(
+                    KickHistory,
+                    threadId,
+                    memberProfiles,
+                    actorMeta,
+                    actorOverrideByUserId
+                );
+            }
+
+            if (setting?.kickEnabled !== true) return;
+
             const notifyMsg = buildLeaveKickMessage(
                 type,
                 memberProfiles,

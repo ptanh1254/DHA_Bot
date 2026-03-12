@@ -7,6 +7,8 @@ const { loadCookie } = require("./src/auth/loadCookie");
 const { User } = require("./src/db/userModel");
 const { GroupSetting } = require("./src/db/groupSettingModel");
 const { MutedMember } = require("./src/db/mutedMemberModel");
+const { GroupKeyMember } = require("./src/db/groupKeyMemberModel");
+const { KickHistory } = require("./src/db/kickHistoryModel");
 const { imageMetadataGetter } = require("./src/media/imageMetadataGetter");
 const { handleHelloCommand } = require("./src/commands/hello");
 const { handleHelpCommand } = require("./src/commands/help");
@@ -15,6 +17,11 @@ const { handleCheckTTCommand } = require("./src/commands/checktt");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
+const { handleCamNoiBayCommand } = require("./src/commands/camnoibay");
+const { handleAutoKickCommand } = require("./src/commands/autokick");
+const { handleKeyCommand } = require("./src/commands/key");
+const { handleSetKeyCommand } = require("./src/commands/setkey");
+const { handleAddAdminCommand } = require("./src/commands/addadmin");
 const { handleXepHangChatCommand } = require("./src/commands/xephangchat");
 const { handleResetChatCommand } = require("./src/commands/resetchat");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
@@ -111,6 +118,11 @@ async function startBot() {
             kickCommand: `${prefix}kick`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
+            camNoiBayCommand: `${prefix}camnoibay`.toLowerCase(),
+            autoKickCommand: `${prefix}autokick`.toLowerCase(),
+            keyCommand: `${prefix}key`.toLowerCase(),
+            setKeyCommand: `${prefix}setkey`.toLowerCase(),
+            addAdminCommand: `${prefix}addadmin`.toLowerCase(),
             xepHangDayCommand: `${prefix}xhchat`.toLowerCase(),
             xepHangMonthCommand: `${prefix}xhchatthang`.toLowerCase(),
             xepHangTotalCommand: `${prefix}xhchattong`.toLowerCase(),
@@ -136,6 +148,46 @@ async function startBot() {
                 handleMuteCommand(api, message, threadId, MutedMember, prefix),
             handleUnmute: (api, message, threadId) =>
                 handleUnmuteCommand(api, message, threadId, MutedMember, prefix),
+            handleCamNoiBay: (api, message, threadId, argsText) =>
+                handleCamNoiBayCommand(
+                    api,
+                    message,
+                    threadId,
+                    GroupSetting,
+                    argsText,
+                    prefix
+                ),
+            handleAutoKick: (api, message, threadId, argsText) =>
+                handleAutoKickCommand(
+                    api,
+                    message,
+                    threadId,
+                    GroupSetting,
+                    argsText,
+                    prefix
+                ),
+            handleKey: (api, message, threadId, argsText) =>
+                handleKeyCommand(
+                    api,
+                    message,
+                    threadId,
+                    GroupSetting,
+                    GroupKeyMember,
+                    argsText,
+                    prefix
+                ),
+            handleSetKey: (api, message, threadId, argsText) =>
+                handleSetKeyCommand(
+                    api,
+                    message,
+                    threadId,
+                    GroupSetting,
+                    GroupKeyMember,
+                    argsText,
+                    prefix
+                ),
+            handleAddAdmin: (api, message, threadId) =>
+                handleAddAdminCommand(api, message, threadId, GroupKeyMember, prefix),
             handleXepHangDay: (api, message, threadId, User, botUid) =>
                 handleXepHangChatCommand(api, message, threadId, User, {
                     botUserId: botUid,
@@ -156,13 +208,15 @@ async function startBot() {
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.keyCommand}, ${commands.setKeyCommand}, ${commands.addAdminCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
         );
 
         const messageHandler = createMessageHandler({
             api,
             User,
             MutedMember,
+            GroupSetting,
+            GroupKeyMember,
             commands,
             botUserId,
         });
@@ -170,7 +224,9 @@ async function startBot() {
             api,
             GroupSetting,
             User,
+            KickHistory,
             kickIntentStore,
+            botUserId,
         });
         api.listener.on("message", messageHandler);
         api.listener.on("group_event", groupEventHandler);
