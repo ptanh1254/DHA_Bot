@@ -133,7 +133,7 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
 
     await User.findOneAndUpdate({ groupId: threadId, userId: targetUserId }, update, {
         upsert: true,
-        new: true,
+        returnDocument: "after",
         setDefaultsOnInsert: true,
     });
 

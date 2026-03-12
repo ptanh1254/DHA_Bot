@@ -1,7 +1,7 @@
 const fs = require("fs");
 
 const { createWelcomeImage } = require("../design/welcome/renderer");
-const { createKickEventImage } = require("../design/kick/renderer");
+const { createKickEventImage, createLeaveEventImage } = require("../design/kick/renderer");
 
 function normalizeUserId(rawId) {
     const value = String(rawId || "").trim();
@@ -340,6 +340,42 @@ async function sendKickImageBundle(
     }
 }
 
+async function sendLeaveImageBundle(api, threadId, memberProfiles) {
+    try {
+        for (const member of memberProfiles) {
+            let outputPath = "";
+            try {
+                outputPath = await createLeaveEventImage(
+                    {
+                        member,
+                        actionText: `${member.displayName} đã xách dép rời nhóm DHA`,
+                    },
+                    {
+                        fileName: `leave-${threadId}-${member.userId}-${Date.now()}.png`,
+                    }
+                );
+
+                await api.sendMessage(
+                    {
+                        msg: `👋 ${member.displayName} đã rời nhóm.`,
+                        attachments: [outputPath],
+                    },
+                    threadId,
+                    1
+                );
+            } finally {
+                if (outputPath && fs.existsSync(outputPath)) {
+                    try {
+                        fs.unlinkSync(outputPath);
+                    } catch (_) {}
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Lỗi tạo/gửi ảnh rời nhóm:", error);
+    }
+}
+
 function createGroupEventHandler({ api, GroupSetting, User, kickIntentStore }) {
     return async function onGroupEvent(groupEvent) {
         try {
@@ -405,6 +441,8 @@ function createGroupEventHandler({ api, GroupSetting, User, kickIntentStore }) {
                     actorMeta,
                     actorOverrideByUserId
                 );
+            } else if (type === "leave") {
+                await sendLeaveImageBundle(api, threadId, memberProfiles);
             }
         } catch (error) {
             console.error("L\u1ed7i x\u1eed l\u00fd group_event:", error);

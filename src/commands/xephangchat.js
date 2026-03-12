@@ -1,7 +1,8 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 
 const { createChatRankingImage } = require("../design/chatRanking/renderer");
 const { formatCount } = require("../design/chatRanking/template");
+const { getVNDateParts } = require("../utils/vnTime");
 
 function normalizeDisplayName(name, fallbackUserId) {
     if (typeof name === "string" && name.trim()) return name.trim();
@@ -85,8 +86,6 @@ async function resolveMemberMeta(api, threadId, rows, User, seedMetaMap = new Ma
 
     for (const row of rows) {
         const uid = String(row.userId);
-        const existing = metaMap.get(uid) || {};
-
         const rowDisplayName = pickDisplayName(row);
         const rowAvatar = pickAvatarUrl(row);
 
@@ -129,7 +128,7 @@ async function resolveMemberMeta(api, threadId, rows, User, seedMetaMap = new Ma
                 await User.bulkWrite(updates, { ordered: false });
             }
         } catch (error) {
-            console.error("Lỗi lấy thông tin người dùng cho xếp hạng:", error);
+            console.error("Loi lay thong tin nguoi dung cho xep hang:", error);
         }
     }
 
@@ -165,7 +164,7 @@ async function loadMembersFromGroupLink(api, threadId, memberIdSet, metaMap, exp
             page += 1;
         }
     } catch (error) {
-        console.error("Lỗi fallback lấy thành viên qua group link:", error);
+        console.error("Loi fallback lay thanh vien qua group link:", error);
     }
 }
 
@@ -227,7 +226,7 @@ async function loadGroupMembers(api, threadId) {
             expectedTotalMembers,
         };
     } catch (error) {
-        console.error("Lỗi lấy danh sách thành viên nhóm:", error);
+        console.error("Loi lay danh sach thanh vien nhom:", error);
         return { memberIds: [], metaMap: new Map(), expectedTotalMembers: 0 };
     }
 }
@@ -252,7 +251,7 @@ async function enrichGroupMemberMeta(api, memberIds, metaMap) {
                 upsertMemberMeta(metaMap, uid, profile);
             }
         } catch (error) {
-            console.error("Lỗi lấy profile thành viên nhóm:", error);
+            console.error("Loi lay profile thanh vien nhom:", error);
         }
     }
 }
@@ -261,6 +260,7 @@ async function syncMembersToDatabase(User, threadId, memberIds, metaMap) {
     if (memberIds.length === 0) return;
 
     const now = new Date();
+    const vnParts = getVNDateParts(now);
     const operations = memberIds.map((uid) => {
         const displayName = metaMap.get(uid)?.displayName || "";
         const avatarUrl = metaMap.get(uid)?.avatarUrl || "";
@@ -269,6 +269,10 @@ async function syncMembersToDatabase(User, threadId, memberIds, metaMap) {
             userId: uid,
             msgCount: 0,
             totalMsgCount: 0,
+            dailyMsgCount: 0,
+            monthlyMsgCount: 0,
+            dayKey: vnParts.dayKey,
+            monthKey: vnParts.monthKey,
             joinDate: now,
         };
 
@@ -296,7 +300,7 @@ async function syncMembersToDatabase(User, threadId, memberIds, metaMap) {
         try {
             await User.bulkWrite(chunk, { ordered: false });
         } catch (error) {
-            console.error("Lỗi đồng bộ thành viên vào database:", error);
+            console.error("Loi dong bo thanh vien vao database:", error);
         }
     }
 }
@@ -307,14 +311,31 @@ function toTimeValue(dateLike) {
     return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
 }
 
-function buildRankingUsers(users, memberIds, metaMap) {
+function getRankingScore(user, rankingType, dayKey, monthKey) {
+    if (rankingType === "total") {
+        return Number(user?.totalMsgCount) || 0;
+    }
+
+    if (rankingType === "month") {
+        if (String(user?.monthKey || "") !== String(monthKey || "")) return 0;
+        return Number(user?.monthlyMsgCount) || 0;
+    }
+
+    if (String(user?.dayKey || "") !== String(dayKey || "")) return 0;
+    return Number(user?.dailyMsgCount) || 0;
+}
+
+function buildRankingUsers(users, memberIds, metaMap, options = {}) {
+    const rankingType = String(options.rankingType || "day").toLowerCase();
+    const dayKey = String(options.dayKey || "");
+    const monthKey = String(options.monthKey || "");
     const byUser = new Map();
 
     for (const user of users) {
         const uid = normalizeMemberId(user?.userId);
         if (!uid) continue;
 
-        const msgCount = Number(user?.msgCount) || 0;
+        const msgCount = getRankingScore(user, rankingType, dayKey, monthKey);
         const incomingDisplayName = pickDisplayName(user);
         const existing = byUser.get(uid);
 
@@ -366,7 +387,39 @@ function buildRankingUsers(users, memberIds, metaMap) {
     });
 }
 
-async function handleXepHangChatCommand(api, message, threadId, User, botUserId = "") {
+function getRankingMeta(rankingType, vnParts) {
+    if (rankingType === "total") {
+        return {
+            rankingType: "total",
+            rankingTitle: "XẾP HẠNG CHAT TỔNG",
+            periodLabel: "Mốc: Tích lũy toàn thời gian",
+            replyLabel: "Bảng xếp hạng chat tổng",
+        };
+    }
+
+    if (rankingType === "month") {
+        return {
+            rankingType: "month",
+            rankingTitle: "XẾP HẠNG CHAT THÁNG",
+            periodLabel: `Tháng: ${vnParts.monthLabel}`,
+            replyLabel: `Bảng xếp hạng chat tháng ${vnParts.monthLabel}`,
+        };
+    }
+
+    return {
+        rankingType: "day",
+        rankingTitle: "XẾP HẠNG CHAT NGÀY",
+        periodLabel: `Ngày ${vnParts.dayLabel} - Ngày #${Number(vnParts.day || 0)} (reset 0h VN)`,
+        replyLabel: `Bảng xếp hạng chat ngày ${vnParts.dayLabel}`,
+    };
+}
+
+async function handleXepHangChatCommand(api, message, threadId, User, options = {}) {
+    const vnParts = getVNDateParts(new Date());
+    const rankingType = String(options?.rankingType || "day").toLowerCase();
+    const rankingMeta = getRankingMeta(rankingType, vnParts);
+    const botUserId = String(options?.botUserId || "");
+
     const { memberIds, metaMap, expectedTotalMembers } = await loadGroupMembers(api, threadId);
     await enrichGroupMemberMeta(api, memberIds, metaMap);
     await syncMembersToDatabase(User, threadId, memberIds, metaMap);
@@ -377,15 +430,19 @@ async function handleXepHangChatCommand(api, message, threadId, User, botUserId 
     }
 
     const users = await User.find(query).lean();
-    const rankingUsers = buildRankingUsers(users, memberIds, metaMap);
+    const rankingUsers = buildRankingUsers(users, memberIds, metaMap, {
+        rankingType: rankingMeta.rankingType,
+        dayKey: vnParts.dayKey,
+        monthKey: vnParts.monthKey,
+    });
+
     const normalizedBotUserId = normalizeMemberId(botUserId);
     const filteredRankingUsers = normalizedBotUserId
-        ? rankingUsers.filter(
-              (user) => normalizeMemberId(user?.userId) !== normalizedBotUserId
-          )
+        ? rankingUsers.filter((user) => normalizeMemberId(user?.userId) !== normalizedBotUserId)
         : rankingUsers;
+
     console.log(
-        `[XEPHANG] group=${threadId} expected=${expectedTotalMembers || 0} loaded=${memberIds.length} ranking=${rankingUsers.length} rankingNoBot=${filteredRankingUsers.length}`
+        `[XEPHANG] mode=${rankingMeta.rankingType} group=${threadId} expected=${expectedTotalMembers || 0} loaded=${memberIds.length} ranking=${rankingUsers.length} rankingNoBot=${filteredRankingUsers.length}`
     );
 
     if (filteredRankingUsers.length === 0) {
@@ -438,6 +495,8 @@ async function handleXepHangChatCommand(api, message, threadId, User, botUserId 
                 page,
                 totalPages,
                 totalMembers,
+                rankingTitle: rankingMeta.rankingTitle,
+                periodLabel: rankingMeta.periodLabel,
                 fileName: `xephang-${threadId}-${page}-${Date.now()}.png`,
             });
             outputPaths.push(outputPath);
@@ -445,7 +504,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, botUserId 
 
         await api.sendMessage(
             {
-                msg: `Bảng xếp hạng tương tác (${formatCount(totalMembers)} thành viên) - ${totalPages} ảnh, 10 người/ảnh.`,
+                msg: `${rankingMeta.replyLabel} (${formatCount(totalMembers)} thành viên) - ${totalPages} ảnh, 10 người/ảnh.`,
                 attachments: outputPaths,
             },
             threadId,
@@ -465,5 +524,3 @@ async function handleXepHangChatCommand(api, message, threadId, User, botUserId 
 module.exports = {
     handleXepHangChatCommand,
 };
-
-

@@ -6,17 +6,21 @@ const { loadConfig } = require("./src/config/loadConfig");
 const { loadCookie } = require("./src/auth/loadCookie");
 const { User } = require("./src/db/userModel");
 const { GroupSetting } = require("./src/db/groupSettingModel");
+const { MutedMember } = require("./src/db/mutedMemberModel");
 const { imageMetadataGetter } = require("./src/media/imageMetadataGetter");
 const { handleHelloCommand } = require("./src/commands/hello");
 const { handleHelpCommand } = require("./src/commands/help");
 const { handleThongTinCommand } = require("./src/commands/thongtin");
 const { handleCheckTTCommand } = require("./src/commands/checktt");
 const { handleKickCommand } = require("./src/commands/kick");
+const { handleMuteCommand } = require("./src/commands/mute");
+const { handleUnmuteCommand } = require("./src/commands/unmute");
 const { handleXepHangChatCommand } = require("./src/commands/xephangchat");
 const { handleResetChatCommand } = require("./src/commands/resetchat");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
+const { getVNDateParts } = require("./src/utils/vnTime");
 
 const config = loadConfig();
 
@@ -31,6 +35,8 @@ async function startBot() {
     try {
         console.log("Đang kết nối MongoDB...");
         await mongoose.connect(process.env.MONGO_URI);
+        const now = new Date();
+        const vnParts = getVNDateParts(now);
         const backfillResult = await User.collection.updateMany(
             {
                 $or: [
@@ -48,6 +54,31 @@ async function startBot() {
         );
         console.log(
             `Backfill totalMsgCount xong: ${backfillResult.modifiedCount || 0} bản ghi`
+        );
+        const backfillPeriodResult = await User.collection.updateMany(
+            {
+                $or: [
+                    { dailyMsgCount: { $exists: false } },
+                    { monthlyMsgCount: { $exists: false } },
+                    { dayKey: { $exists: false } },
+                    { monthKey: { $exists: false } },
+                ],
+            },
+            [
+                {
+                    $set: {
+                        dailyMsgCount: { $ifNull: ["$dailyMsgCount", { $ifNull: ["$msgCount", 0] }] },
+                        monthlyMsgCount: {
+                            $ifNull: ["$monthlyMsgCount", { $ifNull: ["$msgCount", 0] }],
+                        },
+                        dayKey: { $ifNull: ["$dayKey", vnParts.dayKey] },
+                        monthKey: { $ifNull: ["$monthKey", vnParts.monthKey] },
+                    },
+                },
+            ]
+        );
+        console.log(
+            `Backfill bo dem ngay/thang xong: ${backfillPeriodResult.modifiedCount || 0} bản ghi`
         );
 
         const imei = process.env.ZALO_IMEI;
@@ -78,7 +109,11 @@ async function startBot() {
             thongTinCommand: `${prefix}thongtin`.toLowerCase(),
             checkTTCommand: `${prefix}checktt`.toLowerCase(),
             kickCommand: `${prefix}kick`.toLowerCase(),
-            xepHangCommand: `${prefix}xhchat`.toLowerCase(),
+            muteCommand: `${prefix}mute`.toLowerCase(),
+            unmuteCommand: `${prefix}unmute`.toLowerCase(),
+            xepHangDayCommand: `${prefix}xhchat`.toLowerCase(),
+            xepHangMonthCommand: `${prefix}xhchatthang`.toLowerCase(),
+            xepHangTotalCommand: `${prefix}xhchattong`.toLowerCase(),
             resetChatCommand: `${prefix}rschat`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
@@ -97,16 +132,40 @@ async function startBot() {
                     prefix,
                     kickIntentStore
                 ),
-            handleXepHang: handleXepHangChatCommand,
+            handleMute: (api, message, threadId) =>
+                handleMuteCommand(api, message, threadId, MutedMember, prefix),
+            handleUnmute: (api, message, threadId) =>
+                handleUnmuteCommand(api, message, threadId, MutedMember, prefix),
+            handleXepHangDay: (api, message, threadId, User, botUid) =>
+                handleXepHangChatCommand(api, message, threadId, User, {
+                    botUserId: botUid,
+                    rankingType: "day",
+                }),
+            handleXepHangMonth: (api, message, threadId, User, botUid) =>
+                handleXepHangChatCommand(api, message, threadId, User, {
+                    botUserId: botUid,
+                    rankingType: "month",
+                }),
+            handleXepHangTotal: (api, message, threadId, User, botUid) =>
+                handleXepHangChatCommand(api, message, threadId, User, {
+                    botUserId: botUid,
+                    rankingType: "total",
+                }),
             handleResetChat: handleResetChatCommand,
         };
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.xepHangCommand}, ${commands.resetChatCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
         );
 
-        const messageHandler = createMessageHandler({ api, User, commands, botUserId });
+        const messageHandler = createMessageHandler({
+            api,
+            User,
+            MutedMember,
+            commands,
+            botUserId,
+        });
         const groupEventHandler = createGroupEventHandler({
             api,
             GroupSetting,

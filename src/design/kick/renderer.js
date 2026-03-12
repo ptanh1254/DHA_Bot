@@ -334,7 +334,94 @@ async function createKickEventImage(payload, options = {}) {
     return outputPath;
 }
 
+async function createLeaveEventImage(payload, options = {}) {
+    const width = options.width || KICK_IMAGE_THEME.width;
+    const height = options.height || KICK_IMAGE_THEME.height;
+
+    const memberName = String(
+        payload?.member?.displayName || payload?.member?.userId || "Th\u00e0nh vi\u00ean"
+    );
+    const actionText =
+        payload?.actionText || `${memberName} \u0111\u00e3 x\u00e1ch d\u00e9p r\u1eddi nh\u00f3m DHA`;
+
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    drawBackground(ctx, width, height);
+
+    const [leftImage, rightImage, memberAvatar] = await Promise.all([
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.left, { isDrive: true }),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.right, { isDrive: true }),
+        loadRemoteImageCached(payload?.member?.avatar || ""),
+    ]);
+
+    const sideWidth = KICK_IMAGE_THEME.sideWidth;
+    if (leftImage) {
+        ctx.drawImage(leftImage, 0, 0, sideWidth, height);
+    } else {
+        drawFallbackSide(ctx, 0, 0, sideWidth, height, true);
+    }
+
+    if (rightImage) {
+        ctx.drawImage(rightImage, width - sideWidth, 0, sideWidth, height);
+    } else {
+        drawFallbackSide(ctx, width - sideWidth, 0, sideWidth, height, false);
+    }
+
+    drawCenterPanel(ctx, width, height);
+
+    const centerX = width / 2;
+    ctx.font = "900 54px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.fillStyle = KICK_IMAGE_THEME.textColor;
+    const title = "T\u1ea0M BI\u1ec6T TH\u00c0NH VI\u00caN";
+    const titleWidth = ctx.measureText(title).width;
+    ctx.fillText(title, centerX - titleWidth / 2, 146);
+
+    const textAreaWidth = width - sideWidth * 2 - 120;
+    const bodyLayout = fitWrapText(ctx, actionText, textAreaWidth, 42, 28, 2);
+    ctx.font = `800 ${bodyLayout.fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+    ctx.fillStyle = "#7c2d12";
+    const lineHeight = Math.round(bodyLayout.fontSize * 1.2);
+    const firstLineY = 220;
+    for (let i = 0; i < bodyLayout.lines.length; i += 1) {
+        const line = bodyLayout.lines[i];
+        const lineW = ctx.measureText(line).width;
+        ctx.fillText(line, centerX - lineW / 2, firstLineY + i * lineHeight);
+    }
+
+    const avatarY = 360;
+    drawAvatar(ctx, memberAvatar, centerX, avatarY, 90, memberName);
+    drawNameTag(ctx, memberName, centerX, 500, 360);
+
+    ctx.font = "700 26px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "#9a3412";
+    const roleText = "Ng\u01b0\u1eddi r\u1eddi nh\u00f3m";
+    const roleWidth = ctx.measureText(roleText).width;
+    ctx.fillText(roleText, centerX - roleWidth / 2, 548);
+
+    const subText = "H\u1eb9n g\u1eb7p l\u1ea1i \u1edf m\u1ed9t drama g\u1ea7n nh\u1ea5t!";
+    ctx.font = "600 24px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.fillStyle = "rgba(120, 53, 15, 0.92)";
+    const subWidth = ctx.measureText(subText).width;
+    ctx.fillText(subText, centerX - subWidth / 2, 594);
+
+    const tempDir = path.resolve(options.tempDir || "tmp");
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const fileName =
+        options.fileName ||
+        `leave-${payload?.member?.userId || "member"}-${Date.now()}-${Math.random()
+            .toString(16)
+            .slice(2, 8)}.png`;
+    const outputPath = path.join(tempDir, fileName);
+    fs.writeFileSync(outputPath, canvas.toBuffer("image/png"));
+    return outputPath;
+}
+
 module.exports = {
     KICK_IMAGE_THEME,
     createKickEventImage,
+    createLeaveEventImage,
 };

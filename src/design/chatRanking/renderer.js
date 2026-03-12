@@ -136,14 +136,21 @@ async function loadRemoteImage(url) {
 
 function drawHeader(ctx, meta, width) {
     const title = CHAT_RANKING_IMAGE_THEME.title;
+    const titleText = String(meta.rankingTitle || title.text || "").trim();
+    const periodLabel = String(meta.periodLabel || "").trim();
 
     ctx.font = title.font;
     ctx.fillStyle = title.color;
-    ctx.fillText(title.text, 70, 106);
+    ctx.fillText(titleText || title.text, 70, 106);
 
     ctx.font = title.subFont;
     ctx.fillStyle = title.subColor;
-    const pageText = `Trang ${meta.page}/${meta.totalPages}  |  Tổng thành viên: ${formatCount(meta.totalMembers)}`;
+    const details = [
+        periodLabel,
+        `Trang ${meta.page}/${meta.totalPages}`,
+        `Tổng thành viên: ${formatCount(meta.totalMembers)}`,
+    ].filter(Boolean);
+    const pageText = details.join("  |  ");
     ctx.fillText(pageText, 72, 142);
 
     ctx.beginPath();
@@ -263,6 +270,8 @@ async function createChatRankingImage(rows, meta = {}) {
             page: meta.page || 1,
             totalPages: meta.totalPages || 1,
             totalMembers: meta.totalMembers || rows.length,
+            rankingTitle: meta.rankingTitle || "",
+            periodLabel: meta.periodLabel || "",
         },
         width
     );

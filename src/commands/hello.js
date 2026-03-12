@@ -39,7 +39,7 @@ async function handleHelloCommand(
     await GroupSetting.findOneAndUpdate(
         { groupId: threadId },
         { $set: { welcomeEnabled: shouldEnable } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
 
     await api.sendMessage(
