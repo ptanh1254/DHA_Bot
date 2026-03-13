@@ -10,7 +10,7 @@ function normalizeVietnamese(text) {
     return String(text || "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[đĐ]/g, (char) => (char === "Đ" ? "D" : "d"))
+        .replace(/[đĐ]/g, "d")
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, " ")
         .replace(/\s+/g, " ")
@@ -46,7 +46,7 @@ function getBannedWords() {
         }
     } catch (error) {
         if (cachedMtimeMs !== -1) {
-            console.error("Khong doc duoc danh sach tu cam:", error);
+            console.error("Không đọc được danh sách từ cấm:", error);
         }
         cachedMtimeMs = -1;
         cachedWords = [];
@@ -77,3 +77,4 @@ module.exports = {
     BANNED_WORDS_PATH,
     findMatchedBannedWord,
 };
+

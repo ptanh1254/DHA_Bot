@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
 const CHECKTT_THEME = {
     width: 1180,
@@ -122,7 +123,7 @@ function drawAvatarFallback(ctx, displayName) {
     ctx.fillRect(cfg.x - cfg.radius, cfg.y - cfg.radius, cfg.radius * 2, cfg.radius * 2);
 
     const letter = String(displayName || "?").trim()[0] || "?";
-    ctx.font = "800 76px 'Bahnschrift', 'Segoe UI', sans-serif";
+    ctx.font = `800 76px ${FONT_STACK}`;
     ctx.fillStyle = "#78350f";
     const width = ctx.measureText(letter.toUpperCase()).width;
     ctx.fillText(letter.toUpperCase(), cfg.x - width / 2, cfg.y + 28);
@@ -162,16 +163,16 @@ async function drawAvatar(ctx, avatarUrl, displayName) {
 function drawTextBlock(ctx, payload) {
     const { displayName, joinDate, totalMsgCount, userId, addedByLabel } = payload;
 
-    ctx.font = "800 42px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `800 42px ${FONT_STACK}`;
     ctx.fillStyle = "#7c2d12";
     ctx.fillText("TH\u00d4NG TIN TH\u00c0NH VI\u00caN", 392, 128);
 
     const safeName = fitText(ctx, displayName, 660);
-    ctx.font = "800 54px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `800 54px ${FONT_STACK}`;
     ctx.fillStyle = "#451a03";
     ctx.fillText(safeName, 392, 204);
 
-    ctx.font = "600 20px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `600 20px ${FONT_STACK}`;
     ctx.fillStyle = "rgba(120, 53, 15, 0.9)";
     ctx.fillText(`UID: ${userId}`, 394, 236);
 
@@ -193,11 +194,11 @@ function drawTextBlock(ctx, payload) {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.font = "600 22px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+        ctx.font = `600 22px ${FONT_STACK}`;
         ctx.fillStyle = "rgba(120, 53, 15, 0.95)";
         ctx.fillText(row.label, 420, y - 3);
 
-        ctx.font = "700 29px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+        ctx.font = `700 29px ${FONT_STACK}`;
         ctx.fillStyle = "#7c2d12";
         const valueSafe = fitText(ctx, row.value, 620);
         ctx.fillText(valueSafe, 420, y + 26);
@@ -207,6 +208,8 @@ function drawTextBlock(ctx, payload) {
 }
 
 async function createCheckTTCard(payload, options = {}) {
+    registerDesignFonts();
+
     const width = options.width || CHECKTT_THEME.width;
     const height = options.height || CHECKTT_THEME.height;
 
@@ -236,3 +239,4 @@ module.exports = {
     CHECKTT_THEME,
     createCheckTTCard,
 };
+

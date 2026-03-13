@@ -1,4 +1,4 @@
-﻿const { formatCount } = require("../design/chatRanking/template");
+const { formatCount } = require("../design/chatRanking/template");
 
 async function handleResetChatCommand(api, message, threadId, User) {
     const result = await User.updateMany({ groupId: threadId }, { $set: { msgCount: 0 } });
@@ -15,3 +15,4 @@ async function handleResetChatCommand(api, message, threadId, User) {
 module.exports = {
     handleResetChatCommand,
 };
+

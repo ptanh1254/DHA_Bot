@@ -6,9 +6,7 @@ const groupSettingSchema = new mongoose.Schema(
         welcomeEnabled: { type: Boolean, default: true },
         kickEnabled: { type: Boolean, default: true },
         autoKickRejoinEnabled: { type: Boolean, default: true },
-        bannedWordMuteEnabled: { type: Boolean, default: false },
-        commandAccessEnabled: { type: Boolean, default: true },
-        commandAccessKey: { type: String, default: "" },
+        bannedWordMuteEnabled: { type: Boolean, default: true },
     },
     {
         timestamps: { createdAt: false, updatedAt: true },

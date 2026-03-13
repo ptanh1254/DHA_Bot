@@ -1,4 +1,4 @@
-﻿const { USER_CARD_ROW_CONFIG } = require("./theme");
+const { USER_CARD_ROW_CONFIG } = require("./theme");
 
 function toNumber(value) {
     const num = Number(value);
@@ -13,9 +13,9 @@ function normalizeUnixSeconds(value) {
 
 function formatDateTimeVN(value) {
     const seconds = normalizeUnixSeconds(value);
-    if (!seconds) return "Chưa có";
+    if (!seconds) return "Ch\u01b0a c\u00f3";
     const d = new Date(seconds * 1000);
-    if (Number.isNaN(d.getTime())) return "Chưa có";
+    if (Number.isNaN(d.getTime())) return "Ch\u01b0a c\u00f3";
 
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");
@@ -31,7 +31,7 @@ function formatBirthDate(profile) {
     }
 
     const dobNum = toNumber(profile?.dob);
-    if (!dobNum) return "Chưa cập nhật";
+    if (!dobNum) return "Ch\u01b0a c\u1eadp nh\u1eadt";
 
     const raw = String(Math.trunc(dobNum));
     if (raw.length === 8) {
@@ -41,18 +41,18 @@ function formatBirthDate(profile) {
         return `${dd}/${mm}/${yyyy}`;
     }
 
-    return formatDateTimeVN(dobNum).split(" ")[1] || "Chưa cập nhật";
+    return formatDateTimeVN(dobNum).split(" ")[1] || "Ch\u01b0a c\u1eadp nh\u1eadt";
 }
 
 function genderText(gender) {
     if (gender === 0) return "Nam";
-    if (gender === 1) return "Nữ";
-    return "Khác";
+    if (gender === 1) return "N\u1eef";
+    return "Kh\u00e1c";
 }
 
 function businessText(bizPkg) {
-    if (!bizPkg || typeof bizPkg !== "object") return "Chưa đăng ký";
-    return Object.keys(bizPkg).length > 0 ? "Đã đăng ký" : "Chưa đăng ký";
+    if (!bizPkg || typeof bizPkg !== "object") return "Ch\u01b0a \u0111\u0103ng k\u00fd";
+    return Object.keys(bizPkg).length > 0 ? "\u0110\u00e3 \u0111\u0103ng k\u00fd" : "Ch\u01b0a \u0111\u0103ng k\u00fd";
 }
 
 function getRowValueMap(profile) {
@@ -79,3 +79,5 @@ function buildUserCardRows(profile) {
 module.exports = {
     buildUserCardRows,
 };
+
+

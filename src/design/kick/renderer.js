@@ -1,6 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const {
+    FONT_STACK,
+    FONT_STACK_EMOJI,
+    registerDesignFonts,
+} = require("../shared/registerFonts");
 
 const { SIDE_IMAGE_LINKS } = require("../welcome/renderer");
 
@@ -21,7 +26,12 @@ const KICK_IMAGE_THEME = {
     avatarRadius: 72,
 };
 
-const imageCache = new Map();
+const SIDE_IMAGE_CACHE = new Map();
+const SIDE_IMAGE_CACHE_LIMIT = 4;
+const IMAGE_FETCH_TIMEOUT_MS =
+    Number(process.env.IMAGE_FETCH_TIMEOUT_MS) > 0
+        ? Number(process.env.IMAGE_FETCH_TIMEOUT_MS)
+        : 12000;
 
 function roundRect(ctx, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
@@ -57,27 +67,44 @@ function toDirectDriveUrl(input) {
     return `https://drive.google.com/uc?export=download&id=${id}`;
 }
 
-async function loadRemoteImageCached(url, { isDrive = false } = {}) {
+function rememberSideImageCache(key, valuePromise) {
+    if (!SIDE_IMAGE_CACHE.has(key) && SIDE_IMAGE_CACHE.size >= SIDE_IMAGE_CACHE_LIMIT) {
+        const oldestKey = SIDE_IMAGE_CACHE.keys().next().value;
+        if (oldestKey) {
+            SIDE_IMAGE_CACHE.delete(oldestKey);
+        }
+    }
+    SIDE_IMAGE_CACHE.set(key, valuePromise);
+}
+
+async function fetchRemoteImage(normalizedUrl) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    try {
+        const response = await fetch(normalizedUrl, { signal: controller.signal });
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return await loadImage(Buffer.from(arrayBuffer));
+    } catch (_) {
+        return null;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function loadRemoteImageCached(url, { isDrive = false, cache = false } = {}) {
     const normalizedUrl = isDrive ? toDirectDriveUrl(url) : String(url || "");
     if (!normalizedUrl) return null;
 
-    if (!imageCache.has(normalizedUrl)) {
-        imageCache.set(
-            normalizedUrl,
-            (async () => {
-                try {
-                    const response = await fetch(normalizedUrl);
-                    if (!response.ok) return null;
-                    const arrayBuffer = await response.arrayBuffer();
-                    return await loadImage(Buffer.from(arrayBuffer));
-                } catch (_) {
-                    return null;
-                }
-            })()
-        );
+    if (!cache) {
+        return fetchRemoteImage(normalizedUrl);
     }
 
-    return imageCache.get(normalizedUrl);
+    if (!SIDE_IMAGE_CACHE.has(normalizedUrl)) {
+        rememberSideImageCache(normalizedUrl, fetchRemoteImage(normalizedUrl));
+    }
+
+    return SIDE_IMAGE_CACHE.get(normalizedUrl);
 }
 
 function fitText(ctx, text, maxWidth) {
@@ -119,7 +146,7 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
     let fontSize = maxFontSize;
 
     while (fontSize > minFontSize) {
-        ctx.font = `800 ${fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+        ctx.font = `800 ${fontSize}px ${FONT_STACK}`;
         const lines = wrapTextByWords(ctx, safeText, maxWidth);
         if (lines.length <= maxLines) {
             return { lines, fontSize };
@@ -127,7 +154,7 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
         fontSize -= 2;
     }
 
-    ctx.font = `800 ${minFontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+    ctx.font = `800 ${minFontSize}px ${FONT_STACK}`;
     const lines = wrapTextByWords(ctx, safeText, maxWidth).slice(0, maxLines);
     if (lines.length === maxLines) {
         lines[maxLines - 1] = fitText(ctx, lines[maxLines - 1], maxWidth);
@@ -205,7 +232,7 @@ function drawAvatar(ctx, image, x, y, radius, displayName) {
         ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
         const letter = String(displayName || "?").trim()[0] || "?";
-        ctx.font = "800 56px 'Bahnschrift', 'Segoe UI', sans-serif";
+        ctx.font = `800 56px ${FONT_STACK}`;
         ctx.fillStyle = "#7c2d12";
         const width = ctx.measureText(letter.toUpperCase()).width;
         ctx.fillText(letter.toUpperCase(), x - width / 2, y + 20);
@@ -223,7 +250,7 @@ function drawKickSymbol(ctx, x, y) {
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    ctx.font = "800 68px 'Segoe UI Emoji', 'Segoe UI', sans-serif";
+    ctx.font = `800 68px ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = "#b45309";
     const symbol = "\ud83e\uddb6";
     const width = ctx.measureText(symbol).width;
@@ -231,7 +258,7 @@ function drawKickSymbol(ctx, x, y) {
 }
 
 function drawNameTag(ctx, text, x, y, maxWidth) {
-    ctx.font = "700 30px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `700 30px ${FONT_STACK}`;
     ctx.fillStyle = "#6b2a10";
     const safeText = fitText(ctx, text, maxWidth);
     const width = ctx.measureText(safeText).width;
@@ -239,14 +266,20 @@ function drawNameTag(ctx, text, x, y, maxWidth) {
 }
 
 async function createKickEventImage(payload, options = {}) {
+    registerDesignFonts();
+
     const width = options.width || KICK_IMAGE_THEME.width;
     const height = options.height || KICK_IMAGE_THEME.height;
 
-    const kickerName = String(payload?.kicker?.displayName || payload?.kicker?.userId || "Người kick");
-    const targetName = String(payload?.target?.displayName || payload?.target?.userId || "Thành viên");
+    const kickerName = String(
+        payload?.kicker?.displayName || payload?.kicker?.userId || "Ng\u01b0\u1eddi kick"
+    );
+    const targetName = String(
+        payload?.target?.displayName || payload?.target?.userId || "Th\u00e0nh vi\u00ean"
+    );
     const actionText =
         payload?.actionText ||
-        `${targetName} đã bị ${kickerName} sút khỏi nhóm DHA`;
+        `${targetName} \u0111\u00e3 b\u1ecb ${kickerName} s\u00fat kh\u1ecfi nh\u00f3m DHA`;
 
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
@@ -254,10 +287,10 @@ async function createKickEventImage(payload, options = {}) {
     drawBackground(ctx, width, height);
 
     const [leftImage, rightImage, kickerAvatar, targetAvatar] = await Promise.all([
-        loadRemoteImageCached(SIDE_IMAGE_LINKS.left, { isDrive: true }),
-        loadRemoteImageCached(SIDE_IMAGE_LINKS.right, { isDrive: true }),
-        loadRemoteImageCached(payload?.kicker?.avatar || ""),
-        loadRemoteImageCached(payload?.target?.avatar || ""),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.left, { isDrive: true, cache: true }),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.right, { isDrive: true, cache: true }),
+        loadRemoteImageCached(payload?.kicker?.avatar || "", { cache: false }),
+        loadRemoteImageCached(payload?.target?.avatar || "", { cache: false }),
     ]);
 
     const sideWidth = KICK_IMAGE_THEME.sideWidth;
@@ -276,7 +309,7 @@ async function createKickEventImage(payload, options = {}) {
     drawCenterPanel(ctx, width, height);
 
     const centerX = width / 2;
-    ctx.font = "900 54px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `900 54px ${FONT_STACK}`;
     ctx.fillStyle = KICK_IMAGE_THEME.textColor;
     const title = "KICKED OUT MEMBER";
     const titleWidth = ctx.measureText(title).width;
@@ -284,7 +317,7 @@ async function createKickEventImage(payload, options = {}) {
 
     const textAreaWidth = width - sideWidth * 2 - 110;
     const bodyLayout = fitWrapText(ctx, actionText, textAreaWidth, 42, 28, 2);
-    ctx.font = `800 ${bodyLayout.fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+    ctx.font = `800 ${bodyLayout.fontSize}px ${FONT_STACK}`;
     ctx.fillStyle = "#7c2d12";
     const lineHeight = Math.round(bodyLayout.fontSize * 1.2);
     const firstLineY = 214;
@@ -304,17 +337,17 @@ async function createKickEventImage(payload, options = {}) {
     drawNameTag(ctx, kickerName, leftAvatarX, 476, 230);
     drawNameTag(ctx, targetName, rightAvatarX, 476, 230);
 
-    ctx.font = "700 26px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `700 26px ${FONT_STACK}`;
     ctx.fillStyle = "#9a3412";
-    const leftRole = "Người kick";
-    const rightRole = "Người bị kick";
+    const leftRole = "Ng\u01b0\u1eddi kick";
+    const rightRole = "Ng\u01b0\u1eddi b\u1ecb kick";
     const leftRoleW = ctx.measureText(leftRole).width;
     const rightRoleW = ctx.measureText(rightRole).width;
     ctx.fillText(leftRole, leftAvatarX - leftRoleW / 2, 520);
     ctx.fillText(rightRole, rightAvatarX - rightRoleW / 2, 520);
 
-    const subText = "Drama có kiểm soát, giữ văn minh nha cả nhà!";
-    ctx.font = "600 24px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    const subText = "Drama c\u00f3 ki\u1ec3m so\u00e1t, gi\u1eef v\u0103n minh nha c\u1ea3 nh\u00e0!";
+    ctx.font = `600 24px ${FONT_STACK}`;
     ctx.fillStyle = "rgba(120, 53, 15, 0.92)";
     const subTextW = ctx.measureText(subText).width;
     ctx.fillText(subText, centerX - subTextW / 2, 578);
@@ -335,6 +368,8 @@ async function createKickEventImage(payload, options = {}) {
 }
 
 async function createLeaveEventImage(payload, options = {}) {
+    registerDesignFonts();
+
     const width = options.width || KICK_IMAGE_THEME.width;
     const height = options.height || KICK_IMAGE_THEME.height;
 
@@ -350,9 +385,9 @@ async function createLeaveEventImage(payload, options = {}) {
     drawBackground(ctx, width, height);
 
     const [leftImage, rightImage, memberAvatar] = await Promise.all([
-        loadRemoteImageCached(SIDE_IMAGE_LINKS.left, { isDrive: true }),
-        loadRemoteImageCached(SIDE_IMAGE_LINKS.right, { isDrive: true }),
-        loadRemoteImageCached(payload?.member?.avatar || ""),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.left, { isDrive: true, cache: true }),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.right, { isDrive: true, cache: true }),
+        loadRemoteImageCached(payload?.member?.avatar || "", { cache: false }),
     ]);
 
     const sideWidth = KICK_IMAGE_THEME.sideWidth;
@@ -371,7 +406,7 @@ async function createLeaveEventImage(payload, options = {}) {
     drawCenterPanel(ctx, width, height);
 
     const centerX = width / 2;
-    ctx.font = "900 54px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `900 54px ${FONT_STACK}`;
     ctx.fillStyle = KICK_IMAGE_THEME.textColor;
     const title = "T\u1ea0M BI\u1ec6T TH\u00c0NH VI\u00caN";
     const titleWidth = ctx.measureText(title).width;
@@ -379,7 +414,7 @@ async function createLeaveEventImage(payload, options = {}) {
 
     const textAreaWidth = width - sideWidth * 2 - 120;
     const bodyLayout = fitWrapText(ctx, actionText, textAreaWidth, 42, 28, 2);
-    ctx.font = `800 ${bodyLayout.fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+    ctx.font = `800 ${bodyLayout.fontSize}px ${FONT_STACK}`;
     ctx.fillStyle = "#7c2d12";
     const lineHeight = Math.round(bodyLayout.fontSize * 1.2);
     const firstLineY = 220;
@@ -393,14 +428,14 @@ async function createLeaveEventImage(payload, options = {}) {
     drawAvatar(ctx, memberAvatar, centerX, avatarY, 90, memberName);
     drawNameTag(ctx, memberName, centerX, 500, 360);
 
-    ctx.font = "700 26px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `700 26px ${FONT_STACK}`;
     ctx.fillStyle = "#9a3412";
     const roleText = "Ng\u01b0\u1eddi r\u1eddi nh\u00f3m";
     const roleWidth = ctx.measureText(roleText).width;
     ctx.fillText(roleText, centerX - roleWidth / 2, 548);
 
     const subText = "H\u1eb9n g\u1eb7p l\u1ea1i \u1edf m\u1ed9t drama g\u1ea7n nh\u1ea5t!";
-    ctx.font = "600 24px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `600 24px ${FONT_STACK}`;
     ctx.fillStyle = "rgba(120, 53, 15, 0.92)";
     const subWidth = ctx.measureText(subText).width;
     ctx.fillText(subText, centerX - subWidth / 2, 594);
@@ -425,3 +460,5 @@ module.exports = {
     createKickEventImage,
     createLeaveEventImage,
 };
+
+

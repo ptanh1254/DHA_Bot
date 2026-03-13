@@ -1,8 +1,9 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const { formatCount } = require("./template");
+const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
 const CHAT_RANKING_IMAGE_THEME = {
     width: 1320,
@@ -28,23 +29,23 @@ const CHAT_RANKING_IMAGE_THEME = {
         stroke: "rgba(161, 98, 7, 0.28)",
     },
     title: {
-        text: "XẾP HẠNG DÂN TỔ DHA",
-        font: "800 44px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        text: "X\u1ebfp H\u1ea1ng D\u00e2n T\u1ed5 DHA",
+        font: `800 44px ${FONT_STACK}`,
         color: "#7c2d12",
-        subFont: "600 22px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        subFont: `600 22px ${FONT_STACK}`,
         subColor: "rgba(120, 53, 15, 0.88)",
     },
     row: {
         radius: 18,
         fill: "rgba(255, 255, 255, 0.78)",
         stroke: "rgba(180, 83, 9, 0.18)",
-        rankFont: "700 28px 'Bahnschrift', 'Segoe UI', sans-serif",
+        rankFont: `700 28px ${FONT_STACK}`,
         rankColor: "#7c2d12",
-        nameFont: "700 29px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        nameFont: `700 29px ${FONT_STACK}`,
         nameColor: "#451a03",
-        userFont: "600 18px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        userFont: `600 18px ${FONT_STACK}`,
         userColor: "rgba(120, 53, 15, 0.76)",
-        countFont: "700 24px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        countFont: `700 24px ${FONT_STACK}`,
         countColor: "#78350f",
         badgeBg: "rgba(254, 243, 199, 0.95)",
     },
@@ -148,7 +149,7 @@ function drawHeader(ctx, meta, width) {
     const details = [
         periodLabel,
         `Trang ${meta.page}/${meta.totalPages}`,
-        `Tổng thành viên: ${formatCount(meta.totalMembers)}`,
+        `T\u1ed5ng th\u00e0nh vi\u00ean: ${formatCount(meta.totalMembers)}`,
     ].filter(Boolean);
     const pageText = details.join("  |  ");
     ctx.fillText(pageText, 72, 142);
@@ -178,7 +179,7 @@ function drawAvatarCircle(ctx, image, x, y, radius, fallbackText) {
         ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
         const letter = String(fallbackText || "?").trim()[0] || "?";
-        ctx.font = "700 30px 'Bahnschrift', 'Segoe UI', sans-serif";
+        ctx.font = `700 30px ${FONT_STACK}`;
         ctx.fillStyle = "#7c2d12";
         const letterWidth = ctx.measureText(letter.toUpperCase()).width;
         ctx.fillText(letter.toUpperCase(), x - letterWidth / 2, y + 10);
@@ -212,7 +213,7 @@ function drawRow(ctx, row, y, width, avatarImage) {
     const avatarY = y + CHAT_RANKING_IMAGE_THEME.rowHeight / 2;
     drawAvatarCircle(ctx, avatarImage, avatarX, avatarY, 33, row.displayName || row.userId);
 
-    const countText = `${formatCount(row.msgCount)} tin nhắn`;
+    const countText = `${formatCount(row.msgCount)} tin nh\u1eafn`;
     ctx.font = cfg.countFont;
     const countTextWidth = ctx.measureText(countText).width;
     const countBadgeWidth = Math.min(340, Math.max(210, countTextWidth + 36));
@@ -240,15 +241,17 @@ function drawRow(ctx, row, y, width, avatarImage) {
 }
 
 function drawFooter(ctx, width, height) {
-    ctx.font = "600 16px 'Bahnschrift', 'Segoe UI', sans-serif";
+    ctx.font = `600 16px ${FONT_STACK}`;
     ctx.fillStyle = "rgba(120, 53, 15, 0.78)";
 
-    const footerText = "Bảng xếp hạng tương tác";
+    const footerText = "B\u1ea3ng x\u1ebfp h\u1ea1ng t\u01b0\u01a1ng t\u00e1c";
     const textWidth = ctx.measureText(footerText).width;
     ctx.fillText(footerText, width - 66 - textWidth, height - 24);
 }
 
 async function createChatRankingImage(rows, meta = {}) {
+    registerDesignFonts();
+
     const rowCount = rows.length;
     const width = CHAT_RANKING_IMAGE_THEME.width;
     const height =
@@ -308,3 +311,5 @@ module.exports = {
     CHAT_RANKING_IMAGE_THEME,
     createChatRankingImage,
 };
+
+

@@ -1,4 +1,4 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 
 const { createUserInfoCard } = require("../design/userCard/renderer");
 
@@ -15,7 +15,7 @@ async function handleThongTinCommand(api, message, threadId) {
 
     if (!mentionedUserId) {
         await api.sendMessage(
-            { msg: "Bạn hãy tag 1 người dùng. Ví dụ: !thongtin @TênNgườiDùng" },
+            { msg: "Bạn hãy tag 1 người dùng. Ví dụ: !thongtin @TenNguoiDung" },
             threadId,
             message.type
         );
@@ -66,3 +66,4 @@ async function handleThongTinCommand(api, message, threadId) {
 module.exports = {
     handleThongTinCommand,
 };
+

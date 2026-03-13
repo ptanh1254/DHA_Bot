@@ -1,6 +1,7 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
 const { USER_CARD_THEME } = require("./theme");
 const { buildUserCardRows } = require("./formatters");
@@ -157,7 +158,7 @@ async function drawAvatar(ctx, profile) {
         const fallbackName = String(profile.displayName || profile.zaloName || "?").trim();
         const firstChar = fallbackName ? fallbackName[0].toUpperCase() : "?";
 
-        ctx.font = "700 76px 'Bahnschrift', 'Segoe UI', sans-serif";
+        ctx.font = `700 76px ${FONT_STACK}`;
         ctx.fillStyle = cfg.placeholderText;
         const textWidth = ctx.measureText(firstChar).width;
         ctx.fillText(firstChar, cfg.x - textWidth / 2, cfg.y + 28);
@@ -187,7 +188,9 @@ function drawName(ctx, profile) {
     const uidCfg = USER_CARD_THEME.userId;
     const avatarX = USER_CARD_THEME.avatar.x;
 
-    const displayName = String(profile.displayName || profile.zaloName || "Người dùng").trim();
+    const displayName = String(
+        profile.displayName || profile.zaloName || "Ng\u01b0\u1eddi d\u00f9ng"
+    ).trim();
 
     ctx.font = nameCfg.font;
     ctx.fillStyle = nameCfg.color;
@@ -242,6 +245,8 @@ function drawFooter(ctx) {
 }
 
 async function createUserInfoCard(profile, options = {}) {
+    registerDesignFonts();
+
     const width = options.width || USER_CARD_THEME.size.width;
     const height = options.height || USER_CARD_THEME.size.height;
 
@@ -272,3 +277,5 @@ module.exports = {
     USER_CARD_THEME,
     createUserInfoCard,
 };
+
+

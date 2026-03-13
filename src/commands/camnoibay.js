@@ -1,9 +1,9 @@
 function buildStatusMessage(prefix, isEnabled) {
-    const statusText = isEnabled ? "BAT" : "TAT";
+    const statusText = isEnabled ? "BẬT" : "TẮT";
     return [
-        `Che do auto mute tu cam hien tai: ${statusText}`,
-        `Dung \`${prefix}camnoibay on\` de bat`,
-        `Dung \`${prefix}camnoibay off\` de tat`,
+        `Chế độ auto mute từ cấm hiện tại: ${statusText}`,
+        `Dùng \`${prefix}camnoibay on\` để bật`,
+        `Dùng \`${prefix}camnoibay off\` để tắt`,
     ].join("\n");
 }
 
@@ -19,7 +19,7 @@ async function handleCamNoiBayCommand(
 
     if (!normalizedArgs) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
-        const statusMessage = buildStatusMessage(prefix, setting?.bannedWordMuteEnabled === true);
+        const statusMessage = buildStatusMessage(prefix, setting?.bannedWordMuteEnabled !== false);
         await api.sendMessage({ msg: statusMessage }, threadId, message.type);
         return;
     }
@@ -27,7 +27,7 @@ async function handleCamNoiBayCommand(
     if (normalizedArgs !== "on" && normalizedArgs !== "off") {
         await api.sendMessage(
             {
-                msg: `Sai cu phap. Dung \`${prefix}camnoibay on\` hoac \`${prefix}camnoibay off\`.`,
+                msg: `Sai cú pháp. Dùng \`${prefix}camnoibay on\` hoặc \`${prefix}camnoibay off\`.`,
             },
             threadId,
             message.type
@@ -45,8 +45,8 @@ async function handleCamNoiBayCommand(
     await api.sendMessage(
         {
             msg: shouldEnable
-                ? "Da bat auto mute khi dung tu cam trong nhom nay."
-                : "Da tat auto mute tu cam trong nhom nay.",
+                ? "Đã bật auto mute khi dùng từ cấm trong nhóm này."
+                : "Đã tắt auto mute từ cấm trong nhóm này.",
         },
         threadId,
         message.type

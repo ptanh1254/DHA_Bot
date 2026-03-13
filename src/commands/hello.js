@@ -1,9 +1,9 @@
 function buildStatusMessage(prefix, isEnabled) {
-    const statusText = isEnabled ? "B\u1eacT" : "T\u1eaeT";
+    const statusText = isEnabled ? "BẬT" : "TẮT";
     return [
-        `Ch\u1ebf \u0111\u1ed9 welcome hi\u1ec7n t\u1ea1i: ${statusText}`,
-        `D\u00f9ng \`${prefix}hello on\` \u0111\u1ec3 b\u1eadt`,
-        `D\u00f9ng \`${prefix}hello off\` \u0111\u1ec3 t\u1eaft`,
+        `Chế độ welcome hiện tại: ${statusText}`,
+        `Dùng \`${prefix}hello on\` để bật`,
+        `Dùng \`${prefix}hello off\` để tắt`,
     ].join("\n");
 }
 
@@ -19,7 +19,7 @@ async function handleHelloCommand(
 
     if (!normalizedArgs) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
-        const statusMessage = buildStatusMessage(prefix, setting?.welcomeEnabled === true);
+        const statusMessage = buildStatusMessage(prefix, setting?.welcomeEnabled !== false);
         await api.sendMessage({ msg: statusMessage }, threadId, message.type);
         return;
     }
@@ -27,7 +27,7 @@ async function handleHelloCommand(
     if (normalizedArgs !== "on" && normalizedArgs !== "off") {
         await api.sendMessage(
             {
-                msg: `Sai c\u00fa ph\u00e1p. D\u00f9ng \`${prefix}hello on\` ho\u1eb7c \`${prefix}hello off\`.`,
+                msg: `Sai cú pháp. Dùng \`${prefix}hello on\` hoặc \`${prefix}hello off\`.`,
             },
             threadId,
             message.type
@@ -45,8 +45,8 @@ async function handleHelloCommand(
     await api.sendMessage(
         {
             msg: shouldEnable
-                ? "\u0110\u00e3 b\u1eadt ch\u00e0o m\u1eebng th\u00e0nh vi\u00ean m\u1edbi cho nh\u00f3m n\u00e0y."
-                : "\u0110\u00e3 t\u1eaft ch\u00e0o m\u1eebng th\u00e0nh vi\u00ean m\u1edbi cho nh\u00f3m n\u00e0y.",
+                ? "Đã bật chào mừng thành viên mới cho nhóm này."
+                : "Đã tắt chào mừng thành viên mới cho nhóm này.",
         },
         threadId,
         message.type

@@ -1,4 +1,4 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 
 function stripBom(text) {
@@ -24,12 +24,12 @@ function parseCookiePayload(payload, sourceLabel) {
     try {
         parsed = JSON.parse(payload);
     } catch (_) {
-        throw new Error(`${sourceLabel} khong phai JSON hop le`);
+        throw new Error(`${sourceLabel} không phải JSON hợp lệ`);
     }
 
     if (Array.isArray(parsed)) {
         if (parsed.length === 0) {
-            throw new Error(`${sourceLabel} phai la mang cookie khong rong`);
+            throw new Error(`${sourceLabel} phải là mảng cookie không rỗng`);
         }
         return parsed;
     }
@@ -38,7 +38,7 @@ function parseCookiePayload(payload, sourceLabel) {
         return parsed;
     }
 
-    throw new Error(`${sourceLabel} phai la mang cookie hoac object { url, cookies }`);
+    throw new Error(`${sourceLabel} phải là mảng cookie hoặc object { url, cookies }`);
 }
 
 function parseCookieText(rawCookie) {
@@ -71,13 +71,13 @@ function loadCookie() {
         const raw = fs.readFileSync(cookieTxtPath, "utf8").trim();
         const parsed = parseCookieText(raw);
         if (parsed.length === 0) {
-            throw new Error("cookie.txt rong hoac sai dinh dang");
+            throw new Error("cookie.txt rỗng hoặc sai định dạng");
         }
         return parsed;
     }
 
     throw new Error(
-        "Khong tim thay cookie. Hay them ZALO_COOKIE_JSON trong .env hoac tao cookie.json/cookie.txt"
+        "Không tìm thấy cookie. Hãy thêm ZALO_COOKIE_JSON trong .env hoặc tạo cookie.json/cookie.txt"
     );
 }
 

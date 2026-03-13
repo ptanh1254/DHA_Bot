@@ -21,7 +21,7 @@ async function tryDeleteMutedMessage(api, message, threadId, userId) {
         );
         return true;
     } catch (error) {
-        console.error("Khong the xoa tin nhan cua nguoi bi mute:", error);
+        console.error("Không thể xóa tin nhắn của người bị mute:", error);
         return false;
     }
 }
@@ -36,9 +36,9 @@ function shouldSendMuteNotice(strikeCount) {
 async function sendMuteNotice(api, message, threadId, userId, strikeCount) {
     const rawName =
         typeof message?.data?.dName === "string" ? message.data.dName.trim() : "";
-    const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
+    const safeName = rawName || "Người dùng";
     const mentionText = `@${safeName}`;
-    const msg = `${mentionText} bị khoá mõm r cưng ơi (${strikeCount})`;
+    const msg = `${mentionText} bị khoá mõm rồi cưng ơi (${strikeCount})`;
 
     try {
         await api.sendMessage(
@@ -56,16 +56,16 @@ async function sendMuteNotice(api, message, threadId, userId, strikeCount) {
             message.type
         );
     } catch (error) {
-        console.error("Loi gui canh bao mute:", error);
+        console.error("Lỗi gửi cảnh báo mute:", error);
     }
 }
 
 async function sendAutoMuteNotice(api, message, threadId, userId) {
     const rawName =
         typeof message?.data?.dName === "string" ? message.data.dName.trim() : "";
-    const safeName = rawName || "Nguoi dung";
+    const safeName = rawName || "Người dùng";
     const mentionText = `@${safeName}`;
-    const msg = `${mentionText} n\u00f3i b\u1eady h\u00e3 kho\u00e1 m\u00f5m n\u00e0y c\u01b0ng`;
+    const msg = `${mentionText} nói bậy hả, khoá mõm này cưng`;
 
     try {
         await api.sendMessage(
@@ -83,7 +83,7 @@ async function sendAutoMuteNotice(api, message, threadId, userId) {
             message.type
         );
     } catch (error) {
-        console.error("Loi gui thong bao auto mute:", error);
+        console.error("Lỗi gửi thông báo auto mute:", error);
     }
 }
 
@@ -124,12 +124,27 @@ async function updateUserMessageCounters(User, threadId, userId, senderName) {
     });
 }
 
+function normalizeId(rawId) {
+    if (rawId === null || rawId === undefined) return "";
+    return String(rawId).replace(/_0$/, "").trim();
+}
+
+function buildSuperAdminSet() {
+    const defaults = ["8073429320276439081"];
+    const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "")
+        .split(",")
+        .map((value) => normalizeId(value))
+        .filter(Boolean);
+    return new Set([...defaults.map((value) => normalizeId(value)), ...fromEnv]);
+}
+
 function createMessageHandler({
     api,
     User,
     MutedMember,
     GroupSetting,
     GroupKeyMember,
+    CommandViolation,
     commands,
     botUserId = "",
 }) {
@@ -143,9 +158,10 @@ function createMessageHandler({
         unmuteCommand,
         camNoiBayCommand,
         autoKickCommand,
-        keyCommand,
-        setKeyCommand,
-        addAdminCommand,
+        autoKickListCommand,
+        autoKickRemoveCommand,
+        goAutoKickCommand,
+        addBQTCommand,
         xepHangDayCommand,
         xepHangMonthCommand,
         xepHangTotalCommand,
@@ -159,9 +175,9 @@ function createMessageHandler({
         handleUnmute,
         handleCamNoiBay,
         handleAutoKick,
-        handleKey,
-        handleSetKey,
-        handleAddAdmin,
+        handleAutoKickList,
+        handleAutoKickRemove,
+        handleAddBQT,
         handleXepHangDay,
         handleXepHangMonth,
         handleXepHangTotal,
@@ -169,6 +185,169 @@ function createMessageHandler({
     } = commands;
 
     const normalizedBotUserId = String(botUserId || "").replace(/_0$/, "").trim();
+    const adminCache = new Map();
+    const ADMIN_CACHE_TTL_MS = 30 * 1000;
+    const ADMIN_CACHE_MAX_ENTRIES = 1000;
+    const superAdmins = buildSuperAdminSet();
+
+    function pruneAdminCache(force = false) {
+        const now = Date.now();
+        for (const [key, value] of adminCache.entries()) {
+            if (!value || value.expiresAt <= now) {
+                adminCache.delete(key);
+            }
+        }
+
+        if (force || adminCache.size > ADMIN_CACHE_MAX_ENTRIES) {
+            while (adminCache.size > ADMIN_CACHE_MAX_ENTRIES) {
+                const oldestKey = adminCache.keys().next().value;
+                if (!oldestKey) break;
+                adminCache.delete(oldestKey);
+            }
+        }
+    }
+
+    function isSuperAdmin(userId) {
+        const normalized = normalizeId(userId);
+        return normalized ? superAdmins.has(normalized) : false;
+    }
+
+    async function handleUnauthorizedCommandAttempt(threadId, message, userId) {
+        const normalizedUserId = normalizeId(userId);
+        if (!normalizedUserId) return;
+
+        const displayName =
+            typeof message?.data?.dName === "string" && message.data.dName.trim()
+                ? message.data.dName.trim()
+                : "Member";
+        const mentionText = `@${displayName}`;
+        const mention = {
+            pos: 0,
+            uid: normalizedUserId,
+            len: mentionText.length,
+        };
+
+        if (!CommandViolation) {
+            await api.sendMessage(
+                {
+                    msg: `${mentionText} Member của tổ lái không được dùng lệnh, lần thứ 5 sẽ bị kick.`,
+                    mentions: [mention],
+                },
+                threadId,
+                message.type
+            );
+            return;
+        }
+
+        let strikeCount = 1;
+        try {
+            const record = await CommandViolation.findOneAndUpdate(
+                { groupId: threadId, userId: normalizedUserId },
+                {
+                    $inc: { strikeCount: 1 },
+                    $set: { lastAttemptAt: new Date() },
+                    $setOnInsert: {
+                        groupId: threadId,
+                        userId: normalizedUserId,
+                    },
+                },
+                {
+                    upsert: true,
+                    returnDocument: "after",
+                    setDefaultsOnInsert: true,
+                }
+            ).lean();
+            strikeCount = Number(record?.strikeCount) || 1;
+        } catch (error) {
+            console.error("Lỗi cập nhật strike vi phạm lệnh:", error);
+        }
+
+        if (strikeCount >= 5) {
+            let kickSuccess = false;
+            try {
+                const result = await api.removeUserFromGroup([normalizedUserId], threadId);
+                const failedIds = Array.isArray(result?.errorMembers)
+                    ? result.errorMembers.map((id) => normalizeId(id))
+                    : [];
+                kickSuccess = !new Set(failedIds).has(normalizedUserId);
+            } catch (error) {
+                console.error("Lỗi kick user vì vi phạm quyền lệnh:", error);
+            }
+
+            if (kickSuccess) {
+                try {
+                    await CommandViolation.deleteOne({ groupId: threadId, userId: normalizedUserId });
+                } catch (_) {}
+                await api.sendMessage(
+                    {
+                        msg: `${mentionText} Member của tổ lái không được dùng lệnh, đủ 5 lần nên đã bị kick.`,
+                        mentions: [mention],
+                    },
+                    threadId,
+                    message.type
+                );
+                return;
+            }
+
+            await api.sendMessage(
+                {
+                    msg: `${mentionText} Member của tổ lái không được dùng lệnh (5/5), bot chưa kick được. Kiểm tra quyền admin của bot nhé.`,
+                    mentions: [mention],
+                },
+                threadId,
+                message.type
+            );
+            return;
+        }
+
+        await api.sendMessage(
+            {
+                msg: `${mentionText} Member của tổ lái không được dùng lệnh (${strikeCount}/5), lần thứ 5 sẽ bị kick.`,
+                mentions: [mention],
+            },
+            threadId,
+            message.type
+        );
+    }
+
+    async function isGroupAdmin(threadId, userId) {
+        const normalizedUserId = normalizeId(userId);
+        if (!normalizedUserId) return false;
+        if (isSuperAdmin(normalizedUserId)) return true;
+
+        pruneAdminCache();
+        const cacheKey = `${threadId}:${normalizedUserId}`;
+        const cached = adminCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.value === true;
+        }
+
+        let isAdmin = false;
+        try {
+            const response = await api.getGroupInfo(threadId);
+            const gridInfoMap = response?.gridInfoMap || {};
+            const groupInfo = gridInfoMap[threadId] || Object.values(gridInfoMap)[0];
+
+            if (groupInfo) {
+                const creatorId = normalizeId(
+                    groupInfo?.creatorId || groupInfo?.ownerId || groupInfo?.creator
+                );
+                const adminIds = Array.isArray(groupInfo?.adminIds) ? groupInfo.adminIds : [];
+                const adminSet = new Set(adminIds.map(normalizeId));
+
+                isAdmin = creatorId === normalizedUserId || adminSet.has(normalizedUserId);
+            }
+        } catch (error) {
+            console.error("Lỗi kiểm tra quyền admin nhóm:", error);
+        }
+
+        adminCache.set(cacheKey, {
+            value: isAdmin,
+            expiresAt: Date.now() + ADMIN_CACHE_TTL_MS,
+        });
+        pruneAdminCache(true);
+        return isAdmin;
+    }
 
     return async function onMessage(message) {
         try {
@@ -184,8 +363,9 @@ function createMessageHandler({
             const isBotSelf =
                 message.isSelf ||
                 (normalizedBotUserId && normalizedSenderId === normalizedBotUserId);
+            const isSuperAdminUser = isSuperAdmin(userId);
 
-            if (!isBotSelf && MutedMember) {
+            if (!isBotSelf && !isSuperAdminUser && MutedMember) {
                 const mutedEntry = await MutedMember.findOneAndUpdate(
                     { groupId: threadId, userId },
                     { $inc: { blockedMsgCount: 1 } },
@@ -203,20 +383,20 @@ function createMessageHandler({
                 }
             }
 
-            if (!isBotSelf && MutedMember && hasText) {
+            if (!isBotSelf && !isSuperAdminUser && MutedMember && hasText) {
                 const matchedWord = findMatchedBannedWord(text);
                 if (matchedWord) {
                     const setting = GroupSetting
                         ? await GroupSetting.findOne({ groupId: threadId }).lean()
                         : null;
-                    const isAutoMuteEnabled = setting?.bannedWordMuteEnabled === true;
+                    const isAutoMuteEnabled = setting?.bannedWordMuteEnabled !== false;
                     if (isAutoMuteEnabled) {
                         await MutedMember.findOneAndUpdate(
                             { groupId: threadId, userId },
                             {
                                 $set: {
                                     mutedByUserId: "AUTO_MOD_BANNED_WORD",
-                                    mutedByName: "Auto mute tu cam",
+                                    mutedByName: "Auto mute từ cấm",
                                     mutedAt: new Date(),
                                 },
                                 $inc: { blockedMsgCount: 1 },
@@ -271,15 +451,19 @@ function createMessageHandler({
             const isAutoKick =
                 normalized === autoKickCommand ||
                 normalized.startsWith(`${autoKickCommand} `);
-            const isKey =
-                normalized === keyCommand || normalized.startsWith(`${keyCommand} `);
-            const isSetKey =
-                normalized === setKeyCommand || normalized.startsWith(`${setKeyCommand} `);
-            const isAddAdmin =
-                normalized === addAdminCommand ||
-                normalized.startsWith(`${addAdminCommand} `) ||
-                normalized === "@addadmin" ||
-                normalized.startsWith("@addadmin ");
+            const isAutoKickList =
+                normalized === autoKickListCommand ||
+                normalized.startsWith(`${autoKickListCommand} `);
+            const isAutoKickRemove =
+                normalized === autoKickRemoveCommand ||
+                normalized.startsWith(`${autoKickRemoveCommand} `) ||
+                normalized === goAutoKickCommand ||
+                normalized.startsWith(`${goAutoKickCommand} `);
+            const isAddBQT =
+                normalized === addBQTCommand ||
+                normalized.startsWith(`${addBQTCommand} `) ||
+                normalized === "@addbqt" ||
+                normalized.startsWith("@addbqt ");
             const isXepHangDay = normalized === xepHangDayCommand;
             const isXepHangMonth = normalized === xepHangMonthCommand;
             const isXepHangTotal = normalized === xepHangTotalCommand;
@@ -292,8 +476,15 @@ function createMessageHandler({
             const autoKickArgs = isAutoKick
                 ? normalized.slice(autoKickCommand.length).trim()
                 : "";
-            const keyArgs = isKey ? text.slice(keyCommand.length).trim() : "";
-            const setKeyArgs = isSetKey ? text.slice(setKeyCommand.length).trim() : "";
+            const autoKickRemoveArgs = isAutoKickRemove
+                ? text
+                      .slice(
+                          normalized.startsWith(goAutoKickCommand)
+                              ? goAutoKickCommand.length
+                              : autoKickRemoveCommand.length
+                      )
+                      .trim()
+                : "";
 
             const isKnownCommand =
                 isHelp ||
@@ -305,35 +496,31 @@ function createMessageHandler({
                 isUnmute ||
                 isCamNoiBay ||
                 isAutoKick ||
-                isKey ||
-                isSetKey ||
-                isAddAdmin ||
+                isAutoKickList ||
+                isAutoKickRemove ||
+                isAddBQT ||
                 isXepHangDay ||
                 isXepHangMonth ||
                 isXepHangTotal ||
                 isResetChat;
 
-            if (!isBotSelf && isKnownCommand && !isHelp && !isKey && !isSetKey && !isAddAdmin) {
-                const setting = GroupSetting
-                    ? await GroupSetting.findOne({ groupId: threadId }).lean()
-                    : null;
-                const hasGateKey =
-                    typeof setting?.commandAccessKey === "string" &&
-                    setting.commandAccessKey.trim();
-                const isGateEnabled = setting?.commandAccessEnabled === true && hasGateKey;
-
-                if (isGateEnabled) {
-                    const hasAccess = GroupKeyMember
-                        ? await GroupKeyMember.exists({ groupId: threadId, userId })
+            if (!isBotSelf && isKnownCommand) {
+                const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
+                if (isAddBQT) {
+                    if (!isAdmin) {
+                        await handleUnauthorizedCommandAttempt(threadId, message, userId);
+                        return;
+                    }
+                } else if (!isAdmin) {
+                    const normalizedUserId = normalizeId(userId);
+                    const isAllowedMember = GroupKeyMember
+                        ? await GroupKeyMember.exists({
+                              groupId: threadId,
+                              userId: normalizedUserId || userId,
+                          })
                         : null;
-                    if (!hasAccess) {
-                        await api.sendMessage(
-                            {
-                                msg: `Ban chua co key de dung bot. Dung \`${keyCommand} <ma-key>\` de kich hoat.`,
-                            },
-                            threadId,
-                            message.type
-                        );
+                    if (!isAllowedMember) {
+                        await handleUnauthorizedCommandAttempt(threadId, message, userId);
                         return;
                     }
                 }
@@ -350,9 +537,9 @@ function createMessageHandler({
                 !isUnmute &&
                 !isCamNoiBay &&
                 !isAutoKick &&
-                !isKey &&
-                !isSetKey &&
-                !isAddAdmin &&
+                !isAutoKickList &&
+                !isAutoKickRemove &&
+                !isAddBQT &&
                 !isXepHangDay &&
                 !isXepHangMonth &&
                 !isXepHangTotal &&
@@ -363,7 +550,7 @@ function createMessageHandler({
 
             if (isHello) {
                 await handleHello(api, message, threadId, helloArgs);
-                console.log(`Da xu ly command ${helloCommand} tai thread ${threadId}`);
+                console.log(`Đã xử lý command ${helloCommand} tại thread ${threadId}`);
                 return;
             }
 
@@ -407,18 +594,18 @@ function createMessageHandler({
                 return;
             }
 
-            if (isSetKey) {
-                await handleSetKey(api, message, threadId, setKeyArgs);
+            if (isAutoKickList) {
+                await handleAutoKickList(api, message, threadId);
                 return;
             }
 
-            if (isKey) {
-                await handleKey(api, message, threadId, keyArgs);
+            if (isAutoKickRemove) {
+                await handleAutoKickRemove(api, message, threadId, autoKickRemoveArgs);
                 return;
             }
 
-            if (isAddAdmin) {
-                await handleAddAdmin(api, message, threadId);
+            if (isAddBQT) {
+                await handleAddBQT(api, message, threadId);
                 return;
             }
 
@@ -441,7 +628,7 @@ function createMessageHandler({
                 await handleResetChat(api, message, threadId, User);
             }
         } catch (listenerError) {
-            console.error("Loi xu ly message:", listenerError);
+            console.error("Lỗi xử lý message:", listenerError);
         }
     };
 }
@@ -449,3 +636,4 @@ function createMessageHandler({
 module.exports = {
     createMessageHandler,
 };
+

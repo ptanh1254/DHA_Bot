@@ -197,7 +197,7 @@ async function upsertJoinMeta(User, threadId, memberProfile, actorMeta) {
     );
 }
 
-function toSafeName(name, fallback = "Nguoi dung") {
+function toSafeName(name, fallback = "Người dùng") {
     const value = String(name || "").trim();
     return value || fallback;
 }
@@ -205,7 +205,7 @@ function toSafeName(name, fallback = "Nguoi dung") {
 function toSafeActor(actorMeta = {}) {
     return {
         userId: String(actorMeta?.userId || "").trim(),
-        displayName: toSafeName(actorMeta?.displayName, "Nguoi bi an"),
+        displayName: toSafeName(actorMeta?.displayName, "Người bí ẩn"),
     };
 }
 
@@ -275,13 +275,13 @@ async function persistKickHistory(
     try {
         await KickHistory.bulkWrite(operations, { ordered: false });
     } catch (error) {
-        console.error("Loi luu lich su kick:", error);
+        console.error("Lỗi lưu lịch sử kick:", error);
     }
 }
 
 async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory, setting) {
     if (!KickHistory) return false;
-    if (setting?.autoKickRejoinEnabled !== true) return false;
+    if (setting?.autoKickRejoinEnabled === false) return false;
 
     const memberId = String(memberProfile?.userId || "").trim();
     if (!memberId) return false;
@@ -290,7 +290,7 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
     try {
         history = await KickHistory.findOne({ groupId: threadId, userId: memberId }).lean();
     } catch (error) {
-        console.error("Loi doc lich su kick:", error);
+        console.error("Lỗi đọc lịch sử kick:", error);
         return false;
     }
 
@@ -307,7 +307,7 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
         if (failedSet.has(memberId)) {
             await api.sendMessage(
                 {
-                    msg: `AutoKick that bai voi ${toSafeName(memberProfile?.displayName, "thanh vien moi")}.`,
+                    msg: `AutoKick thất bại với ${toSafeName(memberProfile?.displayName, "thành viên mới")}.`,
                 },
                 threadId,
                 1
@@ -317,19 +317,19 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
 
         const oldName = toSafeName(
             history?.firstKnownName || history?.lastKnownName || memberProfile?.displayName,
-            "Khong ro"
+            "Không rõ"
         );
         const kickedBy = toSafeName(
             history?.firstKickedByName || history?.lastKickedByName,
-            "Nguoi bi an"
+            "Người bí ẩn"
         );
 
         await api.sendMessage(
             {
                 msg: [
-                    `\ud83d\udeab ${toSafeName(memberProfile?.displayName, "Thanh vien")} da tung bi kick va vua bi auto kick.`,
-                    `Nguoi nay da tung bi kick boi: ${kickedBy}`,
-                    `Ten cu: ${oldName}`,
+                    `🚫 ${toSafeName(memberProfile?.displayName, "Thành viên")} đã từng bị kick và vừa bị auto kick.`,
+                    `Người này đã từng bị kick bởi: ${kickedBy}`,
+                    `Tên cũ: ${oldName}`,
                 ].join("\n"),
             },
             threadId,
@@ -337,7 +337,7 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
         );
         return true;
     } catch (error) {
-        console.error("Loi auto kick thanh vien quay lai:", error);
+        console.error("Lỗi auto kick thành viên quay lại:", error);
         return false;
     }
 }
@@ -457,7 +457,7 @@ async function sendKickImageBundle(
 
                 await api.sendMessage(
                     {
-                        msg: `🦶 ${member.displayName} đã lên bảng phong thần.`,
+                        msg: `${member.displayName} đã lên bảng phong thần.`,
                         attachments: [outputPath],
                     },
                     threadId,
@@ -476,7 +476,7 @@ async function sendKickImageBundle(
         try {
             await api.sendMessage(
                 {
-                    msg: "⚠️ Có lỗi khi tạo ảnh kick, bot chỉ gửi text thông báo.",
+                    msg: "Có lỗi khi tạo ảnh kick, bot chỉ gửi thông báo text.",
                 },
                 threadId,
                 1
@@ -493,7 +493,7 @@ async function sendLeaveImageBundle(api, threadId, memberProfiles) {
                 outputPath = await createLeaveEventImage(
                     {
                         member,
-                        actionText: `${member.displayName} đã xách dép rời nhóm DHA`,
+                        actionText: `${member.displayName} đã rời nhóm DHA`,
                     },
                     {
                         fileName: `leave-${threadId}-${member.userId}-${Date.now()}.png`,
@@ -502,7 +502,7 @@ async function sendLeaveImageBundle(api, threadId, memberProfiles) {
 
                 await api.sendMessage(
                     {
-                        msg: `👋 ${member.displayName} đã rời nhóm.`,
+                        msg: `${member.displayName} đã rời nhóm.`,
                         attachments: [outputPath],
                     },
                     threadId,
@@ -563,7 +563,7 @@ function createGroupEventHandler({
                         continue;
                     }
 
-                    if (setting?.welcomeEnabled === true) {
+                    if (setting?.welcomeEnabled !== false) {
                         await sendWelcomeForMember(api, threadId, profile);
                     }
                 }
@@ -597,7 +597,7 @@ function createGroupEventHandler({
                 );
             }
 
-            if (setting?.kickEnabled !== true) return;
+            if (setting?.kickEnabled === false) return;
 
             const notifyMsg = buildLeaveKickMessage(
                 type,
@@ -627,3 +627,4 @@ function createGroupEventHandler({
 module.exports = {
     createGroupEventHandler,
 };
+

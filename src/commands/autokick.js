@@ -1,9 +1,9 @@
 function buildAutoKickStatusMessage(prefix, isEnabled) {
-    const statusText = isEnabled ? "BAT" : "TAT";
+    const statusText = isEnabled ? "BẬT" : "TẮT";
     return [
-        `Che do auto kick nguoi tung bi kick hien tai: ${statusText}`,
-        `Dung \`${prefix}autokick on\` de bat`,
-        `Dung \`${prefix}autokick off\` de tat`,
+        `Chế độ auto kick người từng bị kick hiện tại: ${statusText}`,
+        `Dùng \`${prefix}autokick on\` để bật`,
+        `Dùng \`${prefix}autokick off\` để tắt`,
     ].join("\n");
 }
 
@@ -21,7 +21,7 @@ async function handleAutoKickCommand(
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
         const statusMessage = buildAutoKickStatusMessage(
             prefix,
-            setting?.autoKickRejoinEnabled === true
+            setting?.autoKickRejoinEnabled !== false
         );
         await api.sendMessage({ msg: statusMessage }, threadId, message.type);
         return;
@@ -30,7 +30,7 @@ async function handleAutoKickCommand(
     if (normalizedArgs !== "on" && normalizedArgs !== "off") {
         await api.sendMessage(
             {
-                msg: `Sai cu phap. Dung \`${prefix}autokick on\` hoac \`${prefix}autokick off\`.`,
+                msg: `Sai cú pháp. Dùng \`${prefix}autokick on\` hoặc \`${prefix}autokick off\`.`,
             },
             threadId,
             message.type
@@ -48,8 +48,8 @@ async function handleAutoKickCommand(
     await api.sendMessage(
         {
             msg: shouldEnable
-                ? "Da bat auto kick: ai tung bi kick vao lai se bi kick tiep."
-                : "Da tat auto kick nguoi tung bi kick.",
+                ? "Đã bật auto kick: ai từng bị kick vào lại sẽ bị kick tiếp."
+                : "Đã tắt auto kick người từng bị kick.",
         },
         threadId,
         message.type

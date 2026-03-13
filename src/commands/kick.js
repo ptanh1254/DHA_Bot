@@ -1,10 +1,10 @@
 function buildKickStatusMessage(prefix, isEnabled) {
-    const statusText = isEnabled ? "B\u1eacT" : "T\u1eaeT";
+    const statusText = isEnabled ? "BẬT" : "TẮT";
     return [
-        `Ch\u1ebf \u0111\u1ed9 th\u00f4ng b\u00e1o drama r\u1eddi/kick hi\u1ec7n t\u1ea1i: ${statusText}`,
-        `D\u00f9ng \`${prefix}kick on\` \u0111\u1ec3 b\u1eadt`,
-        `D\u00f9ng \`${prefix}kick off\` \u0111\u1ec3 t\u1eaft`,
-        `D\u00f9ng \`${prefix}kick @TenNguoiDung\` \u0111\u1ec3 m\u1eddi ra kh\u1ecfi nh\u00f3m`,
+        `Chế độ thông báo rời/kick hiện tại: ${statusText}`,
+        `Dùng \`${prefix}kick on\` để bật`,
+        `Dùng \`${prefix}kick off\` để tắt`,
+        `Dùng \`${prefix}kick @TenNguoiDung\` để mời ra khỏi nhóm`,
     ].join("\n");
 }
 
@@ -43,7 +43,7 @@ async function handleKickCommand(
 
     if (!normalizedArgs && !hasMentions) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
-        const statusMessage = buildKickStatusMessage(prefix, setting?.kickEnabled === true);
+        const statusMessage = buildKickStatusMessage(prefix, setting?.kickEnabled !== false);
         await api.sendMessage({ msg: statusMessage }, threadId, message.type);
         return;
     }
@@ -59,8 +59,8 @@ async function handleKickCommand(
         await api.sendMessage(
             {
                 msg: shouldEnable
-                    ? "\u0110\u00e3 b\u1eadt loa ph\u01b0\u1eddng: ai r\u1eddi nh\u00f3m/b\u1ecb kick c\u0169ng s\u1ebd \u0111\u01b0\u1ee3c th\u00f4ng b\u00e1o."
-                    : "\u0110\u00e3 t\u1eaft loa ph\u01b0\u1eddng r\u1eddi/kick cho nh\u00f3m n\u00e0y.",
+                    ? "Đã bật thông báo rời/kick cho nhóm này."
+                    : "Đã tắt thông báo rời/kick cho nhóm này.",
             },
             threadId,
             message.type
@@ -71,12 +71,12 @@ async function handleKickCommand(
     if (!hasMentions) {
         await api.sendMessage(
             {
-                    msg: [
-                        `Sai c\u00fa ph\u00e1p.`,
-                        `- \`${prefix}kick\`: xem tr\u1ea1ng th\u00e1i`,
-                        `- \`${prefix}kick on/off\`: b\u1eadt t\u1eaft th\u00f4ng b\u00e1o`,
-                        `- \`${prefix}kick @TenNguoiDung\`: m\u1eddi ng\u01b0\u1eddi \u0111\u01b0\u1ee3c tag ra kh\u1ecfi nh\u00f3m`,
-                    ].join("\n"),
+                msg: [
+                    "Sai cú pháp.",
+                    `- \`${prefix}kick\`: xem trạng thái`,
+                    `- \`${prefix}kick on/off\`: bật tắt thông báo`,
+                    `- \`${prefix}kick @TenNguoiDung\`: mời người được tag ra khỏi nhóm`,
+                ].join("\n"),
             },
             threadId,
             message.type
@@ -106,7 +106,7 @@ async function handleKickCommand(
         if (successIds.length > 0 && errorMembers.length === 0) {
             await api.sendMessage(
                 {
-                    msg: `\u2705 \u0110\u00e3 ti\u1ec5n ra c\u1eeda th\u00e0nh c\u00f4ng: ${formatUidList(successIds)}.`,
+                    msg: `Đã kick thành công: ${formatUidList(successIds)}.`,
                 },
                 threadId,
                 message.type
@@ -118,8 +118,8 @@ async function handleKickCommand(
             await api.sendMessage(
                 {
                     msg: [
-                        `\u2705 \u0110\u00e3 ti\u1ec5n ra c\u1eeda: ${formatUidList(successIds)}.`,
-                        `\u26a0\ufe0f Ch\u01b0a ti\u1ec5n \u0111\u01b0\u1ee3c: ${formatUidList(errorMembers)}.`,
+                        `Đã kick: ${formatUidList(successIds)}.`,
+                        `Chưa kick được: ${formatUidList(errorMembers)}.`,
                     ].join("\n"),
                 },
                 threadId,
@@ -131,8 +131,8 @@ async function handleKickCommand(
         await api.sendMessage(
             {
                 msg: [
-                    "\u274c Ch\u01b0a th\u1ec3 m\u1eddi th\u00e0nh vi\u00ean \u0111\u01b0\u1ee3c tag ra kh\u1ecfi nh\u00f3m.",
-                    "Ki\u1ec3m tra l\u1ea1i quy\u1ec1n qu\u1ea3n tr\u1ecb c\u1ee7a bot v\u00e0 tr\u1ea1ng th\u00e1i th\u00e0nh vi\u00ean trong nh\u00f3m.",
+                    "Chưa thể mời thành viên được tag ra khỏi nhóm.",
+                    "Kiểm tra lại quyền admin của bot và trạng thái thành viên trong nhóm.",
                 ].join("\n"),
             },
             threadId,
@@ -142,12 +142,12 @@ async function handleKickCommand(
         if (kickIntentStore) {
             kickIntentStore.clearKickRequest(threadId, mentionIds);
         }
-        console.error("L\u1ed7i command !kick:", error);
+        console.error("Lỗi command !kick:", error);
         await api.sendMessage(
             {
                 msg: [
-                    "\ud83d\ude35\u200d\ud83d\udcab C\u00faa s\u00fat ch\u01b0a th\u00e0nh c\u00f4ng.",
-                    "Bot c\u1ea7n quy\u1ec1n qu\u1ea3n tr\u1ecb nh\u00f3m \u0111\u1ec3 th\u1ef1c hi\u1ec7n l\u1ec7nh n\u00e0y.",
+                    "Cú sút chưa thành công.",
+                    "Bot cần quyền admin nhóm để thực hiện lệnh này.",
                 ].join("\n"),
             },
             threadId,

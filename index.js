@@ -8,6 +8,7 @@ const { User } = require("./src/db/userModel");
 const { GroupSetting } = require("./src/db/groupSettingModel");
 const { MutedMember } = require("./src/db/mutedMemberModel");
 const { GroupKeyMember } = require("./src/db/groupKeyMemberModel");
+const { CommandViolation } = require("./src/db/commandViolationModel");
 const { KickHistory } = require("./src/db/kickHistoryModel");
 const { imageMetadataGetter } = require("./src/media/imageMetadataGetter");
 const { handleHelloCommand } = require("./src/commands/hello");
@@ -19,9 +20,9 @@ const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
 const { handleCamNoiBayCommand } = require("./src/commands/camnoibay");
 const { handleAutoKickCommand } = require("./src/commands/autokick");
-const { handleKeyCommand } = require("./src/commands/key");
-const { handleSetKeyCommand } = require("./src/commands/setkey");
-const { handleAddAdminCommand } = require("./src/commands/addadmin");
+const { handleAutoKickListCommand } = require("./src/commands/autokicklist");
+const { handleAutoKickRemoveCommand } = require("./src/commands/autokickremove");
+const { handleAddBQTCommand } = require("./src/commands/addbqt");
 const { handleXepHangChatCommand } = require("./src/commands/xephangchat");
 const { handleResetChatCommand } = require("./src/commands/resetchat");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
@@ -85,13 +86,13 @@ async function startBot() {
             ]
         );
         console.log(
-            `Backfill bo dem ngay/thang xong: ${backfillPeriodResult.modifiedCount || 0} bản ghi`
+            `Backfill bộ đếm ngày/tháng xong: ${backfillPeriodResult.modifiedCount || 0} bản ghi`
         );
 
         const imei = process.env.ZALO_IMEI;
         const userAgent = process.env.ZALO_USER_AGENT;
         if (!imei || !userAgent) {
-            throw new Error("Thiếu ZALO_IMEI hoặc ZALO_USER_AGENT trong .env");
+            throw new Error("Thieu ZALO_IMEI hoac ZALO_USER_AGENT trong .env");
         }
 
         const cookie = loadCookie();
@@ -120,9 +121,10 @@ async function startBot() {
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
             camNoiBayCommand: `${prefix}camnoibay`.toLowerCase(),
             autoKickCommand: `${prefix}autokick`.toLowerCase(),
-            keyCommand: `${prefix}key`.toLowerCase(),
-            setKeyCommand: `${prefix}setkey`.toLowerCase(),
-            addAdminCommand: `${prefix}addadmin`.toLowerCase(),
+            autoKickListCommand: `${prefix}autokicklist`.toLowerCase(),
+            autoKickRemoveCommand: `${prefix}autokickremove`.toLowerCase(),
+            goAutoKickCommand: `${prefix}goautokick`.toLowerCase(),
+            addBQTCommand: `${prefix}addbqt`.toLowerCase(),
             xepHangDayCommand: `${prefix}xhchat`.toLowerCase(),
             xepHangMonthCommand: `${prefix}xhchatthang`.toLowerCase(),
             xepHangTotalCommand: `${prefix}xhchattong`.toLowerCase(),
@@ -166,28 +168,19 @@ async function startBot() {
                     argsText,
                     prefix
                 ),
-            handleKey: (api, message, threadId, argsText) =>
-                handleKeyCommand(
+            handleAutoKickList: (api, message, threadId) =>
+                handleAutoKickListCommand(api, message, threadId, KickHistory, prefix),
+            handleAutoKickRemove: (api, message, threadId, argsText) =>
+                handleAutoKickRemoveCommand(
                     api,
                     message,
                     threadId,
-                    GroupSetting,
-                    GroupKeyMember,
+                    KickHistory,
                     argsText,
                     prefix
                 ),
-            handleSetKey: (api, message, threadId, argsText) =>
-                handleSetKeyCommand(
-                    api,
-                    message,
-                    threadId,
-                    GroupSetting,
-                    GroupKeyMember,
-                    argsText,
-                    prefix
-                ),
-            handleAddAdmin: (api, message, threadId) =>
-                handleAddAdminCommand(api, message, threadId, GroupKeyMember, prefix),
+            handleAddBQT: (api, message, threadId) =>
+                handleAddBQTCommand(api, message, threadId, GroupKeyMember, prefix),
             handleXepHangDay: (api, message, threadId, User, botUid) =>
                 handleXepHangChatCommand(api, message, threadId, User, {
                     botUserId: botUid,
@@ -208,7 +201,7 @@ async function startBot() {
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.keyCommand}, ${commands.setKeyCommand}, ${commands.addAdminCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addBQTCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
         );
 
         const messageHandler = createMessageHandler({
@@ -217,6 +210,7 @@ async function startBot() {
             MutedMember,
             GroupSetting,
             GroupKeyMember,
+            CommandViolation,
             commands,
             botUserId,
         });
@@ -243,5 +237,6 @@ async function startBot() {
 }
 
 startBot();
+
 
 

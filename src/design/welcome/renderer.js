@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
 const WELCOME_THEME = {
     width: 1500,
@@ -26,7 +27,12 @@ const SIDE_IMAGE_LINKS = {
     right: "https://drive.google.com/file/d/1dDCf5KIi-vo-N-5zhdZJXDQz60Ee9ckI/view?usp=drive_link",
 };
 
-const imageCache = new Map();
+const SIDE_IMAGE_CACHE = new Map();
+const SIDE_IMAGE_CACHE_LIMIT = 4;
+const IMAGE_FETCH_TIMEOUT_MS =
+    Number(process.env.IMAGE_FETCH_TIMEOUT_MS) > 0
+        ? Number(process.env.IMAGE_FETCH_TIMEOUT_MS)
+        : 12000;
 
 function roundRect(ctx, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
@@ -62,27 +68,44 @@ function toDirectDriveUrl(input) {
     return `https://drive.google.com/uc?export=download&id=${id}`;
 }
 
-async function loadRemoteImageCached(inputUrl) {
+function rememberSideImageCache(key, valuePromise) {
+    if (!SIDE_IMAGE_CACHE.has(key) && SIDE_IMAGE_CACHE.size >= SIDE_IMAGE_CACHE_LIMIT) {
+        const oldestKey = SIDE_IMAGE_CACHE.keys().next().value;
+        if (oldestKey) {
+            SIDE_IMAGE_CACHE.delete(oldestKey);
+        }
+    }
+    SIDE_IMAGE_CACHE.set(key, valuePromise);
+}
+
+async function fetchRemoteImage(url) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return await loadImage(Buffer.from(arrayBuffer));
+    } catch (_) {
+        return null;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function loadRemoteImageCached(inputUrl, { cache = false } = {}) {
     const url = toDirectDriveUrl(inputUrl);
     if (!url) return null;
 
-    if (!imageCache.has(url)) {
-        imageCache.set(
-            url,
-            (async () => {
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) return null;
-                    const arrayBuffer = await response.arrayBuffer();
-                    return await loadImage(Buffer.from(arrayBuffer));
-                } catch (_) {
-                    return null;
-                }
-            })()
-        );
+    if (!cache) {
+        return fetchRemoteImage(url);
     }
 
-    return imageCache.get(url);
+    if (!SIDE_IMAGE_CACHE.has(url)) {
+        rememberSideImageCache(url, fetchRemoteImage(url));
+    }
+
+    return SIDE_IMAGE_CACHE.get(url);
 }
 
 function fitTextWithSize(ctx, text, maxWidth, maxFontSize, minFontSize) {
@@ -90,7 +113,7 @@ function fitTextWithSize(ctx, text, maxWidth, maxFontSize, minFontSize) {
     let fontSize = maxFontSize;
 
     while (fontSize > minFontSize) {
-        ctx.font = `800 ${fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+        ctx.font = `800 ${fontSize}px ${FONT_STACK}`;
         if (ctx.measureText(safeText).width <= maxWidth) {
             break;
         }
@@ -143,7 +166,7 @@ function fitTextWithWrap(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines
     let fontSize = maxFontSize;
 
     while (fontSize > minFontSize) {
-        ctx.font = `800 ${fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+        ctx.font = `800 ${fontSize}px ${FONT_STACK}`;
         const lines = wrapTextByWords(ctx, safeText, maxWidth);
         if (lines.length <= maxLines) {
             return { lines, fontSize };
@@ -151,7 +174,7 @@ function fitTextWithWrap(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines
         fontSize -= 2;
     }
 
-    ctx.font = `800 ${minFontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+    ctx.font = `800 ${minFontSize}px ${FONT_STACK}`;
     const rawLines = wrapTextByWords(ctx, safeText, maxWidth);
     const lines = rawLines.slice(0, maxLines);
     if (rawLines.length > maxLines && lines.length > 0) {
@@ -236,7 +259,7 @@ function drawAvatar(ctx, avatarImage, centerX, centerY, displayName) {
         ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
 
         const letter = String(displayName || "?").trim()[0] || "?";
-        ctx.font = "800 64px 'Bahnschrift', 'Segoe UI', sans-serif";
+        ctx.font = `800 64px ${FONT_STACK}`;
         ctx.fillStyle = "#7c2d12";
         const textWidth = ctx.measureText(letter.toUpperCase()).width;
         ctx.fillText(letter.toUpperCase(), centerX - textWidth / 2, centerY + 22);
@@ -246,9 +269,13 @@ function drawAvatar(ctx, avatarImage, centerX, centerY, displayName) {
 }
 
 async function createWelcomeImage(profile, options = {}) {
+    registerDesignFonts();
+
     const width = options.width || WELCOME_THEME.width;
     const height = options.height || WELCOME_THEME.height;
-    const displayName = String(profile?.displayName || profile?.zaloName || "Ban").trim();
+    const displayName = String(
+        profile?.displayName || profile?.zaloName || "B\u1ea1n"
+    ).trim();
 
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
@@ -261,9 +288,9 @@ async function createWelcomeImage(profile, options = {}) {
     ctx.fillRect(0, 0, width, height);
 
     const [leftImage, rightImage, avatarImage] = await Promise.all([
-        loadRemoteImageCached(SIDE_IMAGE_LINKS.left),
-        loadRemoteImageCached(SIDE_IMAGE_LINKS.right),
-        loadRemoteImageCached(profile?.avatar),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.left, { cache: true }),
+        loadRemoteImageCached(SIDE_IMAGE_LINKS.right, { cache: true }),
+        loadRemoteImageCached(profile?.avatar, { cache: false }),
     ]);
 
     const sideWidth = WELCOME_THEME.sideWidth;
@@ -287,7 +314,7 @@ async function createWelcomeImage(profile, options = {}) {
     const text = `Ch\u00e0o m\u1eebng ${displayName} \u0111\u1ebfn v\u1edbi khu gi\u1ea3i tr\u00ed DHA`;
     const textAreaWidth = width - sideWidth * 2 - 110;
     const textLayout = fitTextWithWrap(ctx, text, textAreaWidth, 52, 30, 3);
-    ctx.font = `800 ${textLayout.fontSize}px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif`;
+    ctx.font = `800 ${textLayout.fontSize}px ${FONT_STACK}`;
     ctx.fillStyle = WELCOME_THEME.textColor;
     const lineHeight = Math.round(textLayout.fontSize * 1.2);
     const firstLineY = 422 - ((textLayout.lines.length - 1) * lineHeight) / 2;
@@ -297,7 +324,7 @@ async function createWelcomeImage(profile, options = {}) {
         ctx.fillText(line, centerX - lineWidth / 2, firstLineY + i * lineHeight);
     }
 
-    ctx.font = "600 24px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif";
+    ctx.font = `600 24px ${FONT_STACK}`;
     ctx.fillStyle = "rgba(120, 53, 15, 0.92)";
     const subText = "Ch\u00fac b\u1ea1n c\u00f3 nh\u1eefng ph\u00fat gi\u00e2y vui v\u1ebb c\u00f9ng c\u1ed9ng \u0111\u1ed3ng";
     const subWidth = ctx.measureText(subText).width;
@@ -325,3 +352,4 @@ module.exports = {
     SIDE_IMAGE_LINKS,
     createWelcomeImage,
 };
+

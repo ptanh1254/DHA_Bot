@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon --watch index.js --watch src --watch config.json --ext js,json --exec node index.js",
     "start": "node index.js",
+    "start:prod": "node --max-old-space-size=384 index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

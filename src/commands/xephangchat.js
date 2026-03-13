@@ -128,7 +128,7 @@ async function resolveMemberMeta(api, threadId, rows, User, seedMetaMap = new Ma
                 await User.bulkWrite(updates, { ordered: false });
             }
         } catch (error) {
-            console.error("Loi lay thong tin nguoi dung cho xep hang:", error);
+            console.error("Lỗi lấy thông tin người dùng cho xếp hạng:", error);
         }
     }
 
@@ -164,7 +164,7 @@ async function loadMembersFromGroupLink(api, threadId, memberIdSet, metaMap, exp
             page += 1;
         }
     } catch (error) {
-        console.error("Loi fallback lay thanh vien qua group link:", error);
+        console.error("Lỗi fallback lấy thành viên qua group link:", error);
     }
 }
 
@@ -226,7 +226,7 @@ async function loadGroupMembers(api, threadId) {
             expectedTotalMembers,
         };
     } catch (error) {
-        console.error("Loi lay danh sach thanh vien nhom:", error);
+        console.error("Lỗi lấy danh sách thành viên nhóm:", error);
         return { memberIds: [], metaMap: new Map(), expectedTotalMembers: 0 };
     }
 }
@@ -251,7 +251,7 @@ async function enrichGroupMemberMeta(api, memberIds, metaMap) {
                 upsertMemberMeta(metaMap, uid, profile);
             }
         } catch (error) {
-            console.error("Loi lay profile thanh vien nhom:", error);
+            console.error("Lỗi lấy profile thành viên nhóm:", error);
         }
     }
 }
@@ -300,7 +300,7 @@ async function syncMembersToDatabase(User, threadId, memberIds, metaMap) {
         try {
             await User.bulkWrite(chunk, { ordered: false });
         } catch (error) {
-            console.error("Loi dong bo thanh vien vao database:", error);
+            console.error("Lỗi đồng bộ thành viên vào database:", error);
         }
     }
 }
@@ -524,3 +524,4 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
 module.exports = {
     handleXepHangChatCommand,
 };
+

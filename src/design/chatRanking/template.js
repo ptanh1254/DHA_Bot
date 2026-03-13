@@ -1,19 +1,19 @@
-﻿function formatCount(num) {
+function formatCount(num) {
     return new Intl.NumberFormat("vi-VN").format(Number(num) || 0);
 }
 
 const CHAT_RANKING_THEME = {
-    header: "🏆 BẢNG XẾP HẠNG TƯƠNG TÁC 🏆",
-    divider: "──────────────────────",
-    footer: "💻 Developed by PTADev",
+    header: " B\u1ea2NG X\u1ebeP H\u1ea0NG T\u01af\u01a0NG T\u00c1C ",
+    divider: "",
+    footer: " Developed by PTADev",
     icons: {
-        top1: "🥇",
-        top2: "🥈",
-        top3: "🥉",
-        member: "👤",
-        message: "💬",
-        stats: "📊",
-        group: "👥"
+        top1: "",
+        top2: "",
+        top3: "",
+        member: "",
+        message: "",
+        stats: "",
+        group: ""
     }
 };
 
@@ -23,7 +23,7 @@ function buildXepHangMessage(rankingRows, page, totalPages, totalMembers) {
     // Header
     const header = [
         CHAT_RANKING_THEME.header,
-        `${icons.group} Tổng: ${totalMembers} thành viên`,
+        `${icons.group} T\u1ed5ng: ${totalMembers} th\u00e0nh vi\u00ean`,
         `${icons.stats} Trang: ${page}/${totalPages}`,
         CHAT_RANKING_THEME.divider
     ];
@@ -31,7 +31,7 @@ function buildXepHangMessage(rankingRows, page, totalPages, totalMembers) {
     // Body
     const lines = rankingRows.map((row) => {
         let rankIcon = "";
-        // Gán icon đặc biệt cho Top 3
+        // G\u1eafn icon \u0111\u1eb7c bi\u1ec7t cho Top 3
         switch (row.rank) {
             case 1: rankIcon = icons.top1; break;
             case 2: rankIcon = icons.top2; break;
@@ -39,7 +39,7 @@ function buildXepHangMessage(rankingRows, page, totalPages, totalMembers) {
             default: rankIcon = `[${String(row.rank).padStart(2, "0")}]`; break;
         }
 
-        return `${rankIcon} ${row.displayName}┈➤ ${formatCount(row.msgCount)} ${icons.message}`;
+        return `${rankIcon} ${row.displayName} ${formatCount(row.msgCount)} ${icons.message}`;
     });
 
     // Footer
@@ -56,3 +56,4 @@ module.exports = {
     formatCount,
     buildXepHangMessage,
 };
+

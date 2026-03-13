@@ -1,4 +1,6 @@
-﻿const USER_CARD_THEME = {
+const { FONT_STACK } = require("../shared/registerFonts");
+
+const USER_CARD_THEME = {
     size: {
         width: 1280,
         height: 720,
@@ -31,12 +33,12 @@
         blurShadow: "rgba(120, 53, 15, 0.2)",
     },
     title: {
-        text: "HỒ SƠ THÀNH VIÊN",
-        subText: "Cộng đồng Dân Tổ DHA",
+        text: "H\u1ed2 S\u01a0 TH\u00c0NH VI\u00caN",
+        subText: "C\u1ed9ng \u0111\u1ed3ng D\u00e2n T\u1ed5 DHA",
         x: 370,
         y: 130,
-        titleFont: "800 46px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
-        subFont: "500 22px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        titleFont: `800 46px ${FONT_STACK}`,
+        subFont: `500 22px ${FONT_STACK}`,
         titleColor: "#7c2d12",
         subColor: "rgba(120, 53, 15, 0.9)",
     },
@@ -72,12 +74,12 @@
     name: {
         y: 505,
         maxWidth: 320,
-        font: "700 42px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        font: `700 42px ${FONT_STACK}`,
         color: "#451a03",
     },
     userId: {
         y: 544,
-        font: "500 20px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        font: `500 20px ${FONT_STACK}`,
         color: "rgba(120, 53, 15, 0.9)",
     },
     rows: {
@@ -89,30 +91,32 @@
         radius: 16,
         fill: "rgba(255, 255, 255, 0.72)",
         stroke: "rgba(180, 83, 9, 0.22)",
-        labelFont: "600 20px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        labelFont: `600 20px ${FONT_STACK}`,
         labelColor: "rgba(120, 53, 15, 0.92)",
-        valueFont: "700 24px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        valueFont: `700 24px ${FONT_STACK}`,
         valueMaxWidth: 560,
     },
     footer: {
         text: "PTADEV 2026",
         x: 1134,
         y: 650,
-        font: "600 16px 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', sans-serif",
+        font: `600 16px ${FONT_STACK}`,
         color: "rgba(120, 53, 15, 0.7)",
     },
 };
 
 const USER_CARD_ROW_CONFIG = [
-    { key: "username", label: "Tài khoản", color: "#451a03" },
-    { key: "birthDate", label: "Ngày sinh", color: "#451a03" },
-    { key: "gender", label: "Giới tính", color: "#451a03" },
+    { key: "username", label: "T\u00e0i kho\u1ea3n", color: "#451a03" },
+    { key: "birthDate", label: "Ng\u00e0y sinh", color: "#451a03" },
+    { key: "gender", label: "Gi\u1edbi t\u00ednh", color: "#451a03" },
     { key: "createdAt", label: "Tham gia", color: "#451a03" },
-    { key: "lastActive", label: "Hoạt động", color: "#451a03" },
-    { key: "status", label: "Trạng thái", color: "#b45309" },
+    { key: "lastActive", label: "Ho\u1ea1t \u0111\u1ed9ng", color: "#451a03" },
+    { key: "status", label: "Tr\u1ea1ng th\u00e1i", color: "#b45309" },
 ];
 
 module.exports = {
     USER_CARD_THEME,
     USER_CARD_ROW_CONFIG,
 };
+
+
