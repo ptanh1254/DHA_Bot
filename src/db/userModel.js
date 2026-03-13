@@ -13,6 +13,8 @@ const userSchema = new mongoose.Schema({
     monthKey: { type: String, default: "" },
     addedByUserId: { type: String, default: "" },
     addedByName: { type: String, default: "" },
+    ingameName: { type: String, default: "" },
+    ingameSetAt: { type: Date, default: null },
     joinDate: Date,
 });
 

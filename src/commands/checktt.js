@@ -89,6 +89,7 @@ async function aggregateUserStats(User, threadId, userId) {
                 avatarUrl: { $max: "$avatarUrl" },
                 addedByUserId: { $max: "$addedByUserId" },
                 addedByName: { $max: "$addedByName" },
+                ingameName: { $max: "$ingameName" },
             },
         },
     ]);
@@ -143,6 +144,7 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
     const totalMsgCount = Number(aggregated?.totalMsgCount) || 0;
     const joinDate = aggregated?.joinDate || now;
     const addedByLabel = formatAddedByLabel(aggregated?.addedByName, aggregated?.addedByUserId);
+    const ingameName = String(aggregated?.ingameName || "").trim();
 
     let outputPath = "";
     try {
@@ -153,12 +155,14 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
             totalMsgCount,
             joinDate,
             addedByLabel,
+            ingameName,
         });
 
         await api.sendMessage(
             {
                 msg: [
                     `${displayName}`,
+                    `Ingame: ${ingameName || "Chưa cập nhật"}`,
                     `V\u00e0o nh\u00f3m: ${formatJoinDateVN(joinDate)}`,
                     `Ng\u01b0\u1eddi th\u00eam/duy\u1ec7t: ${addedByLabel}`,
                     `T\u1ed5ng tin nh\u1eafn t\u00edch l\u0169y: ${formatCount(totalMsgCount)}`,

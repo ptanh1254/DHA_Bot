@@ -161,7 +161,7 @@ async function drawAvatar(ctx, avatarUrl, displayName) {
 }
 
 function drawTextBlock(ctx, payload) {
-    const { displayName, joinDate, totalMsgCount, userId, addedByLabel } = payload;
+    const { displayName, joinDate, totalMsgCount, userId, addedByLabel, ingameName } = payload;
 
     ctx.font = `800 42px ${FONT_STACK}`;
     ctx.fillStyle = "#7c2d12";
@@ -177,6 +177,7 @@ function drawTextBlock(ctx, payload) {
     ctx.fillText(`UID: ${userId}`, 394, 236);
 
     const rows = [
+        { label: "T\u00ean ingame", value: String(ingameName || "").trim() || "Ch\u01b0a c\u1eadp nh\u1eadt" },
         { label: "Th\u1eddi gian v\u00e0o nh\u00f3m", value: formatDateTimeVN(joinDate) },
         { label: "Ng\u01b0\u1eddi th\u00eam/duy\u1ec7t", value: addedByLabel || "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u" },
         { label: "T\u1ed5ng tin nh\u1eafn t\u00edch l\u0169y", value: `${formatCount(totalMsgCount)} tin nh\u1eafn` },

@@ -16,6 +16,8 @@ const { handleHelpCommand } = require("./src/commands/help");
 const { handleThongTinCommand } = require("./src/commands/thongtin");
 const { handleCheckTTCommand } = require("./src/commands/checktt");
 const { handleCheckCommand } = require("./src/commands/check");
+const { handleIngameCommand } = require("./src/commands/ingame");
+const { handleRemoveIngameCommand } = require("./src/commands/removeingame");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
@@ -119,6 +121,8 @@ async function startBot() {
             thongTinCommand: `${prefix}thongtin`.toLowerCase(),
             checkTTCommand: `${prefix}checktt`.toLowerCase(),
             checkCommand: `${prefix}check`.toLowerCase(),
+            ingameCommand: `${prefix}ingame`.toLowerCase(),
+            removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
             kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
@@ -144,6 +148,17 @@ async function startBot() {
                 handleCheckTTCommand(api, message, threadId, User, prefix),
             handleCheck: (api, message, threadId) =>
                 handleCheckCommand(api, message, threadId, prefix),
+            handleIngame: (api, message, threadId, argsText, User) =>
+                handleIngameCommand(api, message, threadId, User, argsText, prefix),
+            handleRemoveIngame: (api, message, threadId, argsText, User) =>
+                handleRemoveIngameCommand(
+                    api,
+                    message,
+                    threadId,
+                    User,
+                    argsText,
+                    prefix
+                ),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,

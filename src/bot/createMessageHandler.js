@@ -200,6 +200,8 @@ function createMessageHandler({
         thongTinCommand,
         checkTTCommand,
         checkCommand,
+        ingameCommand,
+        removeIngameCommand,
         kickCommand,
         muteCommand,
         unmuteCommand,
@@ -220,6 +222,8 @@ function createMessageHandler({
         handleThongTin,
         handleCheckTT,
         handleCheck,
+        handleIngame,
+        handleRemoveIngame,
         handleKick,
         handleMute,
         handleUnmute,
@@ -526,6 +530,11 @@ function createMessageHandler({
                 normalized === checkTTCommand || normalized.startsWith(`${checkTTCommand} `);
             const isCheck =
                 normalized === checkCommand || normalized.startsWith(`${checkCommand} `);
+            const isIngame =
+                normalized === ingameCommand || normalized.startsWith(`${ingameCommand} `);
+            const isRemoveIngame =
+                normalized === removeIngameCommand ||
+                normalized.startsWith(`${removeIngameCommand} `);
             const isKick =
                 normalized === kickCommand || normalized.startsWith(`${kickCommand} `);
             const isMute =
@@ -579,6 +588,10 @@ function createMessageHandler({
                       )
                       .trim()
                 : "";
+            const ingameArgs = isIngame ? text.slice(ingameCommand.length).trim() : "";
+            const removeIngameArgs = isRemoveIngame
+                ? text.slice(removeIngameCommand.length).trim()
+                : "";
             const removeQTVArgs = isRemoveQTV
                 ? text
                       .slice(
@@ -595,6 +608,8 @@ function createMessageHandler({
                 isThongTin ||
                 isCheckTT ||
                 isCheck ||
+                isIngame ||
+                isRemoveIngame ||
                 isKick ||
                 isMute ||
                 isUnmute ||
@@ -611,12 +626,12 @@ function createMessageHandler({
 
             if (!isBotSelf && isKnownCommand) {
                 const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
-                if (isAddBQT || isRemoveQTV) {
+                if (isAddBQT || isRemoveQTV || isRemoveIngame) {
                     if (!isAdmin) {
                         await handleUnauthorizedCommandAttempt(threadId, message, userId);
                         return;
                     }
-                } else if (!isAdmin) {
+                } else if (!isAdmin && !isIngame) {
                     const normalizedUserId = normalizeId(userId);
                     const isAllowedMember = GroupKeyMember
                         ? await GroupKeyMember.exists({
@@ -638,6 +653,8 @@ function createMessageHandler({
                 !isThongTin &&
                 !isCheckTT &&
                 !isCheck &&
+                !isIngame &&
+                !isRemoveIngame &&
                 !isKick &&
                 !isMute &&
                 !isUnmute &&
@@ -678,6 +695,16 @@ function createMessageHandler({
 
             if (isCheck) {
                 await handleCheck(api, message, threadId);
+                return;
+            }
+
+            if (isIngame) {
+                await handleIngame(api, message, threadId, ingameArgs, User);
+                return;
+            }
+
+            if (isRemoveIngame) {
+                await handleRemoveIngame(api, message, threadId, removeIngameArgs, User);
                 return;
             }
 
