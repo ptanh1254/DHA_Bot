@@ -1,23 +1,12 @@
-async function handlePreventRecallCommand(api, message, threadId, GroupSetting, prefix = "!") {
+async function handlePreventRecallCommand(api, message, threadId, GroupSetting, argsText, prefix = "!") {
+    const normalizedArgs = String(argsText || "").trim().toLowerCase();
     const messageType = Number(message?.type) || 1;
-    const userId = String(message?.data?.uidFrom || "").trim();
-    
-    if (!userId) {
-        await api.sendMessage(
-            {
-                msg: "Không thể xác định người dùng.",
-            },
-            threadId,
-            messageType
-        );
-        return;
-    }
 
     const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
-    const currentStatus = setting?.preventRecallEnabled !== false;
+    const currentStatus = setting?.preventRecallEnabled === true;
 
     // Nếu không có args, show trạng thái hiện tại
-    if (!message?.data?.content || typeof message.data.content !== "string") {
+    if (!normalizedArgs) {
         await api.sendMessage(
             {
                 msg: [
@@ -36,71 +25,34 @@ async function handlePreventRecallCommand(api, message, threadId, GroupSetting, 
         return;
     }
 
-    const rawText = message.data.content.trim();
-    const normalized = rawText.toLowerCase();
-
-    if (normalized === `${prefix}chongthuhoi on` || normalized === `${prefix}chongthuhoi on `) {
-        await GroupSetting.findOneAndUpdate(
-            { groupId: threadId },
-            {
-                $set: { preventRecallEnabled: true },
-            },
-            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-        );
-
+    if (normalizedArgs !== "on" && normalizedArgs !== "off") {
         await api.sendMessage(
             {
-                msg: [
-                    "✅ Đã bật chế độ 'Chống thu hồi'",
-                    "",
-                    "Từ giờ, tin nhắn bị thu hồi sẽ được bot gửi lại nội dung.",
-                ].join("\n"),
+                msg: `Sai cú pháp. Dùng \`${prefix}chongthuhoi on\` hoặc \`${prefix}chongthuhoi off\`.`,
             },
             threadId,
             messageType
         );
-        console.log(`[chongthuhoi] Bật chế độ chống thu hồi cho nhóm ${threadId}`);
         return;
     }
 
-    if (normalized === `${prefix}chongthuhoi off` || normalized === `${prefix}chongthuhoi off `) {
-        await GroupSetting.findOneAndUpdate(
-            { groupId: threadId },
-            {
-                $set: { preventRecallEnabled: false },
-            },
-            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
-        );
+    const shouldEnable = normalizedArgs === "on";
+    await GroupSetting.findOneAndUpdate(
+        { groupId: threadId },
+        { $set: { preventRecallEnabled: shouldEnable } },
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    );
 
-        await api.sendMessage(
-            {
-                msg: [
-                    "❌ Đã tắt chế độ 'Chống thu hồi'",
-                    "",
-                    "Tin nhắn bị thu hồi sẽ không được gửi lại nào.",
-                ].join("\n"),
-            },
-            threadId,
-            messageType
-        );
-        console.log(`[chongthuhoi] Tắt chế độ chống thu hồi cho nhóm ${threadId}`);
-        return;
-    }
-
-    // Nếu args không hợp lệ
     await api.sendMessage(
         {
-            msg: [
-                "Sai cú pháp!",
-                "",
-                `${prefix}chongthuhoi - Xem trạng thái`,
-                `${prefix}chongthuhoi on - Bật`,
-                `${prefix}chongthuhoi off - Tắt`,
-            ].join("\n"),
+            msg: shouldEnable
+                ? "✅ Đã bật chế độ 'Chống thu hồi'\n\nTừ giờ, tin nhắn bị thu hồi sẽ được bot gửi lại nội dung."
+                : "❌ Đã tắt chế độ 'Chống thu hồi'\n\nTin nhắn bị thu hồi sẽ không được gửi lại nào.",
         },
         threadId,
         messageType
     );
+    console.log(`[chongthuhoi] Đổi trạng thái chế độ chống thu hồi thành ${shouldEnable} cho nhóm ${threadId}`);
 }
 
 module.exports = {

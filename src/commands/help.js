@@ -44,6 +44,9 @@ function buildHelpPart4(prefix = "!") {
         `${prefix}camnoibay - Xem trạng thái auto mute từ cấm`,
         `${prefix}camnoibay on - Bật auto mute từ cấm`,
         `${prefix}camnoibay off - Tắt auto mute từ cấm`,
+        `${prefix}chongthuhoi - Xem trạng thái chống thu hồi`,
+        `${prefix}chongthuhoi on - Bật chống thu hồi`,
+        `${prefix}chongthuhoi off - Tắt chống thu hồi`,
     ].join("\n");
 }
 

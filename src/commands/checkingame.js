@@ -73,27 +73,27 @@ function upsertMember(memberByNormalized, payload) {
     memberByNormalized.set(normalizedId, current);
 }
 
-function buildMentionMessage(members) {
+function buildMentionMessage(members, isFirst = false) {
     const mentions = [];
-    let msg = "Nh\u1eefng b\u1ea1n ch\u01b0a c\u1eadp nh\u1eadt ingame, v\u00e0o set l\u1eb9 nha:";
+    let msg = isFirst ? "Những bạn chưa cập nhật ingame, vào set lẹ nha:" : "";
 
     for (const member of members) {
-        const safeName = String(member.displayName || "Th\u00e0nh vi\u00ean")
+        const safeName = String(member.displayName || "Thành viên")
             .replace(/\n/g, " ")
             .trim();
         const mentionText = `@${safeName}`;
-        const space = " ";
         
-        // Tính vị trí chính xác theo byte/character
-        const currentLength = Array.from(msg).length;
-        const posAt = currentLength + 1; // +1 cho space
+        // Thêm space nếu msg không trống
+        if (msg !== "") {
+            msg += " ";
+        }
         
-        msg += space + mentionText;
+        // Tính vị trí bắt đầu của mention
+        const posAt = Array.from(msg).length;
+        
+        msg += mentionText;
         mentions.push({
-            uid: String(
-                member.mentionUid ||
-                    toMentionUid(member.rawId || member.normalizedId, member.normalizedId)
-            ),
+            uid: String(member.normalizedId),
             pos: posAt,
             len: Array.from(mentionText).length,
         });
@@ -291,11 +291,11 @@ async function handleCheckIngameCommand(api, message, threadId, User) {
         .filter((member) => !hasIngameByNormalized.has(member.normalizedId))
         .map((member) => {
             const dbUid = knownUidByNormalized.get(member.normalizedId);
-            const mentionUid = toMentionUid(dbUid || member.rawId, member.normalizedId);
-            console.log(`[checkingame] member=${member.displayName}, normalizedId=${member.normalizedId}, dbUid=${dbUid}, mentionUid=${mentionUid}`);
+            const normalizedId = normalizeId(dbUid || member.rawId || member.normalizedId);
+            console.log(`[checkingame] member=${member.displayName}, normalizedId=${normalizedId}, dbUid=${dbUid}`);
             return {
                 ...member,
-                mentionUid,
+                normalizedId,
             };
         });
     if (missing.length === 0) {
@@ -310,18 +310,36 @@ async function handleCheckIngameCommand(api, message, threadId, User) {
     }
 
     const MAX_MENTIONS = 20;
-    const mentionMembers = missing.slice(0, MAX_MENTIONS);
-    const payload = buildMentionMessage(mentionMembers);
-    console.log(`[checkingame] payload.msg="${payload.msg}"`);
-    console.log(`[checkingame] mentions=${JSON.stringify(payload.mentions)}`);
-    if (missing.length > MAX_MENTIONS) {
-        payload.msg += `\n...v\u00e0 c\u00f2n ${missing.length - MAX_MENTIONS} b\u1ea1n n\u1eefa ch\u01b0a c\u1eadp nh\u1eadt.`;
+    
+    // Chia thành các chunk để tag hết tất cả
+    for (let i = 0; i < missing.length; i += MAX_MENTIONS) {
+        const chunk = missing.slice(i, i + MAX_MENTIONS);
+        const isFirst = i === 0;
+        const payload = buildMentionMessage(chunk, isFirst);
+        console.log(`[checkingame] chunk ${Math.floor(i / MAX_MENTIONS) + 1}: msg="${payload.msg}"`);
+        console.log(`[checkingame] mentions=${JSON.stringify(payload.mentions)}`);
+        
+        await api.sendMessage(
+            {
+                msg: payload.msg,
+                mentions: payload.mentions,
+            },
+            threadId,
+            messageType
+        );
     }
 
+    // Gửi hướng dẫn set ingame
     await api.sendMessage(
         {
-            msg: payload.msg,
-            mentions: payload.mentions,
+            msg: [
+                "📝 HƯỚNG DẪN ĐẶT TÊN INGAME:",
+                "",
+                "Dùng lệnh: !ingame TênIngameViệtNam",
+                "Ví dụ: !ingame DHA-HuyềnThoại",
+                "",
+                
+            ].join("\n"),
         },
         threadId,
         messageType

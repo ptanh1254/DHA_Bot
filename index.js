@@ -129,6 +129,7 @@ async function startBot() {
             checkIngameCommand: `${prefix}checkingame`.toLowerCase(),
             ingameCommand: `${prefix}ingame`.toLowerCase(),
             removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
+            preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),
             kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             kickAliasCommand: `${prefix}kick`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
@@ -168,6 +169,8 @@ async function startBot() {
                     argsText,
                     prefix
                 ),
+            handlePreventRecall: (api, message, threadId, argsText) =>
+                handlePreventRecallCommand(api, message, threadId, GroupSetting, argsText, prefix),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,
@@ -318,7 +321,7 @@ async function startBot() {
                         "📢 NỘI DUNG BẤT CỨU:",
                         `"${recalledContent}"`,
                         "",
-                        "💀 Thôi mà, em ơi, tham lam cau được quả lựu đạn 😅",
+                        "💀 Thôi mà, em ơi, cả lò DHA zo mà xem nèee 😅",
                     ].join("\n");
 
                     await api.sendMessage({ msg }, threadId, 1);

@@ -656,8 +656,8 @@ function createMessageHandler({
                 isResetChat;
 
             if (!isBotSelf && isKnownCommand) {
-                // Public commands (không cần auth)
-                const isPublicCommand = isHelp || isHello || isPreventRecall || isCheck || isThongTin || isCheckTT || isIngame;
+                // Public commands (không cần auth) - chỉ có !ingame
+                const isPublicCommand = isIngame;
                 // Kick status view (không có args thì là public)
                 const isKickStatusOnly = isKick && kickArgs === "";
                 
@@ -665,25 +665,10 @@ function createMessageHandler({
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
                     console.log(`[auth] command=${normalized}, isAdmin=${isAdmin}, isSuperAdmin=${isSuperAdminUser}, userId=${userId}`);
                     
-                    if (isAddBQT || isRemoveQTV || isRemoveIngame) {
-                        if (!isAdmin) {
-                            console.log(`[auth] Blocked addBQT/removeQTV/removeIngame - not admin`);
-                            await handleUnauthorizedCommandAttempt(threadId, message, userId);
-                            return;
-                        }
-                    } else if (!isAdmin) {
-                        const normalizedUserId = normalizeId(userId);
-                        const isAllowedMember = GroupKeyMember
-                            ? await GroupKeyMember.exists({
-                                  groupId: threadId,
-                                  userId: normalizedUserId || userId,
-                              })
-                            : null;
-                        if (!isAllowedMember) {
-                            console.log(`[auth] Blocked ${normalized} - not allowed member`);
-                            await handleUnauthorizedCommandAttempt(threadId, message, userId);
-                            return;
-                        }
+                    if (!isAdmin) {
+                        console.log(`[auth] Blocked ${normalized} - not admin`);
+                        await handleUnauthorizedCommandAttempt(threadId, message, userId);
+                        return;
                     }
                 }
             }
@@ -723,7 +708,7 @@ function createMessageHandler({
             }
 
             if (isPreventRecall) {
-                await handlePreventRecall(api, message, threadId);
+                await handlePreventRecall(api, message, threadId, preventRecallArgs);
                 console.log(`Đã xử lý command ${preventRecallCommand} tại thread ${threadId}`);
                 return;
             }
