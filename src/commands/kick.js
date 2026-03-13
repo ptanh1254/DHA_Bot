@@ -33,6 +33,7 @@ async function handleKickCommand(
     prefix = "!",
     kickIntentStore = null
 ) {
+    const messageType = Number(message?.type) || 1;
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
     const mentionIds = getMentionedUserIds(message);
     const hasMentions = mentionIds.length > 0;
@@ -44,7 +45,7 @@ async function handleKickCommand(
     if (!normalizedArgs && !hasMentions) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
         const statusMessage = buildKickStatusMessage(prefix, setting?.kickEnabled !== false);
-        await api.sendMessage({ msg: statusMessage }, threadId, message.type);
+        await api.sendMessage({ msg: statusMessage }, threadId, messageType);
         return;
     }
 
@@ -63,7 +64,7 @@ async function handleKickCommand(
                     : "Đã tắt thông báo rời/kick cho nhóm này.",
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -79,7 +80,7 @@ async function handleKickCommand(
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -109,7 +110,7 @@ async function handleKickCommand(
                     msg: `Đã kick thành công: ${formatUidList(successIds)}.`,
                 },
                 threadId,
-                message.type
+                messageType
             );
             return;
         }
@@ -123,7 +124,7 @@ async function handleKickCommand(
                     ].join("\n"),
                 },
                 threadId,
-                message.type
+                messageType
             );
             return;
         }
@@ -136,7 +137,7 @@ async function handleKickCommand(
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
     } catch (error) {
         if (kickIntentStore) {
@@ -151,7 +152,7 @@ async function handleKickCommand(
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
     }
 }

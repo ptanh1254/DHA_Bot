@@ -17,10 +17,12 @@ async function handleHelloCommand(
 ) {
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
 
+    const messageType = Number(message?.type) || 1;
+
     if (!normalizedArgs) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
         const statusMessage = buildStatusMessage(prefix, setting?.welcomeEnabled !== false);
-        await api.sendMessage({ msg: statusMessage }, threadId, message.type);
+        await api.sendMessage({ msg: statusMessage }, threadId, messageType);
         return;
     }
 
@@ -30,7 +32,7 @@ async function handleHelloCommand(
                 msg: `Sai cú pháp. Dùng \`${prefix}hello on\` hoặc \`${prefix}hello off\`.`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -49,7 +51,7 @@ async function handleHelloCommand(
                 : "Đã tắt chào mừng thành viên mới cho nhóm này.",
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

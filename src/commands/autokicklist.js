@@ -16,11 +16,12 @@
 }
 
 async function handleAutoKickListCommand(api, message, threadId, KickHistory, prefix = "!") {
+    const messageType = Number(message?.type) || 1;
     if (!KickHistory) {
         await api.sendMessage(
             { msg: "Chưa khởi tạo được dữ liệu autokick." },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -41,7 +42,7 @@ async function handleAutoKickListCommand(api, message, threadId, KickHistory, pr
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -72,7 +73,7 @@ async function handleAutoKickListCommand(api, message, threadId, KickHistory, pr
             msg: msgLines.join("\n"),
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

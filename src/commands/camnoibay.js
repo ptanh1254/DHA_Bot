@@ -17,10 +17,12 @@ async function handleCamNoiBayCommand(
 ) {
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
 
+    const messageType = Number(message?.type) || 1;
+
     if (!normalizedArgs) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
         const statusMessage = buildStatusMessage(prefix, setting?.bannedWordMuteEnabled !== false);
-        await api.sendMessage({ msg: statusMessage }, threadId, message.type);
+        await api.sendMessage({ msg: statusMessage }, threadId, messageType);
         return;
     }
 
@@ -30,7 +32,7 @@ async function handleCamNoiBayCommand(
                 msg: `Sai cú pháp. Dùng \`${prefix}camnoibay on\` hoặc \`${prefix}camnoibay off\`.`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -49,7 +51,7 @@ async function handleCamNoiBayCommand(
                 : "Đã tắt auto mute từ cấm trong nhóm này.",
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

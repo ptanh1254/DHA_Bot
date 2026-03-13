@@ -39,6 +39,7 @@ function formatNameList(targets) {
 }
 
 async function handleMuteCommand(api, message, threadId, MutedMember, prefix = "!") {
+    const messageType = Number(message?.type) || 1;
     const targets = getMentionedTargets(message);
     if (targets.length === 0) {
         await api.sendMessage(
@@ -46,7 +47,7 @@ async function handleMuteCommand(api, message, threadId, MutedMember, prefix = "
                 msg: `H\u00e3y tag ng\u01b0\u1eddi c\u1ea7n mute. V\u00ed d\u1ee5: ${prefix}mute @TenNguoiDung`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -88,7 +89,7 @@ async function handleMuteCommand(api, message, threadId, MutedMember, prefix = "
             ].join("\n"),
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

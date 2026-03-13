@@ -39,6 +39,7 @@ function formatNameList(targets) {
 }
 
 async function handleUnmuteCommand(api, message, threadId, MutedMember, prefix = "!") {
+    const messageType = Number(message?.type) || 1;
     const targets = getMentionedTargets(message);
     if (targets.length === 0) {
         await api.sendMessage(
@@ -46,7 +47,7 @@ async function handleUnmuteCommand(api, message, threadId, MutedMember, prefix =
                 msg: `H\u00e3y tag ng\u01b0\u1eddi c\u1ea7n unmute. V\u00ed d\u1ee5: ${prefix}unmute @TenNguoiDung`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -63,7 +64,7 @@ async function handleUnmuteCommand(api, message, threadId, MutedMember, prefix =
             msg: ["\ud83d\udd0a \u0110\u00e3 g\u1ee1 mute cho:", formatNameList(targets)].join("\n"),
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

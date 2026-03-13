@@ -68,6 +68,7 @@ async function handleRemoveIngameCommand(
     argsText,
     prefix = "!"
 ) {
+    const messageType = Number(message?.type) || 1;
     const mentionTargets = getMentionedTargets(message);
     const uidArgs = extractUidArgs(argsText);
     const targetMap = new Map();
@@ -91,7 +92,7 @@ async function handleRemoveIngameCommand(
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -109,7 +110,7 @@ async function handleRemoveIngameCommand(
                 msg: "Không tìm thấy dữ liệu người dùng để xóa ingame.",
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -121,7 +122,7 @@ async function handleRemoveIngameCommand(
                 msg: "Những người này chưa có ingame để xóa.",
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -166,7 +167,7 @@ async function handleRemoveIngameCommand(
             ].join("\n"),
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

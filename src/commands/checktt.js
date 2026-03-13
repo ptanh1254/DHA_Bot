@@ -98,12 +98,13 @@ async function aggregateUserStats(User, threadId, userId) {
 }
 
 async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") {
+    const messageType = Number(message?.type) || 1;
     const targetUserId = getMentionedUserId(message);
     if (!targetUserId) {
         await api.sendMessage(
             { msg: `B\u1ea1n h\u00e3y tag 1 ng\u01b0\u1eddi d\u00f9ng. V\u00ed d\u1ee5: ${prefix}checktt @TenNguoiDung` },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -170,7 +171,7 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
                 attachments: [outputPath],
             },
             threadId,
-            message.type
+            messageType
         );
     } finally {
         if (outputPath && fs.existsSync(outputPath)) {

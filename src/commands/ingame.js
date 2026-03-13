@@ -5,6 +5,7 @@ function normalizeIngameName(input) {
 }
 
 async function handleIngameCommand(api, message, threadId, User, argsText, prefix = "!") {
+    const messageType = Number(message?.type) || 1;
     const rawName = normalizeIngameName(argsText);
     if (!rawName) {
         await api.sendMessage(
@@ -12,7 +13,7 @@ async function handleIngameCommand(api, message, threadId, User, argsText, prefi
                 msg: `Dùng đúng cú pháp: ${prefix}ingame TenIngame`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -23,7 +24,7 @@ async function handleIngameCommand(api, message, threadId, User, argsText, prefi
                 msg: "Tên ingame tối đa 40 ký tự thôi nha.",
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -42,7 +43,7 @@ async function handleIngameCommand(api, message, threadId, User, argsText, prefi
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -83,7 +84,7 @@ async function handleIngameCommand(api, message, threadId, User, argsText, prefi
             msg: `Đã lưu tên ingame: ${rawName}`,
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

@@ -11,13 +11,14 @@ function getMentionedUserId(message) {
 }
 
 async function handleThongTinCommand(api, message, threadId) {
+    const messageType = Number(message?.type) || 1;
     const mentionedUserId = getMentionedUserId(message);
 
     if (!mentionedUserId) {
         await api.sendMessage(
             { msg: "Bạn hãy tag 1 người dùng. Ví dụ: !thongtin @TenNguoiDung" },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -32,7 +33,7 @@ async function handleThongTinCommand(api, message, threadId) {
             await api.sendMessage(
                 { msg: "Không lấy được thông tin người được tag. Thử lại nhé!" },
                 threadId,
-                message.type
+                messageType
             );
             return;
         }
@@ -44,7 +45,7 @@ async function handleThongTinCommand(api, message, threadId) {
                 attachments: [outputPath],
             },
             threadId,
-            message.type
+            messageType
         );
         console.log(`Đã gửi card thông tin cho user ${mentionedUserId}`);
     } catch (error) {
@@ -52,7 +53,7 @@ async function handleThongTinCommand(api, message, threadId) {
         await api.sendMessage(
             { msg: "Lỗi tạo ảnh thông tin. Thử lại sau nhé!" },
             threadId,
-            message.type
+            messageType
         );
     } finally {
         if (outputPath && fs.existsSync(outputPath)) {

@@ -1,6 +1,6 @@
-function normalizeId(rawId) {
+﻿function normalizeId(rawId) {
     if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_\d+$/, "").trim();
+    return String(rawId).replace(/_0$/, "").trim();
 }
 
 function normalizeName(rawName) {
@@ -43,14 +43,18 @@ function formatTargetNames(targets) {
 }
 
 async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefix = "!") {
+    const messageType = Number(message?.type) || 1;
     const targets = getMentionedTargets(message);
+    
+    console.log(`[addqtv] threadId=${threadId}, targets.length=${targets.length}, targets=${JSON.stringify(targets)}`);
+    
     if (targets.length === 0) {
         await api.sendMessage(
             {
                 msg: `Hãy tag người cần thêm vào danh sách dùng lệnh. Ví dụ: ${prefix}addqtv @TenNguoiDung`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -72,7 +76,13 @@ async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefi
         },
     }));
 
-    await GroupKeyMember.bulkWrite(operations, { ordered: false });
+    try {
+        await GroupKeyMember.bulkWrite(operations, { ordered: false });
+        console.log(`[addqtv] Thêm thành công ${targets.length} người`);
+    } catch (error) {
+        console.error(`[addqtv] Lỗi bulkWrite:`, error);
+        throw error;
+    }
 
     await api.sendMessage(
         {
@@ -82,11 +92,12 @@ async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefi
             ].join("\n"),
         },
         threadId,
-        message.type
+        messageType
     );
 }
 
 module.exports = {
     handleAddQTVCommand,
-    handleAddBQTCommand: handleAddQTVCommand,
 };
+
+const handleaddqtvCommand = handleAddQTVCommand;

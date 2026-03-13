@@ -17,13 +17,15 @@ async function handleAutoKickCommand(
 ) {
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
 
+    const messageType = Number(message?.type) || 1;
+
     if (!normalizedArgs) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
         const statusMessage = buildAutoKickStatusMessage(
             prefix,
             setting?.autoKickRejoinEnabled !== false
         );
-        await api.sendMessage({ msg: statusMessage }, threadId, message.type);
+        await api.sendMessage({ msg: statusMessage }, threadId, messageType);
         return;
     }
 
@@ -33,7 +35,7 @@ async function handleAutoKickCommand(
                 msg: `Sai cú pháp. Dùng \`${prefix}autokick on\` hoặc \`${prefix}autokick off\`.`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -52,7 +54,7 @@ async function handleAutoKickCommand(
                 : "Đã tắt auto kick người từng bị kick.",
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

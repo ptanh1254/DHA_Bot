@@ -415,6 +415,7 @@ function getRankingMeta(rankingType, vnParts) {
 }
 
 async function handleXepHangChatCommand(api, message, threadId, User, options = {}) {
+    const messageType = Number(message?.type) || 1;
     const vnParts = getVNDateParts(new Date());
     const rankingType = String(options?.rankingType || "day").toLowerCase();
     const rankingMeta = getRankingMeta(rankingType, vnParts);
@@ -449,7 +450,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
         await api.sendMessage(
             { msg: "Chưa có dữ liệu chat trong nhóm này." },
             threadId,
-            message.type
+            Number(message?.type) || 1
         );
         return;
     }
@@ -508,7 +509,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
                 attachments: outputPaths,
             },
             threadId,
-            message.type
+            messageType
         );
     } finally {
         for (const outputPath of outputPaths) {

@@ -1,109 +1,113 @@
-function buildHelpMessage(prefix = "!") {
+function buildHelpPart1(prefix = "!") {
     return [
         "📘 HƯỚNG DẪN LỆNH DHA BOT",
         "",
-        "ℹ️ Lưu ý chung:",
-        "- Các chế độ `on/off` (`hello`, `kick`) áp dụng theo từng nhóm hiện tại.",
-        "- Các lệnh cần tag: `check`, `checktt`, `thongtin`, `kick`, `mute`, `unmute`, `addqtv`, `removeqtv`, `xoaingame`.",
-        "- Mặc định chỉ chủ nhóm/phó nhóm được dùng lệnh admin.",
-        "- Muốn cấp thêm người dùng lệnh: `addqtv @tag`.",
-        "- Lệnh ai cũng dùng được: `ingame <ten>` (mỗi lượt set 1 lần, muốn đổi thì nhờ admin xoá).",
-        "- Người không được phép dùng lệnh admin sẽ bị cảnh báo, đủ 5 lần sẽ bị kick.",
+        "⚡ LƯỚI ÝCHUNG:",
+        "• Các chế độ on/off (hello, kick) áp dụng theo từng nhóm",
+        "• Lệnh cần tag: check, checktt, thongtin, kick, mute, unmute",
+        "• Mặc định: chủ nhóm/phó nhóm được dùng lệnh admin",
+        "• Người dùng phổ thông bị cảnh báo 5 lần = bị kick",
+    ].join("\n");
+}
+
+function buildHelpPart2(prefix = "!") {
+    return [
+        "🎉 1. NHÓM CHÀO MỪNG",
         "",
-        "==============================",
-        "1) NHÓM CHÀO MỪNG",
-        "==============================",
-        `- \`${prefix}hello\``,
-        "  Xem trạng thái chào mừng thành viên mới trong nhóm.",
-        `- \`${prefix}hello on\``,
-        "  Bật gửi ảnh chào mừng khi có thành viên mới vào.",
-        `- \`${prefix}hello off\``,
-        "  Tắt ảnh chào mừng.",
+        `${prefix}hello - Xem trạng thái chào mừng`,
+        `${prefix}hello on - Bật chào mừng thành viên mới`,
+        `${prefix}hello off - Tắt chào mừng`,
+    ].join("\n");
+}
+
+function buildHelpPart3(prefix = "!") {
+    return [
+        "🚀 2. NHÓM KICK / RỜI NHÓM",
         "",
-        "==============================",
-        "2) NHÓM KICK / RỜI NHÓM",
-        "==============================",
-        `- \`${prefix}kick\``,
-        "  Xem trạng thái thông báo rời nhóm / bị kick.",
-        `- \`${prefix}kick on\``,
-        "  Bật thông báo rời nhóm / bị kick trong nhóm.",
-        `- \`${prefix}kick off\``,
-        "  Tắt thông báo rời nhóm / bị kick.",
-        `- \`${prefix}kick @TenNguoiDung\``,
-        "  Kick người được tag ra khỏi nhóm (khi bot có quyền).",
-        `- \`${prefix}autokick\``,
-        "  Xem trạng thái auto kick người từng bị kick.",
-        `- \`${prefix}autokick on/off\``,
-        "  Bật/tắt tự động kick khi người từng bị kick vào lại nhóm.",
-        `- \`${prefix}autokicklist\``,
-        "  Xem danh sách người đang nằm trong auto kick (tên + UID).",
-        `- \`${prefix}autokickremove <uid>\``,
-        "  Gỡ 1 UID ra khỏi danh sách auto kick.",
-        `- \`${prefix}goautokick <uid>\``,
-        "  Alias của lệnh autokickremove.",
+        `${prefix}kick - Xem trạng thái thông báo kick`,
+        `${prefix}kick on - Bật thông báo kick`,
+        `${prefix}kick off - Tắt thông báo kick`,
+        `${prefix}kick @user - Kick người dùng được tag`,
+        `${prefix}autokick - Xem trạng thái auto kick`,
+        `${prefix}autokick on/off - Bật/tắt auto kick`,
+        `${prefix}autokicklist - Danh sách auto kick`,
+        `${prefix}autokickremove <uid> - Gỡ UID khỏi auto kick`,
+    ].join("\n");
+}
+
+function buildHelpPart4(prefix = "!") {
+    return [
+        "🔇 3. NHÓM KIỂM SOÁT CHAT",
         "",
-        "==============================",
-        "3) NHÓM KIỂM SOÁT CHAT",
-        "==============================",
-        `- \`${prefix}mute @TenNguoiDung\``,
-        "  Mute người được tag: hễ nhắn là bot xoá tin ngay.",
-        `- \`${prefix}unmute @TenNguoiDung\``,
-        "  Gỡ mute người được tag.",
-        `- \`${prefix}camnoibay\``,
-        "  Xem trạng thái auto mute theo danh sách từ cấm.",
-        `- \`${prefix}camnoibay on\``,
-        "  Bật auto mute: dùng từ cấm là bot xoá tin + khoá mõm tự động.",
-        `- \`${prefix}camnoibay off\``,
-        "  Tắt auto mute theo từ cấm.",
-        "  Danh sách từ cấm sửa trong file `src/config/bannedWords.txt` (mỗi dòng 1 từ/cụm từ).",
+        `${prefix}mute @user - Mute người dùng`,
+        `${prefix}unmute @user - Gỡ mute`,
+        `${prefix}camnoibay - Xem trạng thái auto mute từ cấm`,
+        `${prefix}camnoibay on - Bật auto mute từ cấm`,
+        `${prefix}camnoibay off - Tắt auto mute từ cấm`,
+    ].join("\n");
+}
+
+function buildHelpPart5(prefix = "!") {
+    return [
+        "👨‍💼 4. NHÓM PHÂN QUYỀN LỆNH",
         "",
-        "==============================",
-        "4) NHÓM PHÂN QUYỀN LỆNH",
-        "==============================",
-        `- \`${prefix}addqtv @TenNguoiDung\``,
-        "  (Admin) Thêm nhanh người được tag vào danh sách được dùng bot.",
-        `- \`${prefix}removeqtv @TenNguoiDung\``,
-        "  (Admin) Gỡ người được tag khỏi danh sách được dùng bot.",
+        `${prefix}addqtv @user - Thêm người vào danh sách bot`,
+        `${prefix}removeqtv @user - Gỡ người khỏi danh sách bot`,
+    ].join("\n");
+}
+
+function buildHelpPart6(prefix = "!") {
+    return [
+        "📊 5. NHÓM THỐNG KÊ CHAT",
         "",
-        "==============================",
-        "5) NHÓM THỐNG KÊ CHAT",
-        "==============================",
-        `- \`${prefix}xhchat\``,
-        "  Top chat theo ngày (reset 0h Việt Nam, 10 người / 1 ảnh).",
-        `- \`${prefix}xhchatthang\``,
-        "  Top chat theo tháng hiện tại.",
-        `- \`${prefix}xhchattong\``,
-        "  Top chat tổng tích lũy toàn thời gian.",
-        `- \`${prefix}rschat\``,
-        "  Reset điểm chat hiện tại (`msgCount`) về 0 cho cả nhóm.",
-        "  Không ảnh hưởng tổng tích lũy (`totalMsgCount`).",
+        `${prefix}xhchat - Top chat theo ngày (reset 0h VN)`,
+        `${prefix}xhchatthang - Top chat theo tháng`,
+        `${prefix}xhchattong - Top chat tổng tích lũy`,
+        `${prefix}rschat - Reset điểm chat hiện tại`,
+    ].join("\n");
+}
+
+function buildHelpPart7(prefix = "!") {
+    return [
+        "👤 6. NHÓM TRA CỨU THÀNH VIÊN",
         "",
-        "==============================",
-        "6) NHÓM TRA CỨU THÀNH VIÊN",
-        "==============================",
-        `- \`${prefix}checktt @TenNguoiDung\``,
-        "  Xem card thống kê: tên, avatar, thời gian vào, ingame,",
-        "  người thêm/duyệt, tổng tin nhắn tích lũy.",
-        `- \`${prefix}check @TenNguoiDung\``,
-        "  Lệnh trêu vui: random 0-200% + caption theo giới tính.",
-        `- \`${prefix}ingame TenIngame\``,
-        "  Tự lưu tên ingame của bạn (mỗi lượt set 1 lần).",
-        `- \`${prefix}xoaingame @TenNguoiDung\``,
-        "  (Admin) Xóa ingame để thành viên có thể set lại.",
-        `- \`${prefix}thongtin @TenNguoiDung\``,
-        "  Xem card thông tin profile cơ bản của người được tag.",
+        `${prefix}checktt @user - Xem card thống kê chi tiết`,
+        `${prefix}check @user - Lệnh trêu vui (random %)`,
+        `${prefix}ingame <tên> - Lưu tên ingame của bạn`,
+        `${prefix}xoaingame @user - Xóa ingame thành viên`,
+        `${prefix}thongtin @user - Xem thông tin profile`,
+    ].join("\n");
+}
+
+function buildHelpPart8(prefix = "!") {
+    return [
+        "❓ 7. TRỢ GIÚP",
         "",
-        "==============================",
-        "7) TRỢ GIÚP",
-        "==============================",
-        `- \`${prefix}help\``,
-        "  Mở lại bảng hướng dẫn này.",
+        `${prefix}help - Hiển thị bảng hướng dẫn này`,
     ].join("\n");
 }
 
 async function handleHelpCommand(api, message, threadId, prefix = "!") {
-    const msg = buildHelpMessage(prefix);
-    await api.sendMessage({ msg }, threadId, message.type);
+    const messageType = Number(message?.type) || 1;
+    const parts = [
+        buildHelpPart1(prefix),
+        buildHelpPart2(prefix),
+        buildHelpPart3(prefix),
+        buildHelpPart4(prefix),
+        buildHelpPart5(prefix),
+        buildHelpPart6(prefix),
+        buildHelpPart7(prefix),
+        buildHelpPart8(prefix),
+    ];
+    
+    for (const part of parts) {
+        try {
+            await api.sendMessage({ msg: part }, threadId, messageType);
+            await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+            console.error("Lỗi gửi help:", error);
+        }
+    }
 }
 
 module.exports = {

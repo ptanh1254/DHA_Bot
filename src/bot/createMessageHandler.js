@@ -39,6 +39,7 @@ async function sendMuteNotice(api, message, threadId, userId, strikeCount) {
     const safeName = rawName || "Người dùng";
     const mentionText = `@${safeName}`;
     const msg = `${mentionText} bị khoá mõm rồi cưng ơi (${strikeCount})`;
+    const messageType = Number(message?.type) || 1;
 
     try {
         await api.sendMessage(
@@ -53,7 +54,7 @@ async function sendMuteNotice(api, message, threadId, userId, strikeCount) {
                 ],
             },
             threadId,
-            message.type
+            messageType
         );
     } catch (error) {
         console.error("Lỗi gửi cảnh báo mute:", error);
@@ -66,6 +67,7 @@ async function sendAutoMuteNotice(api, message, threadId, userId) {
     const safeName = rawName || "Người dùng";
     const mentionText = `@${safeName}`;
     const msg = `${mentionText} nói bậy hả, khoá mõm này cưng`;
+    const messageType = Number(message?.type) || 1;
 
     try {
         await api.sendMessage(
@@ -80,7 +82,7 @@ async function sendAutoMuteNotice(api, message, threadId, userId) {
                 ],
             },
             threadId,
-            message.type
+            messageType
         );
     } catch (error) {
         console.error("Lỗi gửi thông báo auto mute:", error);
@@ -203,6 +205,7 @@ function createMessageHandler({
         ingameCommand,
         removeIngameCommand,
         kickCommand,
+        kickAliasCommand,
         muteCommand,
         unmuteCommand,
         camNoiBayCommand,
@@ -283,13 +286,14 @@ function createMessageHandler({
         };
 
         if (!CommandViolation) {
+            const messageType = Number(message?.type) || 1;
             await api.sendMessage(
                 {
                     msg: `${mentionText} Member của tổ lái không được dùng lệnh, lần thứ 5 sẽ bị kick.`,
                     mentions: [mention],
                 },
                 threadId,
-                message.type
+                messageType
             );
             return;
         }
@@ -333,35 +337,38 @@ function createMessageHandler({
                 try {
                     await CommandViolation.deleteOne({ groupId: threadId, userId: normalizedUserId });
                 } catch (_) {}
+                const messageType = Number(message?.type) || 1;
                 await api.sendMessage(
                     {
                         msg: `${mentionText} Member của tổ lái không được dùng lệnh, đủ 5 lần nên đã bị kick.`,
                         mentions: [mention],
                     },
                     threadId,
-                    message.type
+                    messageType
                 );
                 return;
             }
 
+            const messageType1 = Number(message?.type) || 1;
             await api.sendMessage(
                 {
                     msg: `${mentionText} Member của tổ lái không được dùng lệnh (5/5), bot chưa kick được. Kiểm tra quyền admin của bot nhé.`,
                     mentions: [mention],
                 },
                 threadId,
-                message.type
+                messageType1
             );
             return;
         }
 
+        const messageType = Number(message?.type) || 1;
         await api.sendMessage(
             {
                 msg: `${mentionText} Member của tổ lái không được dùng lệnh (${strikeCount}/5), lần thứ 5 sẽ bị kick.`,
                 mentions: [mention],
             },
             threadId,
-            message.type
+            messageType
         );
     }
 
@@ -536,7 +543,8 @@ function createMessageHandler({
                 normalized === removeIngameCommand ||
                 normalized.startsWith(`${removeIngameCommand} `);
             const isKick =
-                normalized === kickCommand || normalized.startsWith(`${kickCommand} `);
+                normalized === kickCommand || normalized.startsWith(`${kickCommand} `) ||
+                normalized === kickAliasCommand || normalized.startsWith(`${kickAliasCommand} `);
             const isMute =
                 normalized === muteCommand || normalized.startsWith(`${muteCommand} `);
             const isUnmute =
@@ -625,23 +633,34 @@ function createMessageHandler({
                 isResetChat;
 
             if (!isBotSelf && isKnownCommand) {
-                const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
-                if (isAddBQT || isRemoveQTV || isRemoveIngame) {
-                    if (!isAdmin) {
-                        await handleUnauthorizedCommandAttempt(threadId, message, userId);
-                        return;
-                    }
-                } else if (!isAdmin && !isIngame) {
-                    const normalizedUserId = normalizeId(userId);
-                    const isAllowedMember = GroupKeyMember
-                        ? await GroupKeyMember.exists({
-                              groupId: threadId,
-                              userId: normalizedUserId || userId,
-                          })
-                        : null;
-                    if (!isAllowedMember) {
-                        await handleUnauthorizedCommandAttempt(threadId, message, userId);
-                        return;
+                // Public commands (không cần auth)
+                const isPublicCommand = isHelp || isHello || isCheck || isThongTin || isCheckTT || isIngame;
+                // Kick status view (không có args thì là public)
+                const isKickStatusOnly = isKick && kickArgs === "";
+                
+                if (!isPublicCommand && !isKickStatusOnly) {
+                    const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
+                    console.log(`[auth] command=${normalized}, isAdmin=${isAdmin}, isSuperAdmin=${isSuperAdminUser}, userId=${userId}`);
+                    
+                    if (isAddBQT || isRemoveQTV || isRemoveIngame) {
+                        if (!isAdmin) {
+                            console.log(`[auth] Blocked addBQT/removeQTV/removeIngame - not admin`);
+                            await handleUnauthorizedCommandAttempt(threadId, message, userId);
+                            return;
+                        }
+                    } else if (!isAdmin) {
+                        const normalizedUserId = normalizeId(userId);
+                        const isAllowedMember = GroupKeyMember
+                            ? await GroupKeyMember.exists({
+                                  groupId: threadId,
+                                  userId: normalizedUserId || userId,
+                              })
+                            : null;
+                        if (!isAllowedMember) {
+                            console.log(`[auth] Blocked ${normalized} - not allowed member`);
+                            await handleUnauthorizedCommandAttempt(threadId, message, userId);
+                            return;
+                        }
                     }
                 }
             }

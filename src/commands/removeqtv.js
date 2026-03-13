@@ -71,6 +71,7 @@ async function handleRemoveQTVCommand(
     }
 
     const targets = [...targetMap.values()];
+    const messageType = Number(message?.type) || 1;
     if (targets.length === 0) {
         await api.sendMessage(
             {
@@ -81,7 +82,7 @@ async function handleRemoveQTVCommand(
                 ].join("\n"),
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -98,7 +99,7 @@ async function handleRemoveQTVCommand(
                 msg: "Không có ai trong danh sách được dùng lệnh để gỡ.",
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -132,7 +133,7 @@ async function handleRemoveQTVCommand(
             ].join("\n"),
         },
         threadId,
-        message.type
+        messageType
     );
 }
 

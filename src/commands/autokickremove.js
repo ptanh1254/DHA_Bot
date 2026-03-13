@@ -19,11 +19,12 @@ async function handleAutoKickRemoveCommand(
     argsText,
     prefix = "!"
 ) {
+    const messageType = Number(message?.type) || 1;
     if (!KickHistory) {
         await api.sendMessage(
             { msg: "Chưa khởi tạo được dữ liệu autokick." },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -35,7 +36,7 @@ async function handleAutoKickRemoveCommand(
                 msg: `Nhập UID cần gỡ autokick. Ví dụ: ${prefix}autokickremove 123456789`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -47,7 +48,7 @@ async function handleAutoKickRemoveCommand(
                 msg: `Không tìm thấy UID ${targetUid} trong danh sách autokick.`,
             },
             threadId,
-            message.type
+            messageType
         );
         return;
     }
@@ -57,7 +58,7 @@ async function handleAutoKickRemoveCommand(
             msg: `Đã gỡ autokick cho UID ${targetUid}.`,
         },
         threadId,
-        message.type
+        messageType
     );
 }
 
