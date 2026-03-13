@@ -1,6 +1,6 @@
-﻿function normalizeId(rawId) {
+function normalizeId(rawId) {
     if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_0$/, "").trim();
+    return String(rawId).replace(/_\d+$/, "").trim();
 }
 
 function normalizeName(rawName) {
@@ -42,12 +42,12 @@ function formatTargetNames(targets) {
     return targets.map((target) => target.displayName).join(", ");
 }
 
-async function handleAddBQTCommand(api, message, threadId, GroupKeyMember, prefix = "!") {
+async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefix = "!") {
     const targets = getMentionedTargets(message);
     if (targets.length === 0) {
         await api.sendMessage(
             {
-                msg: `Hãy tag người cần thêm vào danh sách dùng lệnh. Ví dụ: ${prefix}addbqt @TenNguoiDung`,
+                msg: `Hãy tag người cần thêm vào danh sách dùng lệnh. Ví dụ: ${prefix}addqtv @TenNguoiDung`,
             },
             threadId,
             message.type
@@ -87,5 +87,6 @@ async function handleAddBQTCommand(api, message, threadId, GroupKeyMember, prefi
 }
 
 module.exports = {
-    handleAddBQTCommand,
+    handleAddQTVCommand,
+    handleAddBQTCommand: handleAddQTVCommand,
 };

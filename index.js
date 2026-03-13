@@ -15,6 +15,7 @@ const { handleHelloCommand } = require("./src/commands/hello");
 const { handleHelpCommand } = require("./src/commands/help");
 const { handleThongTinCommand } = require("./src/commands/thongtin");
 const { handleCheckTTCommand } = require("./src/commands/checktt");
+const { handleCheckCommand } = require("./src/commands/check");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
@@ -22,7 +23,8 @@ const { handleCamNoiBayCommand } = require("./src/commands/camnoibay");
 const { handleAutoKickCommand } = require("./src/commands/autokick");
 const { handleAutoKickListCommand } = require("./src/commands/autokicklist");
 const { handleAutoKickRemoveCommand } = require("./src/commands/autokickremove");
-const { handleAddBQTCommand } = require("./src/commands/addbqt");
+const { handleAddQTVCommand } = require("./src/commands/addbqt");
+const { handleRemoveQTVCommand } = require("./src/commands/removeqtv");
 const { handleXepHangChatCommand } = require("./src/commands/xephangchat");
 const { handleResetChatCommand } = require("./src/commands/resetchat");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
@@ -116,6 +118,7 @@ async function startBot() {
             helloCommand: `${prefix}hello`.toLowerCase(),
             thongTinCommand: `${prefix}thongtin`.toLowerCase(),
             checkTTCommand: `${prefix}checktt`.toLowerCase(),
+            checkCommand: `${prefix}check`.toLowerCase(),
             kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
@@ -124,7 +127,10 @@ async function startBot() {
             autoKickListCommand: `${prefix}autokicklist`.toLowerCase(),
             autoKickRemoveCommand: `${prefix}autokickremove`.toLowerCase(),
             goAutoKickCommand: `${prefix}goautokick`.toLowerCase(),
-            addBQTCommand: `${prefix}addbqt`.toLowerCase(),
+            addBQTCommand: `${prefix}addqtv`.toLowerCase(),
+            addQTVCommand: `${prefix}addqtv`.toLowerCase(),
+            removeQTVCommand: `${prefix}removeqtv`.toLowerCase(),
+            removeQTVAliasCommand: `${prefix}rmqtv`.toLowerCase(),
             xepHangDayCommand: `${prefix}xhchat`.toLowerCase(),
             xepHangMonthCommand: `${prefix}xhchatthang`.toLowerCase(),
             xepHangTotalCommand: `${prefix}xhchattong`.toLowerCase(),
@@ -136,6 +142,8 @@ async function startBot() {
             handleThongTin: handleThongTinCommand,
             handleCheckTT: (api, message, threadId, User) =>
                 handleCheckTTCommand(api, message, threadId, User, prefix),
+            handleCheck: (api, message, threadId) =>
+                handleCheckCommand(api, message, threadId, prefix),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,
@@ -179,8 +187,19 @@ async function startBot() {
                     argsText,
                     prefix
                 ),
+            handleAddQTV: (api, message, threadId) =>
+                handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefix),
             handleAddBQT: (api, message, threadId) =>
-                handleAddBQTCommand(api, message, threadId, GroupKeyMember, prefix),
+                handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefix),
+            handleRemoveQTV: (api, message, threadId, argsText) =>
+                handleRemoveQTVCommand(
+                    api,
+                    message,
+                    threadId,
+                    GroupKeyMember,
+                    argsText,
+                    prefix
+                ),
             handleXepHangDay: (api, message, threadId, User, botUid) =>
                 handleXepHangChatCommand(api, message, threadId, User, {
                     botUserId: botUid,
@@ -201,7 +220,7 @@ async function startBot() {
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addBQTCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
         );
 
         const messageHandler = createMessageHandler({

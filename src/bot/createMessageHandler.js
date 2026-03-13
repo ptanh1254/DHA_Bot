@@ -126,7 +126,7 @@ async function updateUserMessageCounters(User, threadId, userId, senderName) {
 
 function normalizeId(rawId) {
     if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_0$/, "").trim();
+    return String(rawId).replace(/_\d+$/, "").trim();
 }
 
 function buildSuperAdminSet() {
@@ -136,6 +136,52 @@ function buildSuperAdminSet() {
         .map((value) => normalizeId(value))
         .filter(Boolean);
     return new Set([...defaults.map((value) => normalizeId(value)), ...fromEnv]);
+}
+
+function resolveIdFromUnknown(raw) {
+    if (raw === null || raw === undefined) return "";
+    if (typeof raw === "string" || typeof raw === "number") {
+        return normalizeId(raw);
+    }
+    if (typeof raw !== "object") return "";
+    return normalizeId(raw.userId || raw.uid || raw.id || raw.memberId || raw.user_id);
+}
+
+function collectNormalizedIds(value) {
+    if (!value) return [];
+    if (!Array.isArray(value)) {
+        const one = resolveIdFromUnknown(value);
+        return one ? [one] : [];
+    }
+
+    const out = [];
+    for (const item of value) {
+        const id = resolveIdFromUnknown(item);
+        if (id) out.push(id);
+    }
+    return out;
+}
+
+function isRoleAdminFlag(member) {
+    if (!member || typeof member !== "object") return false;
+
+    const explicitFlags = [
+        member.isAdmin,
+        member.isMgr,
+        member.isManager,
+        member.isModerator,
+    ];
+    if (explicitFlags.some((flag) => flag === true)) return true;
+
+    const role = Number(member.role);
+    if (!Number.isNaN(role) && role > 0) return true;
+
+    const roleType = String(member.roleType || "").trim().toLowerCase();
+    if (["admin", "manager", "moderator", "deputy", "owner"].includes(roleType)) {
+        return true;
+    }
+
+    return false;
 }
 
 function createMessageHandler({
@@ -153,6 +199,7 @@ function createMessageHandler({
         helloCommand,
         thongTinCommand,
         checkTTCommand,
+        checkCommand,
         kickCommand,
         muteCommand,
         unmuteCommand,
@@ -162,6 +209,8 @@ function createMessageHandler({
         autoKickRemoveCommand,
         goAutoKickCommand,
         addBQTCommand,
+        removeQTVCommand,
+        removeQTVAliasCommand,
         xepHangDayCommand,
         xepHangMonthCommand,
         xepHangTotalCommand,
@@ -170,6 +219,7 @@ function createMessageHandler({
         handleHello,
         handleThongTin,
         handleCheckTT,
+        handleCheck,
         handleKick,
         handleMute,
         handleUnmute,
@@ -178,13 +228,14 @@ function createMessageHandler({
         handleAutoKickList,
         handleAutoKickRemove,
         handleAddBQT,
+        handleRemoveQTV,
         handleXepHangDay,
         handleXepHangMonth,
         handleXepHangTotal,
         handleResetChat,
     } = commands;
 
-    const normalizedBotUserId = String(botUserId || "").replace(/_0$/, "").trim();
+    const normalizedBotUserId = normalizeId(botUserId);
     const adminCache = new Map();
     const ADMIN_CACHE_TTL_MS = 30 * 1000;
     const ADMIN_CACHE_MAX_ENTRIES = 1000;
@@ -329,13 +380,47 @@ function createMessageHandler({
             const groupInfo = gridInfoMap[threadId] || Object.values(gridInfoMap)[0];
 
             if (groupInfo) {
-                const creatorId = normalizeId(
-                    groupInfo?.creatorId || groupInfo?.ownerId || groupInfo?.creator
+                const ownerCandidates = [
+                    groupInfo?.creatorId,
+                    groupInfo?.ownerId,
+                    groupInfo?.creator,
+                    groupInfo?.owner,
+                    groupInfo?.groupOwnerId,
+                ];
+                const ownerSet = new Set(
+                    ownerCandidates.map(resolveIdFromUnknown).filter(Boolean)
                 );
-                const adminIds = Array.isArray(groupInfo?.adminIds) ? groupInfo.adminIds : [];
-                const adminSet = new Set(adminIds.map(normalizeId));
 
-                isAdmin = creatorId === normalizedUserId || adminSet.has(normalizedUserId);
+                const adminSet = new Set();
+                const adminLists = [
+                    groupInfo?.adminIds,
+                    groupInfo?.adminUids,
+                    groupInfo?.admins,
+                    groupInfo?.managerIds,
+                    groupInfo?.managers,
+                    groupInfo?.moderatorIds,
+                    groupInfo?.moderators,
+                ];
+                for (const list of adminLists) {
+                    for (const id of collectNormalizedIds(list)) {
+                        adminSet.add(id);
+                    }
+                }
+
+                const members = Array.isArray(groupInfo?.currentMems)
+                    ? groupInfo.currentMems
+                    : Array.isArray(groupInfo?.members)
+                    ? groupInfo.members
+                    : [];
+                for (const member of members) {
+                    const memberId = resolveIdFromUnknown(member);
+                    if (!memberId) continue;
+                    if (isRoleAdminFlag(member)) {
+                        adminSet.add(memberId);
+                    }
+                }
+
+                isAdmin = ownerSet.has(normalizedUserId) || adminSet.has(normalizedUserId);
             }
         } catch (error) {
             console.error("Lỗi kiểm tra quyền admin nhóm:", error);
@@ -359,7 +444,7 @@ function createMessageHandler({
             const normalized = text.toLowerCase();
             const hasText = normalized.length > 0;
 
-            const normalizedSenderId = String(userId).replace(/_0$/, "").trim();
+            const normalizedSenderId = normalizeId(userId);
             const isBotSelf =
                 message.isSelf ||
                 (normalizedBotUserId && normalizedSenderId === normalizedBotUserId);
@@ -439,6 +524,8 @@ function createMessageHandler({
             const isThongTin = normalized.startsWith(thongTinCommand);
             const isCheckTT =
                 normalized === checkTTCommand || normalized.startsWith(`${checkTTCommand} `);
+            const isCheck =
+                normalized === checkCommand || normalized.startsWith(`${checkCommand} `);
             const isKick =
                 normalized === kickCommand || normalized.startsWith(`${kickCommand} `);
             const isMute =
@@ -462,8 +549,15 @@ function createMessageHandler({
             const isAddBQT =
                 normalized === addBQTCommand ||
                 normalized.startsWith(`${addBQTCommand} `) ||
+                normalized === "@addqtv" ||
+                normalized.startsWith("@addqtv ") ||
                 normalized === "@addbqt" ||
                 normalized.startsWith("@addbqt ");
+            const isRemoveQTV =
+                normalized === removeQTVCommand ||
+                normalized.startsWith(`${removeQTVCommand} `) ||
+                normalized === removeQTVAliasCommand ||
+                normalized.startsWith(`${removeQTVAliasCommand} `);
             const isXepHangDay = normalized === xepHangDayCommand;
             const isXepHangMonth = normalized === xepHangMonthCommand;
             const isXepHangTotal = normalized === xepHangTotalCommand;
@@ -485,12 +579,22 @@ function createMessageHandler({
                       )
                       .trim()
                 : "";
+            const removeQTVArgs = isRemoveQTV
+                ? text
+                      .slice(
+                          normalized.startsWith(removeQTVAliasCommand)
+                              ? removeQTVAliasCommand.length
+                              : removeQTVCommand.length
+                      )
+                      .trim()
+                : "";
 
             const isKnownCommand =
                 isHelp ||
                 isHello ||
                 isThongTin ||
                 isCheckTT ||
+                isCheck ||
                 isKick ||
                 isMute ||
                 isUnmute ||
@@ -499,6 +603,7 @@ function createMessageHandler({
                 isAutoKickList ||
                 isAutoKickRemove ||
                 isAddBQT ||
+                isRemoveQTV ||
                 isXepHangDay ||
                 isXepHangMonth ||
                 isXepHangTotal ||
@@ -506,7 +611,7 @@ function createMessageHandler({
 
             if (!isBotSelf && isKnownCommand) {
                 const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
-                if (isAddBQT) {
+                if (isAddBQT || isRemoveQTV) {
                     if (!isAdmin) {
                         await handleUnauthorizedCommandAttempt(threadId, message, userId);
                         return;
@@ -532,6 +637,7 @@ function createMessageHandler({
                 !isHello &&
                 !isThongTin &&
                 !isCheckTT &&
+                !isCheck &&
                 !isKick &&
                 !isMute &&
                 !isUnmute &&
@@ -540,6 +646,7 @@ function createMessageHandler({
                 !isAutoKickList &&
                 !isAutoKickRemove &&
                 !isAddBQT &&
+                !isRemoveQTV &&
                 !isXepHangDay &&
                 !isXepHangMonth &&
                 !isXepHangTotal &&
@@ -566,6 +673,11 @@ function createMessageHandler({
 
             if (isCheckTT) {
                 await handleCheckTT(api, message, threadId, User);
+                return;
+            }
+
+            if (isCheck) {
+                await handleCheck(api, message, threadId);
                 return;
             }
 
@@ -606,6 +718,11 @@ function createMessageHandler({
 
             if (isAddBQT) {
                 await handleAddBQT(api, message, threadId);
+                return;
+            }
+
+            if (isRemoveQTV) {
+                await handleRemoveQTV(api, message, threadId, removeQTVArgs);
                 return;
             }
 
