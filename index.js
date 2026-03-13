@@ -16,8 +16,10 @@ const { handleHelpCommand } = require("./src/commands/help");
 const { handleThongTinCommand } = require("./src/commands/thongtin");
 const { handleCheckTTCommand } = require("./src/commands/checktt");
 const { handleCheckCommand } = require("./src/commands/check");
+const { handleCheckIngameCommand } = require("./src/commands/checkingame");
 const { handleIngameCommand } = require("./src/commands/ingame");
 const { handleRemoveIngameCommand } = require("./src/commands/removeingame");
+const { handlePreventRecallCommand } = require("./src/commands/chongthuhoi");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
@@ -32,6 +34,7 @@ const { handleResetChatCommand } = require("./src/commands/resetchat");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
+const { createMessageStore } = require("./src/runtime/messageStore");
 const { getVNDateParts } = require("./src/utils/vnTime");
 
 const config = loadConfig();
@@ -45,6 +48,7 @@ const zalo = new Zalo({
 
 async function startBot() {
     try {
+        console.log("🤖 [BOT] Khởi động bot...");
         console.log("Đang kết nối MongoDB...");
         await mongoose.connect(process.env.MONGO_URI);
         const now = new Date();
@@ -115,12 +119,14 @@ async function startBot() {
         }
         const prefix = (config.PREFIX || "!").trim();
         const kickIntentStore = createKickIntentStore();
+        const messageStore = createMessageStore(1000, 5 * 60 * 1000); // Store last 1000 messages for 5 minutes
         const commands = {
             helpCommand: `${prefix}help`.toLowerCase(),
             helloCommand: `${prefix}hello`.toLowerCase(),
             thongTinCommand: `${prefix}thongtin`.toLowerCase(),
             checkTTCommand: `${prefix}checktt`.toLowerCase(),
             checkCommand: `${prefix}check`.toLowerCase(),
+            checkIngameCommand: `${prefix}checkingame`.toLowerCase(),
             ingameCommand: `${prefix}ingame`.toLowerCase(),
             removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
             kickCommand: `${prefix}dapbaymau`.toLowerCase(),
@@ -149,6 +155,8 @@ async function startBot() {
                 handleCheckTTCommand(api, message, threadId, User, prefix),
             handleCheck: (api, message, threadId) =>
                 handleCheckCommand(api, message, threadId, prefix),
+            handleCheckIngame: (api, message, threadId) =>
+                handleCheckIngameCommand(api, message, threadId, User),
             handleIngame: (api, message, threadId, argsText, User) =>
                 handleIngameCommand(api, message, threadId, User, argsText, prefix),
             handleRemoveIngame: (api, message, threadId, argsText, User) =>
@@ -236,7 +244,7 @@ async function startBot() {
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
         );
 
         const messageHandler = createMessageHandler({
@@ -248,6 +256,7 @@ async function startBot() {
             CommandViolation,
             commands,
             botUserId,
+            messageStore,
         });
         const groupEventHandler = createGroupEventHandler({
             api,
@@ -259,6 +268,68 @@ async function startBot() {
         });
         api.listener.on("message", messageHandler);
         api.listener.on("group_event", groupEventHandler);
+
+        // Handle message recall/undo events
+        api.listener.on("undo", async (undo) => {
+            try {
+                console.log("[🔔 UNDO EVENT] Nhận được sự kiện thu hồi tin nhắn");
+                
+                const threadId = String(undo?.threadId || "").trim();
+                if (!threadId) {
+                    console.log("[UNDO] Không có threadId");
+                    return;
+                }
+
+                const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
+                if (setting?.preventRecallEnabled !== true) {
+                    console.log("[UNDO] Chế độ chống thu hồi chưa được bật");
+                    return;
+                }
+
+                // Get the recalled message ID
+                const globalMsgId = Number(undo?.data?.content?.globalMsgId || 0);
+                if (!globalMsgId) {
+                    console.log("[UNDO] Không có globalMsgId");
+                    return;
+                }
+
+                console.log(`[UNDO] Tìm kiếm tin nhắn với ID: ${globalMsgId}`);
+                
+                // Retrieve the original message from store
+                const originalMessage = messageStore.getMessage(threadId, globalMsgId);
+                if (!originalMessage) {
+                    console.log(`[UNDO] Không tìm thấy tin nhắn bị thu hồi (msgId: ${globalMsgId})`);
+                    return;
+                }
+
+                const recalledContent = originalMessage.content;
+                const recallerName = originalMessage.senderName || `UID ${originalMessage.senderUid}`;
+
+                if (!recalledContent) {
+                    console.log("[UNDO] Không có nội dung tin nhắn");
+                    return;
+                }
+
+                try {
+                    const msg = [
+                        "� PHÁT HIỆN! 🔥",
+                        `${recallerName} vừa thu hồi tin nhắn (bị bắt tại trận 😂)`,
+                        "",
+                        "📢 NỘI DUNG BẤT CỨU:",
+                        `"${recalledContent}"`,
+                        "",
+                        "💀 Thôi mà, em ơi, tham lam cau được quả lựu đạn 😅",
+                    ].join("\n");
+
+                    await api.sendMessage({ msg }, threadId, 1);
+                    console.log(`[🎉 RECALL SUCCESS] Đã gửi thông báo thu hồi tin nhắn cho nhóm ${threadId}`);
+                } catch (error) {
+                    console.error("Lỗi gửi thông báo thu hồi:", error);
+                }
+            } catch (error) {
+                console.error("Lỗi handler undo:", error);
+            }
+        });
 
         api.listener.start();
         console.log("Đã bật listener");

@@ -7,6 +7,7 @@ const groupSettingSchema = new mongoose.Schema(
         kickEnabled: { type: Boolean, default: true },
         autoKickRejoinEnabled: { type: Boolean, default: true },
         bannedWordMuteEnabled: { type: Boolean, default: true },
+        preventRecallEnabled: { type: Boolean, default: false },
     },
     {
         timestamps: { createdAt: false, updatedAt: true },

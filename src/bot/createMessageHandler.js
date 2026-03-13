@@ -195,13 +195,16 @@ function createMessageHandler({
     CommandViolation,
     commands,
     botUserId = "",
+    messageStore = null,
 }) {
     const {
         helpCommand,
         helloCommand,
+        preventRecallCommand,
         thongTinCommand,
         checkTTCommand,
         checkCommand,
+        checkIngameCommand,
         ingameCommand,
         removeIngameCommand,
         kickCommand,
@@ -222,9 +225,11 @@ function createMessageHandler({
         resetChatCommand,
         handleHelp,
         handleHello,
+        handlePreventRecall,
         handleThongTin,
         handleCheckTT,
         handleCheck,
+        handleCheckIngame,
         handleIngame,
         handleRemoveIngame,
         handleKick,
@@ -455,6 +460,17 @@ function createMessageHandler({
             const normalized = text.toLowerCase();
             const hasText = normalized.length > 0;
 
+            // Store message for recall event handling
+            if (messageStore && hasText) {
+                messageStore.storeMessage(threadId, {
+                    globalMsgId: message.data?.msgId,
+                    cliMsgId: message.data?.cliMsgId,
+                    content: text,
+                    uidFrom: userId,
+                    dName: String(message.data?.dName || "").trim(),
+                });
+            }
+
             const normalizedSenderId = normalizeId(userId);
             const isBotSelf =
                 message.isSelf ||
@@ -532,11 +548,15 @@ function createMessageHandler({
                 normalized === helpCommand || normalized.startsWith(`${helpCommand} `);
             const isHello =
                 normalized === helloCommand || normalized.startsWith(`${helloCommand} `);
+            const isPreventRecall =
+                normalized === preventRecallCommand ||
+                normalized.startsWith(`${preventRecallCommand} `);
             const isThongTin = normalized.startsWith(thongTinCommand);
             const isCheckTT =
                 normalized === checkTTCommand || normalized.startsWith(`${checkTTCommand} `);
             const isCheck =
                 normalized === checkCommand || normalized.startsWith(`${checkCommand} `);
+            const isCheckIngame = normalized === checkIngameCommand;
             const isIngame =
                 normalized === ingameCommand || normalized.startsWith(`${ingameCommand} `);
             const isRemoveIngame =
@@ -580,6 +600,7 @@ function createMessageHandler({
             const isXepHangTotal = normalized === xepHangTotalCommand;
             const isResetChat = normalized === resetChatCommand;
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
+            const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
             const camNoiBayArgs = isCamNoiBay
                 ? normalized.slice(camNoiBayCommand.length).trim()
@@ -613,9 +634,11 @@ function createMessageHandler({
             const isKnownCommand =
                 isHelp ||
                 isHello ||
+                isPreventRecall ||
                 isThongTin ||
                 isCheckTT ||
                 isCheck ||
+                isCheckIngame ||
                 isIngame ||
                 isRemoveIngame ||
                 isKick ||
@@ -634,7 +657,7 @@ function createMessageHandler({
 
             if (!isBotSelf && isKnownCommand) {
                 // Public commands (không cần auth)
-                const isPublicCommand = isHelp || isHello || isCheck || isThongTin || isCheckTT || isIngame;
+                const isPublicCommand = isHelp || isHello || isPreventRecall || isCheck || isThongTin || isCheckTT || isIngame;
                 // Kick status view (không có args thì là public)
                 const isKickStatusOnly = isKick && kickArgs === "";
                 
@@ -672,11 +695,13 @@ function createMessageHandler({
                 !isThongTin &&
                 !isCheckTT &&
                 !isCheck &&
+                !isCheckIngame &&
                 !isIngame &&
                 !isRemoveIngame &&
                 !isKick &&
                 !isMute &&
                 !isUnmute &&
+                !isPreventRecall &&
                 !isCamNoiBay &&
                 !isAutoKick &&
                 !isAutoKickList &&
@@ -697,6 +722,12 @@ function createMessageHandler({
                 return;
             }
 
+            if (isPreventRecall) {
+                await handlePreventRecall(api, message, threadId);
+                console.log(`Đã xử lý command ${preventRecallCommand} tại thread ${threadId}`);
+                return;
+            }
+
             if (isHelp) {
                 await handleHelp(api, message, threadId);
                 return;
@@ -714,6 +745,11 @@ function createMessageHandler({
 
             if (isCheck) {
                 await handleCheck(api, message, threadId);
+                return;
+            }
+
+            if (isCheckIngame) {
+                await handleCheckIngame(api, message, threadId);
                 return;
             }
 

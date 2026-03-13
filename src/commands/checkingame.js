@@ -82,17 +82,20 @@ function buildMentionMessage(members) {
             .replace(/\n/g, " ")
             .trim();
         const mentionText = `@${safeName}`;
-        const prefix = " ";
-        const pos = msg.length + 1;
-
-        msg += `${prefix}${mentionText}`;
+        const space = " ";
+        
+        // Tính vị trí chính xác theo byte/character
+        const currentLength = Array.from(msg).length;
+        const posAt = currentLength + 1; // +1 cho space
+        
+        msg += space + mentionText;
         mentions.push({
             uid: String(
                 member.mentionUid ||
                     toMentionUid(member.rawId || member.normalizedId, member.normalizedId)
             ),
-            pos,
-            len: mentionText.length,
+            pos: posAt,
+            len: Array.from(mentionText).length,
         });
     }
 
@@ -289,6 +292,7 @@ async function handleCheckIngameCommand(api, message, threadId, User) {
         .map((member) => {
             const dbUid = knownUidByNormalized.get(member.normalizedId);
             const mentionUid = toMentionUid(dbUid || member.rawId, member.normalizedId);
+            console.log(`[checkingame] member=${member.displayName}, normalizedId=${member.normalizedId}, dbUid=${dbUid}, mentionUid=${mentionUid}`);
             return {
                 ...member,
                 mentionUid,
@@ -308,6 +312,8 @@ async function handleCheckIngameCommand(api, message, threadId, User) {
     const MAX_MENTIONS = 20;
     const mentionMembers = missing.slice(0, MAX_MENTIONS);
     const payload = buildMentionMessage(mentionMembers);
+    console.log(`[checkingame] payload.msg="${payload.msg}"`);
+    console.log(`[checkingame] mentions=${JSON.stringify(payload.mentions)}`);
     if (missing.length > MAX_MENTIONS) {
         payload.msg += `\n...v\u00e0 c\u00f2n ${missing.length - MAX_MENTIONS} b\u1ea1n n\u1eefa ch\u01b0a c\u1eadp nh\u1eadt.`;
     }
