@@ -201,6 +201,7 @@ function createMessageHandler({
         helpCommand,
         helloCommand,
         preventRecallCommand,
+        nodeCommand,
         thongTinCommand,
         checkTTCommand,
         checkCommand,
@@ -226,6 +227,7 @@ function createMessageHandler({
         handleHelp,
         handleHello,
         handlePreventRecall,
+        handleNode,
         handleThongTin,
         handleCheckTT,
         handleCheck,
@@ -551,6 +553,8 @@ function createMessageHandler({
             const isPreventRecall =
                 normalized === preventRecallCommand ||
                 normalized.startsWith(`${preventRecallCommand} `);
+            const isNode =
+                normalized === nodeCommand || normalized.startsWith(`${nodeCommand} `);
             const isThongTin = normalized.startsWith(thongTinCommand);
             const isCheckTT =
                 normalized === checkTTCommand || normalized.startsWith(`${checkTTCommand} `);
@@ -710,6 +714,12 @@ function createMessageHandler({
             if (isPreventRecall) {
                 await handlePreventRecall(api, message, threadId, preventRecallArgs);
                 console.log(`Đã xử lý command ${preventRecallCommand} tại thread ${threadId}`);
+                return;
+            }
+
+            if (isNode) {
+                await handleNode(api, message, threadId);
+                console.log(`Đã xử lý command ${nodeCommand} tại thread ${threadId}`);
                 return;
             }
 

@@ -50,31 +50,22 @@ async function handleAutoKickListCommand(api, message, threadId, KickHistory, pr
     const maxRows = 50;
     const limited = rows.slice(0, maxRows);
 
-    const lines = limited.map((row, index) => {
+    // Send header with instruction
+    const extra = rows.length > maxRows ? rows.length - maxRows : 0;
+    const headerMsg = [
+        `Danh sách autokick (${rows.length} người)${extra > 0 ? ` - showing ${maxRows}, ${extra} more hidden` : ""}:`,
+        `Dùng \`${prefix}autokickremove <uid>\` để gỡ autokick theo UID.`,
+    ].join("\n");
+    await api.sendMessage({ msg: headerMsg }, threadId, messageType);
+
+    // Send each person as separate message
+    for (let i = 0; i < limited.length; i++) {
+        const row = limited[i];
         const uid = String(row?.userId || "").trim();
         const name = pickName(row);
-        return `${index + 1}. ${name} | UID: ${uid}`;
-    });
-
-    const extra = rows.length > maxRows ? rows.length - maxRows : 0;
-
-    const msgLines = [
-        `Danh sách autokick (${rows.length} người):`,
-        ...lines,
-        `Dùng \`${prefix}autokickremove <uid>\` để gỡ autokick theo UID.`,
-    ];
-
-    if (extra > 0) {
-        msgLines.push(`... và ${extra} người nữa (ẩn bớt).`);
+        const msg = `${i + 1}. ${name} - ${uid}`;
+        await api.sendMessage({ msg }, threadId, messageType);
     }
-
-    await api.sendMessage(
-        {
-            msg: msgLines.join("\n"),
-        },
-        threadId,
-        messageType
-    );
 }
 
 module.exports = {

@@ -26,6 +26,15 @@ const CHECK_THEME = {
     avatarBgColor: "#fff0f7",
 };
 
+const SPECIAL_USER_ID = "9095318723300347162";
+const SPECIAL_USER_THEME = {
+    backgroundGradient: [
+        { stop: 0, color: "#ffc0cb" },
+        { stop: 0.5, color: "#ffb6c1" },
+        { stop: 1, color: "#ff69b4" },
+    ],
+};
+
 const CHECK_SIDE_IMAGE_LINK =
     "https://drive.google.com/file/d/1EStfOFpFsBvP6kLw9aJkdS5gAvzGgyKz/view?usp=drive_link";
 
@@ -166,9 +175,10 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
     return { lines, fontSize: minFontSize };
 }
 
-function drawBackground(ctx, width, height) {
+function drawBackground(ctx, width, height, userId) {
+    const theme = userId === SPECIAL_USER_ID ? SPECIAL_USER_THEME : CHECK_THEME;
     const bg = ctx.createLinearGradient(0, 0, width, height);
-    for (const stop of CHECK_THEME.backgroundGradient) {
+    for (const stop of theme.backgroundGradient) {
         bg.addColorStop(stop.stop, stop.color);
     }
     ctx.fillStyle = bg;
@@ -259,7 +269,7 @@ async function createCheckImage(payload, options = {}) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
-    drawBackground(ctx, width, height);
+    drawBackground(ctx, width, height, payload?.userId);
 
     const [sideImage, avatarImage] = await Promise.all([
         loadRemoteImageCached(CHECK_SIDE_IMAGE_LINK, { isDrive: true, cache: true }),

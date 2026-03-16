@@ -5,6 +5,7 @@ const { Zalo } = require("zca-js");
 const { loadConfig } = require("./src/config/loadConfig");
 const { loadCookie } = require("./src/auth/loadCookie");
 const { User } = require("./src/db/userModel");
+const { UserNote } = require("./src/db/userNoteModel");
 const { GroupSetting } = require("./src/db/groupSettingModel");
 const { MutedMember } = require("./src/db/mutedMemberModel");
 const { GroupKeyMember } = require("./src/db/groupKeyMemberModel");
@@ -20,6 +21,7 @@ const { handleCheckIngameCommand } = require("./src/commands/checkingame");
 const { handleIngameCommand } = require("./src/commands/ingame");
 const { handleRemoveIngameCommand } = require("./src/commands/removeingame");
 const { handlePreventRecallCommand } = require("./src/commands/chongthuhoi");
+const { handleNodeCommand } = require("./src/commands/node");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
@@ -129,8 +131,7 @@ async function startBot() {
             checkIngameCommand: `${prefix}checkingame`.toLowerCase(),
             ingameCommand: `${prefix}ingame`.toLowerCase(),
             removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
-            preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),
-            kickCommand: `${prefix}dapbaymau`.toLowerCase(),
+            preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),            nodeCommand: `${prefix}node`.toLowerCase(),            kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             kickAliasCommand: `${prefix}kick`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
@@ -171,6 +172,8 @@ async function startBot() {
                 ),
             handlePreventRecall: (api, message, threadId, argsText) =>
                 handlePreventRecallCommand(api, message, threadId, GroupSetting, argsText, prefix),
+            handleNode: (api, message, threadId) =>
+                handleNodeCommand(api, message, threadId, prefix),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,

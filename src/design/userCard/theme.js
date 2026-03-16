@@ -1,5 +1,7 @@
 const { FONT_STACK } = require("../shared/registerFonts");
 
+const SPECIAL_USER_ID = "9095318723300347162";
+
 const USER_CARD_THEME = {
     size: {
         width: 1280,
@@ -105,6 +107,29 @@ const USER_CARD_THEME = {
     },
 };
 
+const SPECIAL_USER_CARD_THEME = {
+    background: {
+        gradient: [
+            { stop: 0, color: "#ffc0cb" },
+            { stop: 0.55, color: "#ffb6c1" },
+            { stop: 1, color: "#ff69b4" },
+        ],
+        glow: [
+            { x: 0.14, y: 0.18, radius: 360, color: "rgba(255, 105, 180, 0.18)" },
+            { x: 0.84, y: 0.74, radius: 320, color: "rgba(255, 105, 180, 0.14)" },
+        ],
+        dots: {
+            color: "rgba(220, 20, 60, 0.12)",
+            step: 40,
+            size: 1.2,
+        },
+    },
+    card: {
+        fill: "rgba(255, 192, 203, 0.95)",
+        stroke: "rgba(219, 39, 119, 0.24)",
+    },
+};
+
 const USER_CARD_ROW_CONFIG = [
     { key: "username", label: "T\u00e0i kho\u1ea3n", color: "#451a03" },
     { key: "birthDate", label: "Ng\u00e0y sinh", color: "#451a03" },
@@ -117,6 +142,8 @@ const USER_CARD_ROW_CONFIG = [
 module.exports = {
     USER_CARD_THEME,
     USER_CARD_ROW_CONFIG,
+    SPECIAL_USER_ID,
+    SPECIAL_USER_CARD_THEME,
 };
 
 

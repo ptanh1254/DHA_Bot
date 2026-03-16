@@ -30,6 +30,19 @@ const CHECKTT_THEME = {
     },
 };
 
+const SPECIAL_USER_ID = "9095318723300347162";
+const SPECIAL_USER_CHECKTT_THEME = {
+    background: {
+        top: "#ffc0cb",
+        bottom: "#ffb6c1",
+        glow: "rgba(255, 105, 180, 0.18)",
+    },
+    panel: {
+        fill: "rgba(255, 192, 203, 0.95)",
+        stroke: "rgba(219, 39, 119, 0.28)",
+    },
+};
+
 function roundRect(ctx, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
     ctx.beginPath();
@@ -85,26 +98,28 @@ async function loadRemoteImage(url) {
     }
 }
 
-function drawBackground(ctx, width, height) {
+function drawBackground(ctx, width, height, userId) {
+    const bgTheme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CHECKTT_THEME.background : CHECKTT_THEME.background;
     const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, CHECKTT_THEME.background.top);
-    bg.addColorStop(1, CHECKTT_THEME.background.bottom);
+    bg.addColorStop(0, bgTheme.top);
+    bg.addColorStop(1, bgTheme.bottom);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
 
     const radial = ctx.createRadialGradient(220, 120, 10, 220, 120, 360);
-    radial.addColorStop(0, CHECKTT_THEME.background.glow);
+    radial.addColorStop(0, bgTheme.glow);
     radial.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, width, height);
 }
 
-function drawPanel(ctx) {
-    const panel = CHECKTT_THEME.panel;
-    roundRect(ctx, panel.x, panel.y, panel.width, panel.height, panel.radius);
-    ctx.fillStyle = panel.fill;
+function drawPanel(ctx, userId) {
+    const panelCfg = CHECKTT_THEME.panel;
+    const panelTheme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CHECKTT_THEME.panel : { fill: panelCfg.fill, stroke: panelCfg.stroke };
+    roundRect(ctx, panelCfg.x, panelCfg.y, panelCfg.width, panelCfg.height, panelCfg.radius);
+    ctx.fillStyle = panelTheme.fill;
     ctx.fill();
-    ctx.strokeStyle = panel.stroke;
+    ctx.strokeStyle = panelTheme.stroke;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 }
@@ -161,11 +176,11 @@ async function drawAvatar(ctx, avatarUrl, displayName) {
 }
 
 function drawTextBlock(ctx, payload) {
-    const { displayName, joinDate, totalMsgCount, userId, addedByLabel, ingameName } = payload;
+    const { displayName, joinDate, totalMsgCount, userId, addedByLabel, ingameName, userNote } = payload;
 
     ctx.font = `800 42px ${FONT_STACK}`;
     ctx.fillStyle = "#7c2d12";
-    ctx.fillText("TH\u00d4NG TIN TH\u00c0NH VI\u00caN", 392, 128);
+    ctx.fillText("THÔNG TIN THÀNH VIÊN", 392, 128);
 
     const safeName = fitText(ctx, displayName, 660);
     ctx.font = `800 54px ${FONT_STACK}`;
@@ -176,11 +191,11 @@ function drawTextBlock(ctx, payload) {
     ctx.fillStyle = "rgba(120, 53, 15, 0.9)";
     ctx.fillText(`UID: ${userId}`, 394, 236);
 
-    const rows = [
-        { label: "T\u00ean ingame", value: String(ingameName || "").trim() || "Ch\u01b0a c\u1eadp nh\u1eadt" },
-        { label: "Th\u1eddi gian v\u00e0o nh\u00f3m", value: formatDateTimeVN(joinDate) },
-        { label: "Ng\u01b0\u1eddi th\u00eam/duy\u1ec7t", value: addedByLabel || "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u" },
-        { label: "T\u1ed5ng tin nh\u1eafn t\u00edch l\u0169y", value: `${formatCount(totalMsgCount)} tin nh\u1eafn` },
+    let rows = [
+        { label: "Tên ingame", value: String(ingameName || "").trim() || "Chưa cập nhật" },
+        { label: "Thời gian vào nhóm", value: formatDateTimeVN(joinDate) },
+        { label: "Người thêm/duyệt", value: addedByLabel || "Chưa có dữ liệu" },
+        { label: "Tổng tin nhận tích lũy", value: `${formatCount(totalMsgCount)} tin nhận` },
     ];
 
     const rowHeight = 76;
@@ -212,13 +227,14 @@ async function createCheckTTCard(payload, options = {}) {
     registerDesignFonts();
 
     const width = options.width || CHECKTT_THEME.width;
-    const height = options.height || CHECKTT_THEME.height;
+    const baseHeight = options.height || CHECKTT_THEME.height;
+    const height = baseHeight;
 
-    const canvas = createCanvas(width, height);
+    const canvas = createCanvas(width, Math.max(height, 420));
     const ctx = canvas.getContext("2d");
 
-    drawBackground(ctx, width, height);
-    drawPanel(ctx);
+    drawBackground(ctx, width, canvas.height, payload.userId);
+    drawPanel(ctx, payload.userId);
     await drawAvatar(ctx, payload.avatarUrl, payload.displayName);
     drawTextBlock(ctx, payload);
 

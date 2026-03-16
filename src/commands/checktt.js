@@ -1,6 +1,7 @@
 const fs = require("fs");
 
 const { createCheckTTCard } = require("../design/checktt/renderer");
+const { UserNote } = require("../db/userNoteModel");
 
 function getMentionedUserId(message) {
     const mentions = message?.data?.mentions;
@@ -147,6 +148,10 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
     const addedByLabel = formatAddedByLabel(aggregated?.addedByName, aggregated?.addedByUserId);
     const ingameName = String(aggregated?.ingameName || "").trim();
 
+    // Get user note
+    const userNoteRecord = await UserNote.findOne({ groupId: threadId, userId: targetUserId });
+    const userNote = userNoteRecord?.note || "";
+
     let outputPath = "";
     try {
         outputPath = await createCheckTTCard({
@@ -157,17 +162,37 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
             joinDate,
             addedByLabel,
             ingameName,
+            userNote,
         });
+
+        const messageLines = [
+            `${displayName}`,
+            `Ingame: ${ingameName || "Chưa cập nhật"}`,
+            `Vào nhóm: ${formatJoinDateVN(joinDate)}`,
+            `Người thêm/duyệt: ${addedByLabel}`,
+            `Tổng tin nhận tích lũy: ${formatCount(totalMsgCount)}`,
+        ];
+
+        if (userNote) {
+            let noteDisplay = `Ghi chú: ${userNote}`;
+            const noteParts = [];
+            
+            if (userNoteRecord?.createdByName && String(userNoteRecord.createdByName).trim()) {
+                noteParts.push(userNoteRecord.createdByName);
+            }
+            if (userNoteRecord?.updatedAt) {
+                noteParts.push(formatJoinDateVN(userNoteRecord.updatedAt));
+            }
+            
+            if (noteParts.length > 0) {
+                noteDisplay += ` (${noteParts.join(" - ")})`;
+            }
+            messageLines.push(noteDisplay);
+        }
 
         await api.sendMessage(
             {
-                msg: [
-                    `${displayName}`,
-                    `Ingame: ${ingameName || "Chưa cập nhật"}`,
-                    `V\u00e0o nh\u00f3m: ${formatJoinDateVN(joinDate)}`,
-                    `Ng\u01b0\u1eddi th\u00eam/duy\u1ec7t: ${addedByLabel}`,
-                    `T\u1ed5ng tin nh\u1eafn t\u00edch l\u0169y: ${formatCount(totalMsgCount)}`,
-                ].join("\n"),
+                msg: messageLines.join("\n"),
                 attachments: [outputPath],
             },
             threadId,

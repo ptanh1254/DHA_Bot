@@ -2,11 +2,11 @@ function buildHelpPart1(prefix = "!") {
     return [
         "📘 HƯỚNG DẪN LỆNH DHA BOT",
         "",
-        "⚡ LƯỚI ÝCHUNG:",
+        "⚡ LƯU Ý CHUNG:",
         "• Các chế độ on/off (hello, kick) áp dụng theo từng nhóm",
-        "• Lệnh cần tag: check, checktt, thongtin, kick, mute, unmute",
+        "• Lệnh cần tag: check, checktt, checkingame, thongtin, node, kick, mute, unmute",
         "• Mặc định: chủ nhóm/phó nhóm được dùng lệnh admin",
-        "• Người dùng phổ thông bị cảnh báo 5 lần = bị kick",
+        "• Người dùng phổ thông vi phạm 5 lần = bị kick",
     ].join("\n");
 }
 
@@ -74,8 +74,10 @@ function buildHelpPart7(prefix = "!") {
     return [
         "👤 6. NHÓM TRA CỨU THÀNH VIÊN",
         "",
-        `${prefix}checktt @user - Xem card thống kê chi tiết`,
+        `${prefix}checktt @user - Xem card thống kê chi tiết user`,
         `${prefix}check @user - Lệnh trêu vui (random %)`,
+        `${prefix}checkingame @user - Xem danh sách người chưa set ingame`,
+        `${prefix}node @user ghi chú - Lưu ghi chú cho user`,
         `${prefix}ingame <tên> - Lưu tên ingame của bạn`,
         `${prefix}xoaingame @user - Xóa ingame thành viên`,
         `${prefix}thongtin @user - Xem thông tin profile`,

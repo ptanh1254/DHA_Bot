@@ -3,7 +3,7 @@ const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
-const { USER_CARD_THEME } = require("./theme");
+const { USER_CARD_THEME, SPECIAL_USER_ID, SPECIAL_USER_CARD_THEME } = require("./theme");
 const { buildUserCardRows } = require("./formatters");
 
 function roundRect(ctx, x, y, width, height, radius) {
@@ -46,15 +46,20 @@ async function loadAvatarImage(url) {
     }
 }
 
-function drawBackground(ctx, width, height) {
+function drawBackground(ctx, width, height, userId) {
+    const theme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CARD_THEME : USER_CARD_THEME;
+    const bgGradient = theme.background.gradient;
+    const bgGlow = theme.background.glow;
+    const bgDots = theme.background.dots;
+
     const bg = ctx.createLinearGradient(0, 0, width, height);
-    for (const stop of USER_CARD_THEME.background.gradient) {
+    for (const stop of bgGradient) {
         bg.addColorStop(stop.stop, stop.color);
     }
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
 
-    for (const glow of USER_CARD_THEME.background.glow) {
+    for (const glow of bgGlow) {
         const radial = ctx.createRadialGradient(
             width * glow.x,
             height * glow.y,
@@ -70,31 +75,31 @@ function drawBackground(ctx, width, height) {
         ctx.fillRect(0, 0, width, height);
     }
 
-    const dots = USER_CARD_THEME.background.dots;
-    ctx.fillStyle = dots.color;
-    for (let y = dots.step / 2; y < height; y += dots.step) {
-        for (let x = dots.step / 2; x < width; x += dots.step) {
+    ctx.fillStyle = bgDots.color;
+    for (let y = bgDots.step / 2; y < height; y += bgDots.step) {
+        for (let x = bgDots.step / 2; x < width; x += bgDots.step) {
             ctx.beginPath();
-            ctx.arc(x, y, dots.size, 0, Math.PI * 2);
+            ctx.arc(x, y, bgDots.size, 0, Math.PI * 2);
             ctx.fill();
         }
     }
 }
 
-function drawContainer(ctx) {
+function drawContainer(ctx, userId) {
     const card = USER_CARD_THEME.card;
+    const cardTheme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CARD_THEME.card : { fill: card.fill, stroke: card.stroke };
 
     ctx.save();
     ctx.shadowColor = card.blurShadow;
     ctx.shadowBlur = 40;
     ctx.shadowOffsetY = 18;
     roundRect(ctx, card.x, card.y, card.width, card.height, card.radius);
-    ctx.fillStyle = card.fill;
+    ctx.fillStyle = cardTheme.fill;
     ctx.fill();
     ctx.restore();
 
     roundRect(ctx, card.x, card.y, card.width, card.height, card.radius);
-    ctx.strokeStyle = card.stroke;
+    ctx.strokeStyle = cardTheme.stroke;
     ctx.lineWidth = card.lineWidth;
     ctx.stroke();
 }
@@ -253,8 +258,9 @@ async function createUserInfoCard(profile, options = {}) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
-    drawBackground(ctx, width, height);
-    drawContainer(ctx);
+    const userId = String(profile.userId || profile.uid || "").trim();
+    drawBackground(ctx, width, height, userId);
+    drawContainer(ctx, userId);
     drawTitle(ctx);
     await drawAvatar(ctx, profile);
     drawName(ctx, profile);
