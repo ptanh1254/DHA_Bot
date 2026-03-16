@@ -30,6 +30,7 @@ function buildHelpPart3(prefix = "!") {
         `${prefix}kick @user - Kick người dùng được tag`,
         `${prefix}autokick - Xem trạng thái auto kick`,
         `${prefix}autokick on/off - Bật/tắt auto kick`,
+        `${prefix}autokick <uid> - Thêm UID vào danh sách auto kick`,
         `${prefix}autokicklist - Danh sách auto kick`,
         `${prefix}autokickremove <uid> - Gỡ UID khỏi auto kick`,
     ].join("\n");

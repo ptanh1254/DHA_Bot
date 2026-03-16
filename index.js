@@ -203,6 +203,7 @@ async function startBot() {
                     message,
                     threadId,
                     GroupSetting,
+                    KickHistory,
                     argsText,
                     prefix
                 ),

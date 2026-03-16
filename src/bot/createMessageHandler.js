@@ -664,8 +664,10 @@ function createMessageHandler({
                 const isPublicCommand = isIngame;
                 // Kick status view (không có args thì là public)
                 const isKickStatusOnly = isKick && kickArgs === "";
+                // AutoKick status/on/off (không thêm uid thì là public)
+                const isAutoKickStatusOnly = isAutoKick && (autoKickArgs === "" || autoKickArgs === "on" || autoKickArgs === "off");
                 
-                if (!isPublicCommand && !isKickStatusOnly) {
+                if (!isPublicCommand && !isKickStatusOnly && !isAutoKickStatusOnly) {
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
                     console.log(`[auth] command=${normalized}, isAdmin=${isAdmin}, isSuperAdmin=${isSuperAdminUser}, userId=${userId}`);
                     
