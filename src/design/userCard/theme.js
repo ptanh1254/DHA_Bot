@@ -1,6 +1,5 @@
 const { FONT_STACK } = require("../shared/registerFonts");
-
-const SPECIAL_USER_ID = "9095318723300347162";
+const { SPECIAL_USERS } = require("../specialUsersConfig");
 
 const USER_CARD_THEME = {
     size: {
@@ -107,7 +106,8 @@ const USER_CARD_THEME = {
     },
 };
 
-const SPECIAL_USER_CARD_THEME = {
+// Get first special user's userCard theme for fallback
+const SPECIAL_USER_CARD_THEME = Object.values(SPECIAL_USERS)[0]?.themes?.userCard || {
     background: {
         gradient: [
             { stop: 0, color: "#ffc0cb" },
@@ -142,7 +142,7 @@ const USER_CARD_ROW_CONFIG = [
 module.exports = {
     USER_CARD_THEME,
     USER_CARD_ROW_CONFIG,
-    SPECIAL_USER_ID,
+    SPECIAL_USERS,
     SPECIAL_USER_CARD_THEME,
 };
 

@@ -17,11 +17,28 @@ function formatDateTimeVN(value) {
     const d = new Date(seconds * 1000);
     if (Number.isNaN(d.getTime())) return "Ch\u01b0a c\u00f3";
 
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mo = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    });
+    const parts = formatter.formatToParts(d);
+    const map = Object.create(null);
+    for (const part of parts) {
+        if (part.type !== "literal") {
+            map[part.type] = part.value;
+        }
+    }
+    const hh = String(map.hour || "00");
+    const mm = String(map.minute || "00");
+    const dd = String(map.day || "00");
+    const mo = String(map.month || "00");
+    const yyyy = String(map.year || "");
     return `${hh}:${mm} ${dd}/${mo}/${yyyy}`;
 }
 

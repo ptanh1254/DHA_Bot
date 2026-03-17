@@ -3,6 +3,7 @@ const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
+const { getSpecialUserTheme } = require("../specialUsersConfig");
 
 const CHECK_THEME = {
     width: 1500,
@@ -26,8 +27,7 @@ const CHECK_THEME = {
     avatarBgColor: "#fff0f7",
 };
 
-const SPECIAL_USER_ID = "9095318723300347162";
-const SPECIAL_USER_THEME = {
+const SPECIAL_USER_THEME = Object.values(require("../specialUsersConfig").SPECIAL_USERS)[0]?.themes?.check || {
     backgroundGradient: [
         { stop: 0, color: "#ffc0cb" },
         { stop: 0.5, color: "#ffb6c1" },
@@ -176,7 +176,8 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
 }
 
 function drawBackground(ctx, width, height, userId) {
-    const theme = userId === SPECIAL_USER_ID ? SPECIAL_USER_THEME : CHECK_THEME;
+    const specialTheme = getSpecialUserTheme(userId, "check");
+    const theme = specialTheme || CHECK_THEME;
     const bg = ctx.createLinearGradient(0, 0, width, height);
     for (const stop of theme.backgroundGradient) {
         bg.addColorStop(stop.stop, stop.color);

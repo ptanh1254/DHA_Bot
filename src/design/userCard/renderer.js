@@ -3,8 +3,43 @@ const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
-const { USER_CARD_THEME, SPECIAL_USER_ID, SPECIAL_USER_CARD_THEME } = require("./theme");
+const { USER_CARD_THEME, SPECIAL_USERS, SPECIAL_USER_CARD_THEME } = require("./theme");
+const { getSpecialUserTheme } = require("../specialUsersConfig");
 const { buildUserCardRows } = require("./formatters");
+
+function getThemeForUser(userId, themeType) {
+    const specialTheme = getSpecialUserTheme(userId, themeType);
+    return specialTheme || USER_CARD_THEME[themeType];
+}
+
+function getMergedThemeForUser(userId) {
+    const specialTheme = getSpecialUserTheme(userId, "userCard");
+    if (!specialTheme) return USER_CARD_THEME;
+    
+    // Deep merge special theme with default theme
+    const merged = JSON.parse(JSON.stringify(USER_CARD_THEME));
+    
+    if (specialTheme.title) {
+        merged.title = { ...merged.title, ...specialTheme.title };
+    }
+    if (specialTheme.avatar?.placeholderText) {
+        merged.avatar.placeholderText = specialTheme.avatar.placeholderText;
+    }
+    if (specialTheme.name) {
+        merged.name = { ...merged.name, ...specialTheme.name };
+    }
+    if (specialTheme.userId) {
+        merged.userId = { ...merged.userId, ...specialTheme.userId };
+    }
+    if (specialTheme.rows) {
+        merged.rows = { ...merged.rows, ...specialTheme.rows };
+    }
+    if (specialTheme.footer) {
+        merged.footer = { ...merged.footer, ...specialTheme.footer };
+    }
+    
+    return merged;
+}
 
 function roundRect(ctx, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
@@ -33,6 +68,29 @@ function fitText(ctx, text, maxWidth) {
     return `${out}...`;
 }
 
+function wrapTextByWords(ctx, text, maxWidth) {
+    const words = String(text || "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (words.length === 0) return [""];
+
+    const lines = [];
+    let current = words[0];
+
+    for (let i = 1; i < words.length; i += 1) {
+        const next = `${current} ${words[i]}`;
+        if (ctx.measureText(next).width <= maxWidth) {
+            current = next;
+        } else {
+            lines.push(current);
+            current = words[i];
+        }
+    }
+    lines.push(current);
+    return lines;
+}
+
 async function loadAvatarImage(url) {
     if (!url || typeof url !== "string") return null;
 
@@ -47,7 +105,8 @@ async function loadAvatarImage(url) {
 }
 
 function drawBackground(ctx, width, height, userId) {
-    const theme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CARD_THEME : USER_CARD_THEME;
+    const specialTheme = getSpecialUserTheme(userId, "userCard");
+    const theme = specialTheme || USER_CARD_THEME;
     const bgGradient = theme.background.gradient;
     const bgGlow = theme.background.glow;
     const bgDots = theme.background.dots;
@@ -87,7 +146,8 @@ function drawBackground(ctx, width, height, userId) {
 
 function drawContainer(ctx, userId) {
     const card = USER_CARD_THEME.card;
-    const cardTheme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CARD_THEME.card : { fill: card.fill, stroke: card.stroke };
+    const specialCardTheme = getSpecialUserTheme(userId, "userCard");
+    const cardTheme = specialCardTheme?.card || { fill: card.fill, stroke: card.stroke };
 
     ctx.save();
     ctx.shadowColor = card.blurShadow;
@@ -104,9 +164,10 @@ function drawContainer(ctx, userId) {
     ctx.stroke();
 }
 
-function drawTitle(ctx) {
-    const title = USER_CARD_THEME.title;
-    const divider = USER_CARD_THEME.divider;
+function drawTitle(ctx, userId) {
+    const mergedTheme = getMergedThemeForUser(userId);
+    const title = mergedTheme.title;
+    const divider = mergedTheme.divider;
 
     ctx.font = title.titleFont;
     ctx.fillStyle = title.titleColor;
@@ -124,8 +185,9 @@ function drawTitle(ctx) {
     ctx.stroke();
 }
 
-async function drawAvatar(ctx, profile) {
-    const cfg = USER_CARD_THEME.avatar;
+async function drawAvatar(ctx, profile, userId) {
+    const mergedTheme = getMergedThemeForUser(userId);
+    const cfg = mergedTheme.avatar;
 
     ctx.save();
     ctx.shadowColor = cfg.shadow;
@@ -188,10 +250,11 @@ async function drawAvatar(ctx, profile) {
     ctx.stroke();
 }
 
-function drawName(ctx, profile) {
-    const nameCfg = USER_CARD_THEME.name;
-    const uidCfg = USER_CARD_THEME.userId;
-    const avatarX = USER_CARD_THEME.avatar.x;
+function drawName(ctx, profile, userId) {
+    const mergedTheme = getMergedThemeForUser(userId);
+    const nameCfg = mergedTheme.name;
+    const uidCfg = mergedTheme.userId;
+    const avatarX = mergedTheme.avatar.x;
 
     const displayName = String(
         profile.displayName || profile.zaloName || "Ng\u01b0\u1eddi d\u00f9ng"
@@ -199,22 +262,28 @@ function drawName(ctx, profile) {
 
     ctx.font = nameCfg.font;
     ctx.fillStyle = nameCfg.color;
-    const nameSafe = fitText(ctx, displayName, nameCfg.maxWidth);
-    const nameWidth = ctx.measureText(nameSafe).width;
-    ctx.fillText(nameSafe, avatarX - nameWidth / 2, nameCfg.y);
+    const nameLines = wrapTextByWords(ctx, displayName, nameCfg.maxWidth);
+    const maxNameLines = 2; // Allow up to 2 lines for name
+    let nameY = nameCfg.y;
+    for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
+        const nameWidth = ctx.measureText(nameLines[i]).width;
+        ctx.fillText(nameLines[i], avatarX - nameWidth / 2, nameY);
+        nameY += 48; // Line height for 42px font
+    }
 
-    const userId = String(profile.userId || profile.uid || "").trim();
-    if (userId) {
-        const uidText = `UID: ${userId}`;
+    const uid = String(profile.userId || profile.uid || "").trim();
+    if (uid) {
+        const uidText = `UID: ${uid}`;
         ctx.font = uidCfg.font;
         ctx.fillStyle = uidCfg.color;
         const uidWidth = ctx.measureText(uidText).width;
-        ctx.fillText(uidText, avatarX - uidWidth / 2, uidCfg.y);
+        ctx.fillText(uidText, avatarX - uidWidth / 2, uidCfg.y + (Math.max(0, nameLines.length - 1) * 48));
     }
 }
 
-function drawRows(ctx, profile) {
-    const cfg = USER_CARD_THEME.rows;
+function drawRows(ctx, profile, userId) {
+    const mergedTheme = getMergedThemeForUser(userId);
+    const cfg = mergedTheme.rows;
     const rows = buildUserCardRows(profile);
 
     let rowY = cfg.boxY;
@@ -231,17 +300,23 @@ function drawRows(ctx, profile) {
         ctx.fillText(row.label, cfg.boxX + 24, rowY + 41);
 
         ctx.font = cfg.valueFont;
-        ctx.fillStyle = row.color;
-        const valueSafe = fitText(ctx, String(row.value || "Không rõ"), cfg.valueMaxWidth);
-        const textWidth = ctx.measureText(valueSafe).width;
-        ctx.fillText(valueSafe, cfg.boxX + cfg.boxWidth - 24 - textWidth, rowY + 41);
+        ctx.fillStyle = cfg.valueColor || row.color;
+        const valueLines = wrapTextByWords(ctx, String(row.value || "Không rõ"), cfg.valueMaxWidth);
+        const maxValueLines = 2; // Allow up to 2 lines for value
+        let valueY = rowY + 41;
+        for (let i = 0; i < Math.min(valueLines.length, maxValueLines); i += 1) {
+            const textWidth = ctx.measureText(valueLines[i]).width;
+            ctx.fillText(valueLines[i], cfg.boxX + cfg.boxWidth - 24 - textWidth, valueY);
+            valueY += 28; // Line height for 24px font
+        }
 
         rowY += cfg.rowHeight + cfg.rowGap;
     }
 }
 
-function drawFooter(ctx) {
-    const footer = USER_CARD_THEME.footer;
+function drawFooter(ctx, userId) {
+    const mergedTheme = getMergedThemeForUser(userId);
+    const footer = mergedTheme.footer;
     ctx.font = footer.font;
     ctx.fillStyle = footer.color;
 
@@ -261,11 +336,11 @@ async function createUserInfoCard(profile, options = {}) {
     const userId = String(profile.userId || profile.uid || "").trim();
     drawBackground(ctx, width, height, userId);
     drawContainer(ctx, userId);
-    drawTitle(ctx);
-    await drawAvatar(ctx, profile);
-    drawName(ctx, profile);
-    drawRows(ctx, profile);
-    drawFooter(ctx);
+    drawTitle(ctx, userId);
+    await drawAvatar(ctx, profile, userId);
+    drawName(ctx, profile, userId);
+    drawRows(ctx, profile, userId);
+    drawFooter(ctx, userId);
 
     const tempDir = path.resolve(options.tempDir || "tmp");
     if (!fs.existsSync(tempDir)) {

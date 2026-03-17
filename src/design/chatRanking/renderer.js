@@ -4,8 +4,7 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const { formatCount } = require("./template");
 const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
-
-const SPECIAL_USER_ID = "9095318723300347162";
+const { getSpecialUserTheme, isSpecialUser } = require("../specialUsersConfig");
 
 const CHAT_RANKING_IMAGE_THEME = {
     width: 1320,
@@ -84,6 +83,29 @@ function fitText(ctx, text, maxWidth) {
     }
 
     return `${out}...`;
+}
+
+function wrapTextByWords(ctx, text, maxWidth) {
+    const words = String(text || "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (words.length === 0) return [""];
+
+    const lines = [];
+    let current = words[0];
+
+    for (let i = 1; i < words.length; i += 1) {
+        const next = `${current} ${words[i]}`;
+        if (ctx.measureText(next).width <= maxWidth) {
+            current = next;
+        } else {
+            lines.push(current);
+            current = words[i];
+        }
+    }
+    lines.push(current);
+    return lines;
 }
 
 function drawBackground(ctx, width, height) {
@@ -165,16 +187,19 @@ function drawHeader(ctx, meta, width) {
 }
 
 function drawSpecialUserIndicator(ctx, row, width) {
-    if (!row || String(row.userId || "").trim() !== SPECIAL_USER_ID) {
+    if (!row || !isSpecialUser(row.userId)) {
         return;
     }
 
+    const specialTheme = getSpecialUserTheme(row.userId, "chatRanking");
     const x = 70;
     const y = 32;
-    const text = `♦ ${row.displayName}`;
+    const indicator = specialTheme?.indicator || "♦";
+    const text = `${indicator} ${row.displayName}`;
+    const color = specialTheme?.color || "#ff69b4";
 
     ctx.font = `700 28px ${FONT_STACK}`;
-    ctx.fillStyle = "#ff69b4";
+    ctx.fillStyle = color;
     ctx.fillText(text, x, y);
 }
 
@@ -206,7 +231,9 @@ function drawAvatarCircle(ctx, image, x, y, radius, fallbackText) {
 
 function drawRow(ctx, row, y, width, avatarImage) {
     const cfg = CHAT_RANKING_IMAGE_THEME.row;
-    const isSpecialUser = String(row.userId || "").trim() === SPECIAL_USER_ID;
+    const isSpecial = isSpecialUser(row.userId);
+    const specialTheme = getSpecialUserTheme(row.userId, "chatRanking");
+    const specialColor = specialTheme?.color || "#ff69b4";
 
     const left = CHAT_RANKING_IMAGE_THEME.contentPadding + 32;
     const right = width - (CHAT_RANKING_IMAGE_THEME.contentPadding + 32);
@@ -248,12 +275,17 @@ function drawRow(ctx, row, y, width, avatarImage) {
     const nameMaxWidth = Math.max(180, countBadgeX - nameX - 26);
 
     ctx.font = cfg.nameFont;
-    ctx.fillStyle = isSpecialUser ? "#ff69b4" : cfg.nameColor;
-    const nameText = fitText(ctx, row.displayName || `UID ${row.userId}`, nameMaxWidth);
-    ctx.fillText(nameText, nameX, y + 44);
+    ctx.fillStyle = isSpecial ? specialColor : cfg.nameColor;
+    const nameLines = wrapTextByWords(ctx, row.displayName || `UID ${row.userId}`, nameMaxWidth);
+    const maxNameLines = 2; // Allow up to 2 lines for name
+    let nameY = y + 44;
+    for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
+        ctx.fillText(nameLines[i], nameX, nameY);
+        nameY += 32; // Line height for 29px font
+    }
 
     ctx.font = cfg.userFont;
-    ctx.fillStyle = isSpecialUser ? "#ff69b4" : cfg.userColor;
+    ctx.fillStyle = isSpecial ? specialColor : cfg.userColor;
     ctx.fillText(`UID: ${row.userId}`, nameX, y + 73);
 }
 

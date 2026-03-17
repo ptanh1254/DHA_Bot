@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
+const { getSpecialUserTheme } = require("../specialUsersConfig");
 
 const CHECKTT_THEME = {
     width: 1180,
@@ -30,8 +31,7 @@ const CHECKTT_THEME = {
     },
 };
 
-const SPECIAL_USER_ID = "9095318723300347162";
-const SPECIAL_USER_CHECKTT_THEME = {
+const SPECIAL_USER_CHECKTT_THEME = Object.values(require("../specialUsersConfig").SPECIAL_USERS)[0]?.themes?.checktt || {
     background: {
         top: "#ffc0cb",
         bottom: "#ffb6c1",
@@ -58,15 +58,27 @@ function roundRect(ctx, x, y, width, height, radius) {
     ctx.closePath();
 }
 
-function fitText(ctx, text, maxWidth) {
-    const input = String(text || "");
-    if (ctx.measureText(input).width <= maxWidth) return input;
+function wrapTextByWords(ctx, text, maxWidth) {
+    const words = String(text || "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    if (words.length === 0) return [""];
 
-    let out = input;
-    while (out.length > 0 && ctx.measureText(`${out}...`).width > maxWidth) {
-        out = out.slice(0, -1);
+    const lines = [];
+    let current = words[0];
+
+    for (let i = 1; i < words.length; i += 1) {
+        const next = `${current} ${words[i]}`;
+        if (ctx.measureText(next).width <= maxWidth) {
+            current = next;
+        } else {
+            lines.push(current);
+            current = words[i];
+        }
     }
-    return `${out}...`;
+    lines.push(current);
+    return lines;
 }
 
 function formatCount(num) {
@@ -74,15 +86,32 @@ function formatCount(num) {
 }
 
 function formatDateTimeVN(dateLike) {
-    if (!dateLike) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
+    if (!dateLike) return "Chưa có dữ liệu";
     const date = new Date(dateLike);
-    if (Number.isNaN(date.getTime())) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
+    if (Number.isNaN(date.getTime())) return "Chưa có dữ liệu";
 
-    const hh = String(date.getHours()).padStart(2, "0");
-    const mm = String(date.getMinutes()).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    const mo = String(date.getMonth() + 1).padStart(2, "0");
-    const yyyy = date.getFullYear();
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    });
+    const parts = formatter.formatToParts(date);
+    const map = Object.create(null);
+    for (const part of parts) {
+        if (part.type !== "literal") {
+            map[part.type] = part.value;
+        }
+    }
+    const hh = String(map.hour || "00");
+    const mm = String(map.minute || "00");
+    const dd = String(map.day || "00");
+    const mo = String(map.month || "00");
+    const yyyy = String(map.year || "");
     return `${hh}:${mm} ${dd}/${mo}/${yyyy}`;
 }
 
@@ -98,8 +127,30 @@ async function loadRemoteImage(url) {
     }
 }
 
+function getMergedCheckttThemeForUser(userId) {
+    const specialTheme = getSpecialUserTheme(userId, "checktt");
+    if (!specialTheme) {
+        return {
+            titleColor: "#7c2d12",
+            displayNameColor: "#451a03",
+            uidColor: "rgba(120, 53, 15, 0.9)",
+            rowLabelColor: "rgba(120, 53, 15, 0.95)",
+            rowValueColor: "#7c2d12",
+        };
+    }
+
+    return {
+        titleColor: specialTheme.title || "#7c2d12",
+        displayNameColor: specialTheme.displayName || "#451a03",
+        uidColor: specialTheme.uid || "rgba(120, 53, 15, 0.9)",
+        rowLabelColor: specialTheme.rowLabel || "rgba(120, 53, 15, 0.95)",
+        rowValueColor: specialTheme.rowValue || "#7c2d12",
+    };
+}
+
 function drawBackground(ctx, width, height, userId) {
-    const bgTheme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CHECKTT_THEME.background : CHECKTT_THEME.background;
+    const specialBg = getSpecialUserTheme(userId, "checktt");
+    const bgTheme = specialBg?.background || CHECKTT_THEME.background;
     const bg = ctx.createLinearGradient(0, 0, 0, height);
     bg.addColorStop(0, bgTheme.top);
     bg.addColorStop(1, bgTheme.bottom);
@@ -115,8 +166,8 @@ function drawBackground(ctx, width, height, userId) {
 
 function drawPanel(ctx, userId) {
     const panelCfg = CHECKTT_THEME.panel;
-    const panelTheme = userId === SPECIAL_USER_ID ? SPECIAL_USER_CHECKTT_THEME.panel : { fill: panelCfg.fill, stroke: panelCfg.stroke };
-    roundRect(ctx, panelCfg.x, panelCfg.y, panelCfg.width, panelCfg.height, panelCfg.radius);
+    const specialPanel = getSpecialUserTheme(userId, "checktt");
+    const panelTheme = specialPanel?.panel || { fill: panelCfg.fill, stroke: panelCfg.stroke };
     ctx.fillStyle = panelTheme.fill;
     ctx.fill();
     ctx.strokeStyle = panelTheme.stroke;
@@ -175,21 +226,28 @@ async function drawAvatar(ctx, avatarUrl, displayName) {
     ctx.restore();
 }
 
-function drawTextBlock(ctx, payload) {
-    const { displayName, joinDate, totalMsgCount, userId, addedByLabel, ingameName, userNote } = payload;
+function drawTextBlock(ctx, payload, userId) {
+    const { displayName, joinDate, totalMsgCount, addedByLabel, ingameName } = payload;
+    const colors = getMergedCheckttThemeForUser(userId);
 
     ctx.font = `800 42px ${FONT_STACK}`;
-    ctx.fillStyle = "#7c2d12";
+    ctx.fillStyle = colors.titleColor;
     ctx.fillText("THÔNG TIN THÀNH VIÊN", 392, 128);
 
-    const safeName = fitText(ctx, displayName, 660);
+    // Draw displayName with wrapping
     ctx.font = `800 54px ${FONT_STACK}`;
-    ctx.fillStyle = "#451a03";
-    ctx.fillText(safeName, 392, 204);
+    ctx.fillStyle = colors.displayNameColor;
+    const nameLines = wrapTextByWords(ctx, displayName, 660);
+    const maxNameLines = 2; // Allow up to 2 lines for name
+    let nameY = 204;
+    for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
+        ctx.fillText(nameLines[i], 392, nameY);
+        nameY += 60; // Line height for 54px font
+    }
 
     ctx.font = `600 20px ${FONT_STACK}`;
-    ctx.fillStyle = "rgba(120, 53, 15, 0.9)";
-    ctx.fillText(`UID: ${userId}`, 394, 236);
+    ctx.fillStyle = colors.uidColor;
+    ctx.fillText(`UID: ${payload.userId}`, 394, 236 + (Math.max(0, nameLines.length - 1) * 60));
 
     let rows = [
         { label: "Tên ingame", value: String(ingameName || "").trim() || "Chưa cập nhật" },
@@ -200,7 +258,7 @@ function drawTextBlock(ctx, payload) {
 
     const rowHeight = 76;
     const rowGap = 18;
-    let y = 286;
+    let y = 286 + (Math.max(0, nameLines.length - 1) * 60);
 
     for (const row of rows) {
         roundRect(ctx, 392, y - 34, 678, rowHeight, 15);
@@ -211,13 +269,18 @@ function drawTextBlock(ctx, payload) {
         ctx.stroke();
 
         ctx.font = `600 22px ${FONT_STACK}`;
-        ctx.fillStyle = "rgba(120, 53, 15, 0.95)";
+        ctx.fillStyle = colors.rowLabelColor;
         ctx.fillText(row.label, 420, y - 3);
 
         ctx.font = `700 29px ${FONT_STACK}`;
-        ctx.fillStyle = "#7c2d12";
-        const valueSafe = fitText(ctx, row.value, 620);
-        ctx.fillText(valueSafe, 420, y + 26);
+        ctx.fillStyle = colors.rowValueColor;
+        const valueLines = wrapTextByWords(ctx, row.value, 620);
+        const maxValueLines = 2;
+        let valueY = y + 26;
+        for (let i = 0; i < Math.min(valueLines.length, maxValueLines); i += 1) {
+            ctx.fillText(valueLines[i], 420, valueY);
+            valueY += 35; // Line height for 29px font
+        }
 
         y += rowHeight + rowGap;
     }
@@ -236,7 +299,7 @@ async function createCheckTTCard(payload, options = {}) {
     drawBackground(ctx, width, canvas.height, payload.userId);
     drawPanel(ctx, payload.userId);
     await drawAvatar(ctx, payload.avatarUrl, payload.displayName);
-    drawTextBlock(ctx, payload);
+    drawTextBlock(ctx, payload, payload.userId);
 
     const tempDir = path.resolve(options.tempDir || "tmp");
     if (!fs.existsSync(tempDir)) {

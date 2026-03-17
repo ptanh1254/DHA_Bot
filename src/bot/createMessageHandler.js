@@ -462,15 +462,18 @@ function createMessageHandler({
             const normalized = text.toLowerCase();
             const hasText = normalized.length > 0;
 
-            // Store message for recall event handling
-            if (messageStore && hasText) {
-                messageStore.storeMessage(threadId, {
-                    globalMsgId: message.data?.msgId,
-                    cliMsgId: message.data?.cliMsgId,
-                    content: text,
-                    uidFrom: userId,
-                    dName: String(message.data?.dName || "").trim(),
-                });
+            // Store message for recall event handling - only if preventRecallEnabled is true
+            if (messageStore && hasText && GroupSetting) {
+                const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
+                if (setting?.preventRecallEnabled === true) {
+                    messageStore.storeMessage(threadId, {
+                        globalMsgId: message.data?.msgId,
+                        cliMsgId: message.data?.cliMsgId,
+                        content: text,
+                        uidFrom: userId,
+                        dName: String(message.data?.dName || "").trim(),
+                    });
+                }
             }
 
             const normalizedSenderId = normalizeId(userId);
