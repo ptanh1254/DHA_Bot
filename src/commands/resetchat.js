@@ -1,7 +1,8 @@
 const { formatCount } = require("../design/chatRanking/template");
+const { getMessageType } = require("../utils/commonHelpers");
 
 async function handleResetChatCommand(api, message, threadId, User) {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const result = await User.updateMany({ groupId: threadId }, { $set: { msgCount: 0 } });
     const affected = result?.matchedCount ?? result?.modifiedCount ?? 0;
     await api.sendMessage(

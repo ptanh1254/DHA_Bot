@@ -1,40 +1,7 @@
 const fs = require("fs");
 
 const { createCheckImage } = require("../design/check/renderer");
-
-function getMentionedUserId(message) {
-    const mentions = message?.data?.mentions;
-    if (!Array.isArray(mentions) || mentions.length === 0) return "";
-    const uid = mentions[0]?.uid;
-    return uid ? String(uid).trim() : "";
-}
-
-function pickDisplayName(profile, fallbackUserId) {
-    const candidates = [
-        profile?.displayName,
-        profile?.dName,
-        profile?.zaloName,
-        profile?.username,
-    ];
-
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-
-    return `UID ${fallbackUserId}`;
-}
-
-function pickAvatarUrl(profile) {
-    const candidates = [profile?.avatar, profile?.avatar_120, profile?.avatar_240, profile?.avatar_25];
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-    return "";
-}
+const { getMentionedUserId, pickDisplayName, pickAvatarUrl, getMessageType } = require("../utils/commonHelpers");
 
 function normalizeText(value) {
     return String(value || "")
@@ -309,12 +276,12 @@ function randomPercent() {
 }
 
 async function handleCheckCommand(api, message, threadId, prefix = "!") {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const targetUserId = getMentionedUserId(message);
     if (!targetUserId) {
         await api.sendMessage(
             {
-                msg: `B\u1ea1n h\u00e3y tag 1 ng\u01b0\u1eddi d\u00f9ng. V\u00ed d\u1ee5: ${prefix}check @TenNguoiDung`,
+                msg: `Bạn hãy tag 1 người dùng. Ví dụ: ${prefix}check @TenNguoiDung`,
             },
             threadId,
             messageType

@@ -58,7 +58,7 @@ const SPECIAL_USERS = {
             },
         },
     },
-    // UID mới - Theme đỏ nâu phối đen (821616 + 1c1a1a)
+    
     "2370937689986813380": {
         name: "Special User 2",
         colors: {
@@ -138,7 +138,22 @@ const SPECIAL_USERS = {
             },
         },
     },
-    
+    "7789551180391709753": {
+        themes: {
+            chatRanking: {
+                indicator: "★",
+                color: "#f39200",
+            }
+        }
+    },
+    "8073429320276439081": {
+        themes: {
+            chatRanking: {
+                indicator: "★",
+                color: "#ff0303",
+            }
+        }
+    },
 };
 
 /**

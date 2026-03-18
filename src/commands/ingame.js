@@ -1,3 +1,5 @@
+const { getMessageType } = require("../utils/commonHelpers");
+
 function normalizeIngameName(input) {
     return String(input || "")
         .replace(/\s+/g, " ")
@@ -5,7 +7,7 @@ function normalizeIngameName(input) {
 }
 
 async function handleIngameCommand(api, message, threadId, User, argsText, prefix = "!") {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const rawName = normalizeIngameName(argsText);
     if (!rawName) {
         await api.sendMessage(

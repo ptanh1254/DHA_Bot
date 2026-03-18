@@ -3,6 +3,9 @@ const fs = require("fs");
 const { createWelcomeImage } = require("../design/welcome/renderer");
 const { createKickEventImage, createLeaveEventImage } = require("../design/kick/renderer");
 
+const LEAVE_AUTOKICK_ACTOR_ID = "__LEAVE_EVENT__";
+const LEAVE_AUTOKICK_ACTOR_NAME = "Tự rời nhóm";
+
 function normalizeUserId(rawId) {
     const value = String(rawId || "").trim();
     if (!value) return "";
@@ -323,12 +326,22 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
             history?.firstKickedByName || history?.lastKickedByName,
             "Người bí ẩn"
         );
+        const isLeaveMarker = [
+            history?.firstKickedByUserId,
+            history?.lastKickedByUserId,
+        ].some((value) => String(value || "").trim() === LEAVE_AUTOKICK_ACTOR_ID);
+        const title = isLeaveMarker
+            ? `🚫 ${toSafeName(memberProfile?.displayName, "Thành viên")} đã từng rời nhóm và vừa bị auto kick khi vào lại.`
+            : `🚫 ${toSafeName(memberProfile?.displayName, "Thành viên")} đã từng bị kick và vừa bị auto kick.`;
+        const reasonLine = isLeaveMarker
+            ? "Người này đã tự rời nhóm trước đó."
+            : `Người này đã từng bị kick bởi: ${kickedBy}`;
 
         await api.sendMessage(
             {
                 msg: [
-                    `🚫 ${toSafeName(memberProfile?.displayName, "Thành viên")} đã từng bị kick và vừa bị auto kick.`,
-                    `Người này đã từng bị kick bởi: ${kickedBy}`,
+                    title,
+                    reasonLine,
                     `Tên cũ: ${oldName}`,
                 ].join("\n"),
             },
@@ -587,7 +600,16 @@ function createGroupEventHandler({
                 members.map((member) => fetchMemberProfile(api, member.userId, member))
             );
 
-            if (type === "remove_member") {
+            if (type === "leave") {
+                for (const member of memberProfiles) {
+                    actorOverrideByUserId.set(member.userId, {
+                        actorUserId: LEAVE_AUTOKICK_ACTOR_ID,
+                        actorName: LEAVE_AUTOKICK_ACTOR_NAME,
+                    });
+                }
+            }
+
+            if (type === "remove_member" || type === "leave") {
                 await persistKickHistory(
                     KickHistory,
                     threadId,
@@ -627,4 +649,3 @@ function createGroupEventHandler({
 module.exports = {
     createGroupEventHandler,
 };
-

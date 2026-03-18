@@ -1,17 +1,10 @@
 const fs = require("fs");
 
 const { createUserInfoCard } = require("../design/userCard/renderer");
-
-function getMentionedUserId(message) {
-    const mentions = message?.data?.mentions;
-    if (!Array.isArray(mentions) || mentions.length === 0) return null;
-
-    const uid = mentions[0]?.uid;
-    return uid ? String(uid) : null;
-}
+const { getMentionedUserId, getMessageType } = require("../utils/commonHelpers");
 
 async function handleThongTinCommand(api, message, threadId) {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const mentionedUserId = getMentionedUserId(message);
 
     if (!mentionedUserId) {

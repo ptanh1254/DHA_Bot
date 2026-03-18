@@ -84,6 +84,7 @@ async function resolveMemberMeta(api, threadId, rows, User, seedMetaMap = new Ma
     const metaMap = new Map(seedMetaMap);
     const missingIdSet = new Set();
 
+    // Only collect IDs that are REALLY missing (not in seedMetaMap with both displayName + avatarUrl)
     for (const row of rows) {
         const uid = String(row.userId);
         const rowDisplayName = pickDisplayName(row);
@@ -97,38 +98,70 @@ async function resolveMemberMeta(api, threadId, rows, User, seedMetaMap = new Ma
         }
 
         const current = metaMap.get(uid) || {};
+        // Skip if already fully resolved in seedMetaMap (from enrichGroupMemberMeta)
         if (!current.displayName || !current.avatarUrl) {
             missingIdSet.add(uid);
         }
     }
 
-    for (const chunk of chunkArray([...missingIdSet], 20)) {
+    if (missingIdSet.size === 0) return metaMap;
+    
+    const missingIds = [...missingIdSet];
+    const chunkSize = 50;  // Increased from 20 - getUserInfo supports larger arrays
+    const chunks = chunkArray(missingIds, chunkSize);
+    const allUpdates = [];
+
+    // Run API calls in parallel (5 chunks at a time for better throughput)
+    for (let i = 0; i < chunks.length; i += 5) {
+        const batchPromises = [];
+        
+        for (let j = 0; j < 5 && i + j < chunks.length; j++) {
+            batchPromises.push(
+                (async () => {
+                    try {
+                        const chunk = chunks[i + j];
+                        const info = await api.getUserInfo(chunk);
+                        const changedProfiles = info?.changed_profiles || {};
+                        const updates = [];
+
+                        for (const uid of chunk) {
+                            const profile = changedProfiles[uid];
+                            if (!profile) continue;
+
+                            upsertMemberMeta(metaMap, uid, profile);
+                            const latest = metaMap.get(uid);
+                            if (latest?.displayName) {
+                                updates.push({
+                                    updateOne: {
+                                        filter: { groupId: threadId, userId: uid },
+                                        update: { $set: { displayName: latest.displayName } },
+                                    },
+                                });
+                            }
+                        }
+                        
+                        return updates;
+                    } catch (error) {
+                        console.error("Lỗi lấy thông tin người dùng cho xếp hạng:", error);
+                        return [];
+                    }
+                })()
+            );
+        }
+
+        const batchResults = await Promise.all(batchPromises);
+        for (const updates of batchResults) {
+            allUpdates.push(...updates);
+        }
+    }
+
+    // Batch all DB updates
+    if (allUpdates.length > 0) {
         try {
-            const info = await api.getUserInfo(chunk);
-            const changedProfiles = info?.changed_profiles || {};
-            const updates = [];
-
-            for (const uid of chunk) {
-                const profile = changedProfiles[uid];
-                if (!profile) continue;
-
-                upsertMemberMeta(metaMap, uid, profile);
-                const latest = metaMap.get(uid);
-                if (latest?.displayName) {
-                    updates.push({
-                        updateOne: {
-                            filter: { groupId: threadId, userId: uid },
-                            update: { $set: { displayName: latest.displayName } },
-                        },
-                    });
-                }
-            }
-
-            if (updates.length > 0) {
-                await User.bulkWrite(updates, { ordered: false });
-            }
+            const chunks = chunkArray(allUpdates, 500);
+            await Promise.all(chunks.map(chunk => User.bulkWrite(chunk, { ordered: false })));
         } catch (error) {
-            console.error("Lỗi lấy thông tin người dùng cho xếp hạng:", error);
+            console.error("Lỗi cập nhật displayName trong DB:", error);
         }
     }
 
@@ -145,23 +178,45 @@ async function loadMembersFromGroupLink(api, threadId, memberIdSet, metaMap, exp
         const link = detail?.link;
         if (!link) return;
 
-        let page = 1;
-        let hasMore = true;
+        // Load initial page to get hasMoreMember info
+        const firstPageInfo = await api.getGroupLinkInfo({ link, memberPage: 1 });
+        const hasMore = Number(firstPageInfo?.hasMoreMember) === 1;
+        
+        // Process first page
+        const firstPageMems = Array.isArray(firstPageInfo?.currentMems) ? firstPageInfo.currentMems : [];
+        for (const member of firstPageMems) {
+            const uid = normalizeMemberId(member?.id);
+            if (!uid) continue;
+            memberIdSet.add(uid);
+            upsertMemberMeta(metaMap, uid, member);
+        }
 
-        while (hasMore && page <= 200 && memberIdSet.size < expectedTotalMembers) {
-            const info = await api.getGroupLinkInfo({ link, memberPage: page });
-            const currentMems = Array.isArray(info?.currentMems) ? info.currentMems : [];
+        if (!hasMore || memberIdSet.size >= expectedTotalMembers) return;
 
-            for (const member of currentMems) {
-                const uid = normalizeMemberId(member?.id);
-                if (!uid) continue;
+        // Load remaining pages in parallel (3 pages at a time)
+        const remainingPages = [];
+        for (let page = 2; page <= 200 && memberIdSet.size < expectedTotalMembers; page += 3) {
+            remainingPages.push(
+                Promise.all([
+                    api.getGroupLinkInfo({ link, memberPage: page }).catch(() => ({ currentMems: [] })),
+                    page + 1 <= 200 ? api.getGroupLinkInfo({ link, memberPage: page + 1 }).catch(() => ({ currentMems: [] })) : Promise.resolve({ currentMems: [] }),
+                    page + 2 <= 200 ? api.getGroupLinkInfo({ link, memberPage: page + 2 }).catch(() => ({ currentMems: [] })) : Promise.resolve({ currentMems: [] }),
+                ])
+            );
+        }
 
-                memberIdSet.add(uid);
-                upsertMemberMeta(metaMap, uid, member);
+        const results = await Promise.all(remainingPages);
+        for (const pageResults of results) {
+            for (const info of pageResults) {
+                if (!info) continue;
+                const currentMems = Array.isArray(info.currentMems) ? info.currentMems : [];
+                for (const member of currentMems) {
+                    const uid = normalizeMemberId(member?.id);
+                    if (!uid) continue;
+                    memberIdSet.add(uid);
+                    upsertMemberMeta(metaMap, uid, member);
+                }
             }
-
-            hasMore = Number(info?.hasMoreMember) === 1;
-            page += 1;
         }
     } catch (error) {
         console.error("Lỗi fallback lấy thành viên qua group link:", error);
@@ -239,20 +294,32 @@ async function enrichGroupMemberMeta(api, memberIds, metaMap) {
 
     if (unresolvedIds.length === 0) return;
 
-    for (const chunk of chunkArray(unresolvedIds, 50)) {
-        try {
-            const memberInfo = await api.getGroupMembersInfo(chunk);
-            const profiles = memberInfo?.profiles || {};
-
-            for (const [rawId, profile] of Object.entries(profiles)) {
-                const uid = normalizeMemberId(profile?.id || rawId);
-                if (!uid) continue;
-
-                upsertMemberMeta(metaMap, uid, profile);
-            }
-        } catch (error) {
-            console.error("Lỗi lấy profile thành viên nhóm:", error);
+    // Run chunks in parallel (3 chunks at a time, larger chunk size = fewer API calls)
+    const chunkSize = 100;  // Increased from 50 - no limit in ZCA-JS docs
+    const chunks = chunkArray(unresolvedIds, chunkSize);
+    
+    for (let i = 0; i < chunks.length; i += 3) {
+        const batchPromises = [];
+        
+        for (let j = 0; j < 3 && i + j < chunks.length; j++) {
+            batchPromises.push(
+                (async () => {
+                    try {
+                        const memberInfo = await api.getGroupMembersInfo(chunks[i + j]);
+                        const profiles = memberInfo?.profiles || {};
+                        for (const [rawId, profile] of Object.entries(profiles)) {
+                            const uid = normalizeMemberId(profile?.id || rawId);
+                            if (!uid) continue;
+                            upsertMemberMeta(metaMap, uid, profile);
+                        }
+                    } catch (error) {
+                        console.error(`Lỗi lấy profile thành viên nhóm (batch ${j + 1}):`, error);
+                    }
+                })()
+            );
         }
+
+        await Promise.all(batchPromises);
     }
 }
 
@@ -422,8 +489,12 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
     const botUserId = String(options?.botUserId || "");
 
     const { memberIds, metaMap, expectedTotalMembers } = await loadGroupMembers(api, threadId);
-    await enrichGroupMemberMeta(api, memberIds, metaMap);
-    await syncMembersToDatabase(User, threadId, memberIds, metaMap);
+    
+    // Run enrichment and DB sync in parallel (they're independent)
+    await Promise.all([
+        enrichGroupMemberMeta(api, memberIds, metaMap),
+        syncMembersToDatabase(User, threadId, memberIds, metaMap),
+    ]);
 
     const query = { groupId: threadId };
     if (memberIds.length > 0) {
@@ -476,6 +547,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
         };
     });
 
+    const totalMsgCount = ranking.reduce((sum, user) => sum + (Number(user.msgCount) || 0), 0);
     const pageSize = 10;
     const totalPages = Math.ceil(ranking.length / pageSize);
     const hasBotInMemberList =
@@ -489,18 +561,52 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
     const outputPaths = [];
 
     try {
+        const pageData = [];
         for (let i = 0; i < ranking.length; i += pageSize) {
             const pageRows = ranking.slice(i, i + pageSize);
             const page = Math.floor(i / pageSize) + 1;
-            const outputPath = await createChatRankingImage(pageRows, {
+            pageData.push({
+                pageRows,
                 page,
                 totalPages,
                 totalMembers,
+                totalMsgCount,
                 rankingTitle: rankingMeta.rankingTitle,
                 periodLabel: rankingMeta.periodLabel,
                 fileName: `xephang-${threadId}-${page}-${Date.now()}.png`,
             });
-            outputPaths.push(outputPath);
+        }
+
+        // Generate images in parallel (2 at a time to control resource usage)
+        for (let i = 0; i < pageData.length; i += 2) {
+            const batchPromises = [
+                createChatRankingImage(pageData[i].pageRows, {
+                    page: pageData[i].page,
+                    totalPages: pageData[i].totalPages,
+                    totalMembers: pageData[i].totalMembers,
+                    totalMsgCount: pageData[i].totalMsgCount,
+                    rankingTitle: pageData[i].rankingTitle,
+                    periodLabel: pageData[i].periodLabel,
+                    fileName: pageData[i].fileName,
+                })
+            ];
+
+            if (i + 1 < pageData.length) {
+                batchPromises.push(
+                    createChatRankingImage(pageData[i + 1].pageRows, {
+                        page: pageData[i + 1].page,
+                        totalPages: pageData[i + 1].totalPages,
+                        totalMembers: pageData[i + 1].totalMembers,
+                        totalMsgCount: pageData[i + 1].totalMsgCount,
+                        rankingTitle: pageData[i + 1].rankingTitle,
+                        periodLabel: pageData[i + 1].periodLabel,
+                        fileName: pageData[i + 1].fileName,
+                    })
+                );
+            }
+
+            const batchResults = await Promise.all(batchPromises);
+            outputPaths.push(...batchResults);
         }
 
         await api.sendMessage(

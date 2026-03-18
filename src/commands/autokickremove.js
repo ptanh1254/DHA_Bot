@@ -1,15 +1,4 @@
-﻿function normalizeId(rawId) {
-    if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_0$/, "").trim();
-}
-
-function parseUidArg(rawArgs) {
-    const value = String(rawArgs || "").trim();
-    if (!value) return "";
-
-    const firstToken = value.split(/\s+/)[0];
-    return normalizeId(firstToken);
-}
+﻿const { parseUidArg, getMessageType, sendMessage, buildErrorMessage } = require("../utils/commonHelpers");
 
 async function handleAutoKickRemoveCommand(
     api,
@@ -19,25 +8,15 @@ async function handleAutoKickRemoveCommand(
     argsText,
     prefix = "!"
 ) {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     if (!KickHistory) {
-        await api.sendMessage(
-            { msg: "Chưa khởi tạo được dữ liệu autokick." },
-            threadId,
-            messageType
-        );
+        await sendMessage(api, { msg: "Chưa khởi tạo được dữ liệu autokick." }, threadId, messageType);
         return;
     }
 
     const targetUid = parseUidArg(argsText);
     if (!targetUid) {
-        await api.sendMessage(
-            {
-                msg: `Nhập UID cần gỡ autokick. Ví dụ: ${prefix}autokickremove 123456789`,
-            },
-            threadId,
-            messageType
-        );
+        await sendMessage(api, buildErrorMessage(`Nhập UID cần gỡ autokick. Ví dụ: ${prefix}autokickremove 123456789`), threadId, messageType);
         return;
     }
 

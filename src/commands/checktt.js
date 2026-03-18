@@ -2,49 +2,16 @@ const fs = require("fs");
 
 const { createCheckTTCard } = require("../design/checktt/renderer");
 const { UserNote } = require("../db/userNoteModel");
-
-function getMentionedUserId(message) {
-    const mentions = message?.data?.mentions;
-    if (!Array.isArray(mentions) || mentions.length === 0) return null;
-    const uid = mentions[0]?.uid;
-    return uid ? String(uid) : null;
-}
-
-function pickDisplayName(profile, fallbackUserId) {
-    const candidates = [
-        profile?.displayName,
-        profile?.dName,
-        profile?.zaloName,
-        profile?.username,
-    ];
-
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-
-    return `UID ${fallbackUserId}`;
-}
-
-function pickAvatarUrl(profile) {
-    const candidates = [profile?.avatar, profile?.avatar_120, profile?.avatar_240, profile?.avatar_25];
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-    return "";
-}
+const { getMentionedUserId, pickDisplayName, pickAvatarUrl, getMessageType } = require("../utils/commonHelpers");
 
 function formatCount(num) {
     return new Intl.NumberFormat("vi-VN").format(Number(num) || 0);
 }
 
 function formatJoinDateVN(dateLike) {
-    if (!dateLike) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
+    if (!dateLike) return "Chưa có dữ liệu";
     const date = new Date(dateLike);
-    if (Number.isNaN(date.getTime())) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
+    if (Number.isNaN(date.getTime())) return "Chưa có dữ liệu";
 
     const hh = String(date.getHours()).padStart(2, "0");
     const mm = String(date.getMinutes()).padStart(2, "0");
@@ -63,7 +30,7 @@ function formatAddedByLabel(addedByName, addedByUserId) {
     }
     if (safeName) return safeName;
     if (safeId) return `UID ${safeId}`;
-    return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
+    return "Chưa có dữ liệu";
 }
 
 async function resolveRealtimeProfile(api, userId) {
@@ -99,11 +66,11 @@ async function aggregateUserStats(User, threadId, userId) {
 }
 
 async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const targetUserId = getMentionedUserId(message);
     if (!targetUserId) {
         await api.sendMessage(
-            { msg: `B\u1ea1n h\u00e3y tag 1 ng\u01b0\u1eddi d\u00f9ng. V\u00ed d\u1ee5: ${prefix}checktt @TenNguoiDung` },
+            { msg: `Bạn hãy tag 1 người dùng. Ví dụ: ${prefix}checktt @TenNguoiDung` },
             threadId,
             messageType
         );

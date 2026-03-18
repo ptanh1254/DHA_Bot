@@ -6,7 +6,7 @@ function buildHelpPart1(prefix = "!") {
         "• Các chế độ on/off (hello, kick) áp dụng theo từng nhóm",
         "• Lệnh cần tag: check, checktt, checkingame, thongtin, node, kick, mute, unmute",
         "• Mặc định: chủ nhóm/phó nhóm được dùng lệnh admin",
-        "• Người dùng phổ thông vi phạm 5 lần = bị kick",
+        "• Người dùng phổ thông vi phạm 10 lần = bị kick",
     ].join("\n");
 }
 
@@ -90,6 +90,7 @@ function buildHelpPart8(prefix = "!") {
         "❓ 7. TRỢ GIÚP",
         "",
         `${prefix}help - Hiển thị bảng hướng dẫn này`,
+        `${prefix}ask <câu hỏi> - Hỏi AI Gemini (member: 5 lượt/ngày, admin/BQT: không giới hạn)`,
     ].join("\n");
 }
 

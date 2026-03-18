@@ -1,64 +1,4 @@
-function normalizeId(rawId) {
-    if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_\d+$/, "").trim();
-}
-
-function normalizeName(rawName) {
-    return String(rawName || "")
-        .replace(/^@+/, "")
-        .trim();
-}
-
-function getMentionedTargets(message) {
-    const mentions = Array.isArray(message?.data?.mentions) ? message.data.mentions : [];
-    const content = typeof message?.data?.content === "string" ? message.data.content : "";
-    const uniqueTargets = new Map();
-
-    for (const mention of mentions) {
-        const uid = normalizeId(mention?.uid);
-        if (!uid || uniqueTargets.has(uid)) continue;
-
-        const pos = Number(mention?.pos);
-        const len = Number(mention?.len);
-        let displayName = "";
-
-        if (content && Number.isFinite(pos) && Number.isFinite(len) && len > 0) {
-            displayName = normalizeName(content.slice(pos, pos + len));
-        }
-        if (!displayName) {
-            displayName = normalizeName(mention?.displayName);
-        }
-
-        uniqueTargets.set(uid, {
-            userId: uid,
-            displayName: displayName || "Người dùng",
-        });
-    }
-
-    return [...uniqueTargets.values()];
-}
-
-function extractUidArgs(argsText) {
-    return String(argsText || "")
-        .split(/\s+/)
-        .map((part) => normalizeId(part))
-        .filter((part) => /^\d{6,}$/.test(part));
-}
-
-function formatTargetNames(targets) {
-    return targets.map((target) => target.displayName).join(", ");
-}
-
-function buildIdVariants(rawId) {
-    const normalized = normalizeId(rawId);
-    const variants = new Set([String(rawId || "").trim(), normalized]);
-    if (normalized) {
-        variants.add(`${normalized}_0`);
-        variants.add(`${normalized}_1`);
-        variants.add(`${normalized}_2`);
-    }
-    return [...variants].filter(Boolean);
-}
+const { normalizeId, getMentionedTargets, extractUidArgs, buildIdVariants, formatNameList, getMessageType } = require("../utils/commonHelpers");
 
 async function handleRemoveIngameCommand(
     api,
@@ -68,7 +8,7 @@ async function handleRemoveIngameCommand(
     argsText,
     prefix = "!"
 ) {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const mentionTargets = getMentionedTargets(message);
     const uidArgs = extractUidArgs(argsText);
     const targetMap = new Map();
@@ -144,7 +84,7 @@ async function handleRemoveIngameCommand(
     for (const row of rowsWithIngame) {
         const rowIdRaw = String(row.userId || "").trim();
         const rowIdNormalized = normalizeId(rowIdRaw);
-        const rowName = normalizeName(row.displayName) || `UID ${rowIdNormalized || rowIdRaw}`;
+        const rowName = (row.displayName || "").replace(/^@+/, "").trim() || `UID ${rowIdNormalized || rowIdRaw}`;
         nameById.set(rowIdRaw, rowName);
         if (rowIdNormalized) {
             nameById.set(rowIdNormalized, rowName);
@@ -163,7 +103,7 @@ async function handleRemoveIngameCommand(
         {
             msg: [
                 "Đã xóa ingame cho:",
-                formatTargetNames(removedTargets),
+                formatNameList(removedTargets),
             ].join("\n"),
         },
         threadId,

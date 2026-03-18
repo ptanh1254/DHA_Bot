@@ -1,15 +1,4 @@
-function normalizeId(rawId) {
-    if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_\d+$/, "").trim();
-}
-
-function chunkArray(values, chunkSize) {
-    const chunks = [];
-    for (let i = 0; i < values.length; i += chunkSize) {
-        chunks.push(values.slice(i, i + chunkSize));
-    }
-    return chunks;
-}
+const { normalizeId, chunkArray, pickDisplayName, getMessageType } = require("../utils/commonHelpers");
 
 function toMentionUid(rawId, normalizedId) {
     const source = String(rawId || "").trim();
@@ -18,24 +7,6 @@ function toMentionUid(rawId, normalizedId) {
     const normalized = normalizeId(normalizedId || source);
     if (!normalized) return source;
     return `${normalized}_0`;
-}
-
-function pickDisplayName(profile) {
-    const candidates = [
-        profile?.displayName,
-        profile?.dName,
-        profile?.zaloName,
-        profile?.name,
-        profile?.username,
-    ];
-
-    for (const candidate of candidates) {
-        if (typeof candidate === "string" && candidate.trim()) {
-            return candidate.trim();
-        }
-    }
-
-    return "";
 }
 
 function toMemberSeed(rawMember) {
@@ -238,7 +209,7 @@ async function hydrateMemberNames(api, members) {
 }
 
 async function handleCheckIngameCommand(api, message, threadId, User) {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     let loaded = {
         memberByNormalized: new Map(),
         expectedTotalMembers: 0,

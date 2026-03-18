@@ -1,4 +1,5 @@
-﻿require("dotenv").config();
+﻿const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 const mongoose = require("mongoose");
 const { Zalo } = require("zca-js");
 
@@ -33,6 +34,9 @@ const { handleAddQTVCommand } = require("./src/commands/addbqt");
 const { handleRemoveQTVCommand } = require("./src/commands/removeqtv");
 const { handleXepHangChatCommand } = require("./src/commands/xephangchat");
 const { handleResetChatCommand } = require("./src/commands/resetchat");
+const { handleAFKCommand } = require("./src/commands/afk");
+const { handleLoveCommand } = require("./src/commands/love");
+const { handleAskCommand } = require("./src/commands/ask");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
@@ -148,6 +152,9 @@ async function startBot() {
             xepHangMonthCommand: `${prefix}xhchatthang`.toLowerCase(),
             xepHangTotalCommand: `${prefix}xhchattong`.toLowerCase(),
             resetChatCommand: `${prefix}rschat`.toLowerCase(),
+            afkCommand: `${prefix}afk`.toLowerCase(),
+            loveCommand: `${prefix}love`.toLowerCase(),
+            askCommand: `${prefix}ask`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
             handleHello: (api, message, threadId, argsText) =>
@@ -247,11 +254,17 @@ async function startBot() {
                     rankingType: "total",
                 }),
             handleResetChat: handleResetChatCommand,
+            handleAFK: (api, message, threadId, User) =>
+                handleAFKCommand(api, message, threadId, User, prefix),
+            handleLove: (api, message, threadId, User) =>
+                handleLoveCommand(api, message, threadId, User, prefix),
+            handleAsk: (api, message, threadId, argsText) =>
+                handleAskCommand(api, message, threadId, argsText, prefix),
         };
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}`
         );
 
         const messageHandler = createMessageHandler({
@@ -350,6 +363,7 @@ async function startBot() {
 }
 
 startBot();
+
 
 
 

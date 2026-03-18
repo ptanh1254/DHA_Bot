@@ -1,20 +1,9 @@
-function normalizeId(rawId) {
-    if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_0$/, "").trim();
-}
-
-function parseUidArg(rawArgs) {
-    const value = String(rawArgs || "").trim();
-    if (!value) return "";
-
-    const firstToken = value.split(/\s+/)[0];
-    return normalizeId(firstToken);
-}
+const { normalizeId, parseUidArg, getMessageType, sendMessage, buildErrorMessage } = require("../utils/commonHelpers");
 
 function buildAutoKickStatusMessage(prefix, isEnabled) {
     const statusText = isEnabled ? "BẬT" : "TẮT";
     return [
-        `Chế độ auto kick người từng bị kick hiện tại: ${statusText}`,
+        `Chế độ auto kick người từng bị kick/rời nhóm hiện tại: ${statusText}`,
         `Dùng \`${prefix}autokick on\` để bật`,
         `Dùng \`${prefix}autokick off\` để tắt`,
         `Dùng \`${prefix}autokick <uid>\` để thêm uid vào danh sách autokick`,
@@ -31,7 +20,7 @@ async function handleAutoKickCommand(
     prefix = "!"
 ) {
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
 
     // No args - show status
     if (!normalizedArgs) {
@@ -56,8 +45,8 @@ async function handleAutoKickCommand(
         await api.sendMessage(
             {
                 msg: shouldEnable
-                    ? "Đã bật auto kick: ai từng bị kick vào lại sẽ bị kick tiếp."
-                    : "Đã tắt auto kick người từng bị kick.",
+                    ? "Đã bật auto kick: ai từng bị kick/rời nhóm vào lại sẽ bị kick tiếp."
+                    : "Đã tắt auto kick người từng bị kick/rời nhóm.",
             },
             threadId,
             messageType

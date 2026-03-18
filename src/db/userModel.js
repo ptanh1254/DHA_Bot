@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
     ingameName: { type: String, default: "" },
     ingameSetAt: { type: Date, default: null },
     joinDate: Date,
+    lastMessageAt: { type: Date, default: null },
 });
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);

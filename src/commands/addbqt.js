@@ -1,50 +1,14 @@
-﻿function normalizeId(rawId) {
-    if (rawId === null || rawId === undefined) return "";
-    return String(rawId).replace(/_0$/, "").trim();
-}
-
-function normalizeName(rawName) {
-    return String(rawName || "")
-        .replace(/^@+/, "")
-        .trim();
-}
-
-function getMentionedTargets(message) {
-    const mentions = Array.isArray(message?.data?.mentions) ? message.data.mentions : [];
-    const content = typeof message?.data?.content === "string" ? message.data.content : "";
-    const uniqueTargets = new Map();
-
-    for (const mention of mentions) {
-        const uid = normalizeId(mention?.uid);
-        if (!uid || uniqueTargets.has(uid)) continue;
-
-        const pos = Number(mention?.pos);
-        const len = Number(mention?.len);
-        let displayName = "";
-
-        if (content && Number.isFinite(pos) && Number.isFinite(len) && len > 0) {
-            displayName = normalizeName(content.slice(pos, pos + len));
-        }
-        if (!displayName) {
-            displayName = normalizeName(mention?.displayName);
-        }
-
-        uniqueTargets.set(uid, {
-            userId: uid,
-            displayName: displayName || "Người dùng",
-        });
-    }
-
-    return [...uniqueTargets.values()];
-}
-
-function formatTargetNames(targets) {
-    return targets.map((target) => target.displayName).join(", ");
-}
+﻿const { getMentionedTargets, formatNameList, getMessageType, normalizeId } = require("../utils/commonHelpers");
 
 async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefix = "!") {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const targets = getMentionedTargets(message);
+    
+    // Normalize IDs to ensure consistent format (remove _0, _1, etc suffixes)
+    const normalizedTargets = targets.map(target => ({
+        ...target,
+        userId: normalizeId(target.userId) || target.userId,
+    }));
     
     console.log(`[addqtv] threadId=${threadId}, targets.length=${targets.length}, targets=${JSON.stringify(targets)}`);
     
@@ -59,7 +23,7 @@ async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefi
         return;
     }
 
-    const operations = targets.map((target) => ({
+    const operations = normalizedTargets.map((target) => ({
         updateOne: {
             filter: { groupId: threadId, userId: target.userId },
             update: {
@@ -88,7 +52,7 @@ async function handleAddQTVCommand(api, message, threadId, GroupKeyMember, prefi
         {
             msg: [
                 "Đã thêm vào danh sách được dùng lệnh:",
-                formatTargetNames(targets),
+                formatNameList(normalizedTargets),
             ].join("\n"),
         },
         threadId,

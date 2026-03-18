@@ -1,3 +1,5 @@
+const { getMentionedUserIds, getMessageType, formatUidList, sendMessage } = require("../utils/commonHelpers");
+
 function buildKickStatusMessage(prefix, isEnabled) {
     const statusText = isEnabled ? "🟢 BẬT" : "🔴 TẮT";
     return [
@@ -6,22 +8,6 @@ function buildKickStatusMessage(prefix, isEnabled) {
         `➡️ Dùng \`${prefix}kick off\` để tắt`,
         `➡️ Dùng \`${prefix}kick @TenNguoiDung\` để mời ra khỏi nhóm`,
     ].join("\n");
-}
-
-function getMentionedUserIds(message) {
-    const mentions = Array.isArray(message?.data?.mentions) ? message.data.mentions : [];
-    const uniqueIds = new Set();
-
-    for (const mention of mentions) {
-        const uid = String(mention?.uid || "").trim();
-        if (uid) uniqueIds.add(uid);
-    }
-
-    return [...uniqueIds];
-}
-
-function formatUidList(ids) {
-    return ids.map((id) => `UID ${id}`).join(", ");
 }
 
 async function handleKickCommand(
@@ -33,7 +19,7 @@ async function handleKickCommand(
     prefix = "!",
     kickIntentStore = null
 ) {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
     const mentionIds = getMentionedUserIds(message);
     const hasMentions = mentionIds.length > 0;
@@ -45,7 +31,7 @@ async function handleKickCommand(
     if (!normalizedArgs && !hasMentions) {
         const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
         const statusMessage = buildKickStatusMessage(prefix, setting?.kickEnabled !== false);
-        await api.sendMessage({ msg: statusMessage }, threadId, messageType);
+        await sendMessage(api, { msg: statusMessage }, threadId, messageType);
         return;
     }
 

@@ -1,5 +1,7 @@
 const { getVNDateParts } = require("../utils/vnTime");
 const { findMatchedBannedWord } = require("../config/bannedWords");
+const { UserDailyMessage } = require("../db/userDailyMessageModel");
+const { AskUsage } = require("../db/askUsageModel");
 
 async function tryDeleteMutedMessage(api, message, threadId, userId) {
     const msgId = String(message?.data?.msgId || "").trim();
@@ -114,6 +116,7 @@ async function updateUserMessageCounters(User, threadId, userId, senderName) {
             monthKey,
             dailyMsgCount: currentDaily + 1,
             monthlyMsgCount: currentMonthly + 1,
+            lastMessageAt: now,
         },
     };
 
@@ -124,6 +127,31 @@ async function updateUserMessageCounters(User, threadId, userId, senderName) {
     await User.findOneAndUpdate({ groupId: threadId, userId }, updateDoc, {
         upsert: true,
     });
+
+    const normalizedUserId = normalizeId(userId) || String(userId || "").trim();
+    if (!normalizedUserId) return;
+
+    try {
+        await UserDailyMessage.findOneAndUpdate(
+            { groupId: threadId, userId: normalizedUserId, dayKey },
+            {
+                $inc: { msgCount: 1 },
+                $set: { lastMessageAt: now },
+                $setOnInsert: {
+                    groupId: threadId,
+                    userId: normalizedUserId,
+                    dayKey,
+                },
+            },
+            {
+                upsert: true,
+                returnDocument: "after",
+                setDefaultsOnInsert: true,
+            }
+        ).lean();
+    } catch (error) {
+        console.error("[daily-stats] Loi cap nhat thong ke theo ngay:", error?.message || error);
+    }
 }
 
 function normalizeId(rawId) {
@@ -167,6 +195,7 @@ function collectNormalizedIds(value) {
 function isRoleAdminFlag(member) {
     if (!member || typeof member !== "object") return false;
 
+    // Check explicit admin flags
     const explicitFlags = [
         member.isAdmin,
         member.isMgr,
@@ -175,14 +204,14 @@ function isRoleAdminFlag(member) {
     ];
     if (explicitFlags.some((flag) => flag === true)) return true;
 
+    // Check role field: 1=owner, 2=vice-owner, 3=admin/moderator
     const role = Number(member.role);
-    if (!Number.isNaN(role) && role > 0) return true;
-
-    const roleType = String(member.roleType || "").trim().toLowerCase();
-    if (["admin", "manager", "moderator", "deputy", "owner"].includes(roleType)) {
-        return true;
-    }
-
+    if (!Number.isNaN(role) && role >= 1 && role <= 3) return true;
+    
+    // Also check roleID field variety
+    const roleId = Number(member.roleId);
+    if (!Number.isNaN(roleId) && roleId >= 1 && roleId <= 3) return true;
+    
     return false;
 }
 
@@ -224,6 +253,9 @@ function createMessageHandler({
         xepHangMonthCommand,
         xepHangTotalCommand,
         resetChatCommand,
+        afkCommand,
+        loveCommand,
+        askCommand,
         handleHelp,
         handleHello,
         handlePreventRecall,
@@ -247,12 +279,16 @@ function createMessageHandler({
         handleXepHangMonth,
         handleXepHangTotal,
         handleResetChat,
+        handleAFK,
+        handleLove,
+        handleAsk,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
     const adminCache = new Map();
     const ADMIN_CACHE_TTL_MS = 30 * 1000;
     const ADMIN_CACHE_MAX_ENTRIES = 1000;
+    const ASK_DAILY_LIMIT = 5;
     const superAdmins = buildSuperAdminSet();
 
     function pruneAdminCache(force = false) {
@@ -277,6 +313,130 @@ function createMessageHandler({
         return normalized ? superAdmins.has(normalized) : false;
     }
 
+    async function isAskUnlimitedUser(threadId, userId, isSuperAdminUser = false) {
+        if (isSuperAdminUser) return true;
+
+        const isAdmin = await isGroupAdmin(threadId, userId);
+        if (isAdmin) return true;
+
+        if (!GroupKeyMember) return false;
+        const normalizedUserId = normalizeId(userId);
+        if (!normalizedUserId) return false;
+
+        try {
+            const qtvRecord = await GroupKeyMember.findOne({
+                groupId: threadId,
+                userId: normalizedUserId,
+            }).lean();
+            return !!qtvRecord;
+        } catch (error) {
+            console.error(
+                `[ask-quota] Lỗi kiểm tra quyền BQT cho ${normalizedUserId} ở ${threadId}:`,
+                error?.message || error
+            );
+            return false;
+        }
+    }
+
+    async function consumeAskQuota(threadId, userId, isSuperAdminUser = false) {
+        const normalizedUserId = normalizeId(userId);
+        if (!normalizedUserId) {
+            return {
+                allowed: false,
+                isUnlimited: false,
+                remaining: 0,
+                limit: ASK_DAILY_LIMIT,
+            };
+        }
+
+        const isUnlimited = await isAskUnlimitedUser(threadId, userId, isSuperAdminUser);
+        if (isUnlimited) {
+            return {
+                allowed: true,
+                isUnlimited: true,
+                remaining: null,
+                limit: ASK_DAILY_LIMIT,
+            };
+        }
+
+        const now = new Date();
+        const { dayKey } = getVNDateParts(now);
+
+        let currentCount = 0;
+        try {
+            const current = await AskUsage.findOne({
+                groupId: threadId,
+                userId: normalizedUserId,
+                dayKey,
+            }).lean();
+            currentCount = Number(current?.usageCount) || 0;
+        } catch (error) {
+            console.error(
+                `[ask-quota] Lỗi đọc quota ask cho ${normalizedUserId} ở ${threadId}:`,
+                error?.message || error
+            );
+            // Fail-open để không chặn chức năng nếu DB bị lỗi tạm thời.
+            return {
+                allowed: true,
+                isUnlimited: false,
+                remaining: null,
+                limit: ASK_DAILY_LIMIT,
+            };
+        }
+
+        if (currentCount >= ASK_DAILY_LIMIT) {
+            return {
+                allowed: false,
+                isUnlimited: false,
+                remaining: 0,
+                limit: ASK_DAILY_LIMIT,
+            };
+        }
+
+        try {
+            await AskUsage.findOneAndUpdate(
+                {
+                    groupId: threadId,
+                    userId: normalizedUserId,
+                    dayKey,
+                },
+                {
+                    $inc: { usageCount: 1 },
+                    $set: { lastUsedAt: now },
+                    $setOnInsert: {
+                        groupId: threadId,
+                        userId: normalizedUserId,
+                        dayKey,
+                    },
+                },
+                {
+                    upsert: true,
+                    returnDocument: "after",
+                    setDefaultsOnInsert: true,
+                }
+            ).lean();
+        } catch (error) {
+            console.error(
+                `[ask-quota] Lỗi cập nhật quota ask cho ${normalizedUserId} ở ${threadId}:`,
+                error?.message || error
+            );
+            // Nếu update lỗi, fail-open để không làm hỏng trải nghiệm.
+            return {
+                allowed: true,
+                isUnlimited: false,
+                remaining: null,
+                limit: ASK_DAILY_LIMIT,
+            };
+        }
+
+        return {
+            allowed: true,
+            isUnlimited: false,
+            remaining: Math.max(0, ASK_DAILY_LIMIT - (currentCount + 1)),
+            limit: ASK_DAILY_LIMIT,
+        };
+    }
+
     async function handleUnauthorizedCommandAttempt(threadId, message, userId) {
         const normalizedUserId = normalizeId(userId);
         if (!normalizedUserId) return;
@@ -296,7 +456,7 @@ function createMessageHandler({
             const messageType = Number(message?.type) || 1;
             await api.sendMessage(
                 {
-                    msg: `${mentionText} Member của tổ lái không được dùng lệnh, lần thứ 5 sẽ bị kick.`,
+                    msg: `${mentionText} Member của tổ lái không được dùng lệnh, lần thứ 10 sẽ bị kick.`,
                     mentions: [mention],
                 },
                 threadId,
@@ -328,7 +488,7 @@ function createMessageHandler({
             console.error("Lỗi cập nhật strike vi phạm lệnh:", error);
         }
 
-        if (strikeCount >= 5) {
+        if (strikeCount >= 10) {
             let kickSuccess = false;
             try {
                 const result = await api.removeUserFromGroup([normalizedUserId], threadId);
@@ -347,7 +507,7 @@ function createMessageHandler({
                 const messageType = Number(message?.type) || 1;
                 await api.sendMessage(
                     {
-                        msg: `${mentionText} Member của tổ lái không được dùng lệnh, đủ 5 lần nên đã bị kick.`,
+                        msg: `${mentionText} Member của tổ lái không được dùng lệnh, đủ 10 lần nên đã bị kick.`,
                         mentions: [mention],
                     },
                     threadId,
@@ -359,7 +519,7 @@ function createMessageHandler({
             const messageType1 = Number(message?.type) || 1;
             await api.sendMessage(
                 {
-                    msg: `${mentionText} Member của tổ lái không được dùng lệnh (5/5), bot chưa kick được. Kiểm tra quyền admin của bot nhé.`,
+                    msg: `${mentionText} Member của tổ lái không được dùng lệnh (10/10), bot chưa kick được. Kiểm tra quyền admin của bot nhé.`,
                     mentions: [mention],
                 },
                 threadId,
@@ -371,7 +531,7 @@ function createMessageHandler({
         const messageType = Number(message?.type) || 1;
         await api.sendMessage(
             {
-                msg: `${mentionText} Member của tổ lái không được dùng lệnh (${strikeCount}/5), lần thứ 5 sẽ bị kick.`,
+                msg: `${mentionText} Member của tổ lái không được dùng lệnh (${strikeCount}/10), lần thứ 10 sẽ bị kick.`,
                 mentions: [mention],
             },
             threadId,
@@ -433,15 +593,24 @@ function createMessageHandler({
                 for (const member of members) {
                     const memberId = resolveIdFromUnknown(member);
                     if (!memberId) continue;
+                    // Check member's admin role flags
                     if (isRoleAdminFlag(member)) {
+                        adminSet.add(memberId);
+                    }
+                    // Also check member role codes (1=chủ, 2=phó, 3=quản lý)
+                    const memberRole = Number(member?.role);
+                    if (!Number.isNaN(memberRole) && memberRole >= 1 && memberRole <= 3) {
                         adminSet.add(memberId);
                     }
                 }
 
                 isAdmin = ownerSet.has(normalizedUserId) || adminSet.has(normalizedUserId);
+                console.log(`[isGroupAdmin] threadId=${threadId}, userId=${normalizedUserId}, isOwner=${ownerSet.has(normalizedUserId)}, isAdmin=${adminSet.has(normalizedUserId)}, result=${isAdmin}`);
+            } else {
+                console.warn(`[isGroupAdmin] No groupInfo found for threadId=${threadId}`);
             }
         } catch (error) {
-            console.error("Lỗi kiểm tra quyền admin nhóm:", error);
+            console.error(`[isGroupAdmin] Error checking admin for ${normalizedUserId} in ${threadId}:`, error.message);
         }
 
         adminCache.set(cacheKey, {
@@ -606,6 +775,9 @@ function createMessageHandler({
             const isXepHangMonth = normalized === xepHangMonthCommand;
             const isXepHangTotal = normalized === xepHangTotalCommand;
             const isResetChat = normalized === resetChatCommand;
+            const isAFK = normalized === afkCommand || normalized.startsWith(`${afkCommand} `);
+            const isLove = normalized === loveCommand || normalized.startsWith(`${loveCommand} `);
+            const isAsk = normalized === askCommand || normalized.startsWith(`${askCommand} `);
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
@@ -637,6 +809,7 @@ function createMessageHandler({
                       )
                       .trim()
                 : "";
+            const askArgs = isAsk ? text.slice(askCommand.length).trim() : "";
 
             const isKnownCommand =
                 isHelp ||
@@ -660,22 +833,39 @@ function createMessageHandler({
                 isXepHangDay ||
                 isXepHangMonth ||
                 isXepHangTotal ||
-                isResetChat;
+                isResetChat ||
+                isAFK ||
+                isLove ||
+                isAsk;
 
             if (!isBotSelf && isKnownCommand) {
-                // Public commands (không cần auth) - chỉ có !ingame
-                const isPublicCommand = isIngame;
+                // Public commands (không cần auth) - ingame, afk, love, ask
+                const isPublicCommand = isIngame || isAFK || isLove || isAsk;
                 // Kick status view (không có args thì là public)
                 const isKickStatusOnly = isKick && kickArgs === "";
                 // AutoKick status/on/off (không thêm uid thì là public)
                 const isAutoKickStatusOnly = isAutoKick && (autoKickArgs === "" || autoKickArgs === "on" || autoKickArgs === "off");
                 
                 if (!isPublicCommand && !isKickStatusOnly && !isAutoKickStatusOnly) {
+                    const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
-                    console.log(`[auth] command=${normalized}, isAdmin=${isAdmin}, isSuperAdmin=${isSuperAdminUser}, userId=${userId}`);
                     
-                    if (!isAdmin) {
-                        console.log(`[auth] Blocked ${normalized} - not admin`);
+                    // Check if user is in authorized QTV member list
+                    let isQTVMember = false;
+                    if (!isAdmin && GroupKeyMember && normalizedUserId) {
+                        try {
+                            const qtvRecord = await GroupKeyMember.findOne({ groupId: threadId, userId: normalizedUserId }).lean();
+                            isQTVMember = !!qtvRecord;
+                        } catch (err) {
+                            console.error(`[auth] Error checking QTV member: ${err.message}`);
+                        }
+                    }
+                    
+                    const isAuthorized = isAdmin || isQTVMember;
+                    console.log(`[auth] userId=${userId}, normalized=${normalizedUserId}, command=${normalized}, isSuperAdmin=${isSuperAdminUser}, isAdmin=${isAdmin}, isQTVMember=${isQTVMember}, authorized=${isAuthorized}`);
+                    
+                    if (!isAuthorized) {
+                        console.log(`[auth] Blocked ${normalized} command from ${normalizedUserId} - not authorized`);
                         await handleUnauthorizedCommandAttempt(threadId, message, userId);
                         return;
                     }
@@ -705,7 +895,10 @@ function createMessageHandler({
                 !isXepHangDay &&
                 !isXepHangMonth &&
                 !isXepHangTotal &&
-                !isResetChat
+                !isResetChat &&
+                !isAFK &&
+                !isLove &&
+                !isAsk
             ) {
                 return;
             }
@@ -825,6 +1018,60 @@ function createMessageHandler({
 
             if (isResetChat) {
                 await handleResetChat(api, message, threadId, User);
+                return;
+            }
+
+            if (isAFK) {
+                await handleAFK(api, message, threadId, User);
+                return;
+            }
+
+            if (isLove) {
+                await handleLove(api, message, threadId, User);
+                return;
+            }
+
+            if (isAsk) {
+                if (!askArgs) {
+                    await handleAsk(api, message, threadId, askArgs);
+                    return;
+                }
+
+                const askQuota = await consumeAskQuota(threadId, userId, isSuperAdminUser);
+                if (!askQuota.allowed) {
+                    const messageType = Number(message?.type) || 1;
+                    await api.sendMessage(
+                        {
+                            msg: [
+                                `Bạn đã dùng hết ${askQuota.limit} lượt ${askCommand} hôm nay.`,
+                                `Member: tối đa ${askQuota.limit} lượt/ngày (reset lúc 0h theo giờ Việt Nam).`,
+                                "Admin/BQT dùng thoải mái không giới hạn.",
+                            ].join("\n"),
+                        },
+                        threadId,
+                        messageType
+                    );
+                    return;
+                }
+
+                await handleAsk(api, message, threadId, askArgs);
+
+                if (
+                    !askQuota.isUnlimited &&
+                    Number.isFinite(askQuota.remaining) &&
+                    askQuota.remaining >= 0 &&
+                    askQuota.remaining <= 2
+                ) {
+                    const messageType = Number(message?.type) || 1;
+                    await api.sendMessage(
+                        {
+                            msg: `Bạn còn ${askQuota.remaining}/${askQuota.limit} lượt ${askCommand} trong hôm nay.`,
+                        },
+                        threadId,
+                        messageType
+                    );
+                }
+                return;
             }
         } catch (listenerError) {
             console.error("Lỗi xử lý message:", listenerError);
@@ -835,4 +1082,3 @@ function createMessageHandler({
 module.exports = {
     createMessageHandler,
 };
-

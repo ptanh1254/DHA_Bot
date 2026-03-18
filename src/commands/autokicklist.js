@@ -1,4 +1,6 @@
-﻿function pickName(row) {
+﻿const { getMessageType } = require("../utils/commonHelpers");
+
+function pickName(row) {
     const candidates = [
         row?.lastKnownName,
         row?.firstKnownName,
@@ -16,7 +18,7 @@
 }
 
 async function handleAutoKickListCommand(api, message, threadId, KickHistory, prefix = "!") {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     if (!KickHistory) {
         await api.sendMessage(
             { msg: "Chưa khởi tạo được dữ liệu autokick." },
@@ -38,7 +40,7 @@ async function handleAutoKickListCommand(api, message, threadId, KickHistory, pr
             {
                 msg: [
                     "Danh sách autokick hiện đang rỗng.",
-                    "Khi có người bị kick, bot sẽ tự động lưu vào danh sách này.",
+                    "Khi có người bị kick hoặc tự rời nhóm, bot sẽ tự động lưu vào danh sách này.",
                 ].join("\n"),
             },
             threadId,

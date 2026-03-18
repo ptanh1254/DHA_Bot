@@ -173,7 +173,8 @@ function drawHeader(ctx, meta, width) {
     const details = [
         periodLabel,
         `Trang ${meta.page}/${meta.totalPages}`,
-        `T\u1ed5ng th\u00e0nh vi\u00ean: ${formatCount(meta.totalMembers)}`,
+        `Tổng thành viên: ${formatCount(meta.totalMembers)}`,
+        `Tổng tin nhắn: ${formatCount(meta.totalMsgCount || 0)}`,
     ].filter(Boolean);
     const pageText = details.join("  |  ");
     ctx.fillText(pageText, 72, 142);
@@ -322,18 +323,24 @@ async function createChatRankingImage(rows, meta = {}) {
             page: meta.page || 1,
             totalPages: meta.totalPages || 1,
             totalMembers: meta.totalMembers || rows.length,
+            totalMsgCount: meta.totalMsgCount || 0,
             rankingTitle: meta.rankingTitle || "",
             periodLabel: meta.periodLabel || "",
         },
         width
     );
 
+    // Load avatars in parallel batches (5 at a time)
     const avatarImages = new Array(rows.length).fill(null);
-    await Promise.all(
-        rows.map(async (row, index) => {
-            avatarImages[index] = await loadRemoteImage(row.avatarUrl);
-        })
-    );
+    const batchSize = 5;
+    for (let i = 0; i < rows.length; i += batchSize) {
+        const batchEnd = Math.min(i + batchSize, rows.length);
+        await Promise.all(
+            rows.slice(i, batchEnd).map(async (row, idx) => {
+                avatarImages[i + idx] = await loadRemoteImage(row.avatarUrl);
+            })
+        );
+    }
 
     let rowY = CHAT_RANKING_IMAGE_THEME.headerHeight + 24;
     for (let i = 0; i < rows.length; i += 1) {

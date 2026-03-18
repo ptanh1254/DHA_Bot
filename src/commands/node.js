@@ -1,14 +1,8 @@
 const { UserNote } = require("../db/userNoteModel");
-
-function getMentionedUserId(message) {
-    const mentions = message?.data?.mentions;
-    if (!Array.isArray(mentions) || mentions.length === 0) return null;
-    const uid = mentions[0]?.uid;
-    return uid ? String(uid) : null;
-}
+const { getMentionedUserId, getMessageType } = require("../utils/commonHelpers");
 
 async function handleNodeCommand(api, message, threadId, prefix = "!") {
-    const messageType = Number(message?.type) || 1;
+    const messageType = getMessageType(message);
     const targetUserId = getMentionedUserId(message);
 
     if (!targetUserId) {
