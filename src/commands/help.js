@@ -65,6 +65,7 @@ function buildHelpPart6(prefix = "!") {
         "📊 5. NHÓM THỐNG KÊ CHAT",
         "",
         `${prefix}xhchat - Top chat theo ngày (reset 0h VN)`,
+        `${prefix}xhchattuan - Top chat theo tuần (thứ 2 0h VN -> hiện tại)`,
         `${prefix}xhchatthang - Top chat theo tháng`,
         `${prefix}xhchattong - Top chat tổng tích lũy`,
         `${prefix}rschat - Reset điểm chat hiện tại`,

@@ -42,7 +42,7 @@ const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler")
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
 const { createMessageStore } = require("./src/runtime/messageStore");
 const { getVNDateParts } = require("./src/utils/vnTime");
-
+console.log("=== BOT DANG KHOI DONG ===");
 const config = loadConfig();
 
 const zalo = new Zalo({
@@ -149,6 +149,7 @@ async function startBot() {
             removeQTVCommand: `${prefix}removeqtv`.toLowerCase(),
             removeQTVAliasCommand: `${prefix}rmqtv`.toLowerCase(),
             xepHangDayCommand: `${prefix}xhchat`.toLowerCase(),
+            xepHangWeekCommand: `${prefix}xhchattuan`.toLowerCase(),
             xepHangMonthCommand: `${prefix}xhchatthang`.toLowerCase(),
             xepHangTotalCommand: `${prefix}xhchattong`.toLowerCase(),
             resetChatCommand: `${prefix}rschat`.toLowerCase(),
@@ -243,6 +244,11 @@ async function startBot() {
                     botUserId: botUid,
                     rankingType: "day",
                 }),
+            handleXepHangWeek: (api, message, threadId, User, botUid) =>
+                handleXepHangChatCommand(api, message, threadId, User, {
+                    botUserId: botUid,
+                    rankingType: "week",
+                }),
             handleXepHangMonth: (api, message, threadId, User, botUid) =>
                 handleXepHangChatCommand(api, message, threadId, User, {
                     botUserId: botUid,
@@ -264,7 +270,7 @@ async function startBot() {
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangWeekCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}`
         );
 
         const messageHandler = createMessageHandler({

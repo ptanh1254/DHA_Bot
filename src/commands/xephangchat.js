@@ -2,7 +2,9 @@ const fs = require("fs");
 
 const { createChatRankingImage } = require("../design/chatRanking/renderer");
 const { formatCount } = require("../design/chatRanking/template");
-const { getVNDateParts } = require("../utils/vnTime");
+const { getVNDateParts, getVNDateTimeFormatted, getVNWeekInfo } = require("../utils/vnTime");
+const { UserDailyMessage } = require("../db/userDailyMessageModel");
+const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 
 function normalizeDisplayName(name, fallbackUserId) {
     if (typeof name === "string" && name.trim()) return name.trim();
@@ -372,13 +374,120 @@ async function syncMembersToDatabase(User, threadId, memberIds, metaMap) {
     }
 }
 
+async function loadWeeklyCountMap(threadId, weekInfo, currentDayKey) {
+    const map = new Map();
+    const safeWeekKey = String(weekInfo?.weekKey || "").trim();
+    const safeWeekStart = String(weekInfo?.weekStartDayKey || "").trim();
+    const safeWeekEnd = String(weekInfo?.weekEndDayKey || "").trim();
+    const safeCurrentDayKey = String(currentDayKey || "").trim();
+    if (!safeWeekKey) return map;
+
+    try {
+        let rows = await UserWeeklyMessage.find({
+            groupId: threadId,
+            weekKey: safeWeekKey,
+        })
+            .select("userId msgCount")
+            .lean();
+
+        if (
+            (!rows || rows.length === 0) &&
+            safeWeekStart &&
+            safeWeekEnd &&
+            safeCurrentDayKey
+        ) {
+            const fallbackRows = await UserDailyMessage.aggregate([
+                {
+                    $match: {
+                        groupId: threadId,
+                        dayKey: {
+                            $gte: safeWeekStart,
+                            $lte: safeCurrentDayKey,
+                        },
+                    },
+                },
+                {
+                    $group: {
+                        _id: "$userId",
+                        msgCount: { $sum: "$msgCount" },
+                        lastMessageAt: { $max: "$lastMessageAt" },
+                    },
+                },
+            ]);
+
+            if (Array.isArray(fallbackRows) && fallbackRows.length > 0) {
+                const now = new Date();
+                const operations = [];
+                for (const row of fallbackRows) {
+                    const uid = normalizeMemberId(row?._id);
+                    if (!uid) continue;
+
+                    operations.push({
+                        updateOne: {
+                            filter: { groupId: threadId, userId: uid, weekKey: safeWeekKey },
+                            update: {
+                                $set: {
+                                    msgCount: Number(row?.msgCount) || 0,
+                                    weekStartDayKey: safeWeekStart,
+                                    weekEndDayKey: safeWeekEnd,
+                                    lastMessageAt: row?.lastMessageAt || null,
+                                },
+                                $setOnInsert: {
+                                    groupId: threadId,
+                                    userId: uid,
+                                    weekKey: safeWeekKey,
+                                    createdAt: now,
+                                },
+                            },
+                            upsert: true,
+                        },
+                    });
+                }
+
+                if (operations.length > 0) {
+                    try {
+                        await UserWeeklyMessage.bulkWrite(operations, { ordered: false });
+                    } catch (error) {
+                        console.error(
+                            "[xhchat] Lỗi backfill dữ liệu tuần từ bảng ngày:",
+                            error?.message || error
+                        );
+                    }
+                }
+
+                rows = fallbackRows.map((row) => ({
+                    userId: normalizeMemberId(row?._id),
+                    msgCount: Number(row?.msgCount) || 0,
+                }));
+            }
+        }
+
+        for (const row of rows || []) {
+            const uid = normalizeMemberId(row?.userId);
+            if (!uid) continue;
+            const count = Number(row?.msgCount) || 0;
+            const current = Number(map.get(uid)) || 0;
+            map.set(uid, current + count);
+        }
+    } catch (error) {
+        console.error("[xhchat] Lỗi lấy dữ liệu xếp hạng tuần:", error?.message || error);
+    }
+
+    return map;
+}
+
 function toTimeValue(dateLike) {
     if (!dateLike) return Number.MAX_SAFE_INTEGER;
     const time = new Date(dateLike).getTime();
     return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
 }
 
-function getRankingScore(user, rankingType, dayKey, monthKey) {
+function getRankingScore(user, rankingType, dayKey, monthKey, weeklyCountMap = new Map()) {
+    if (rankingType === "week") {
+        const uid = normalizeMemberId(user?.userId);
+        return Number(weeklyCountMap.get(uid)) || 0;
+    }
+
     if (rankingType === "total") {
         return Number(user?.totalMsgCount) || 0;
     }
@@ -396,13 +505,20 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
     const rankingType = String(options.rankingType || "day").toLowerCase();
     const dayKey = String(options.dayKey || "");
     const monthKey = String(options.monthKey || "");
+    const weeklyCountMap = options.weeklyCountMap instanceof Map ? options.weeklyCountMap : new Map();
     const byUser = new Map();
 
     for (const user of users) {
         const uid = normalizeMemberId(user?.userId);
         if (!uid) continue;
 
-        const msgCount = getRankingScore(user, rankingType, dayKey, monthKey);
+        const msgCount = getRankingScore(
+            user,
+            rankingType,
+            dayKey,
+            monthKey,
+            weeklyCountMap
+        );
         const incomingDisplayName = pickDisplayName(user);
         const existing = byUser.get(uid);
 
@@ -417,7 +533,11 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
             continue;
         }
 
-        existing.msgCount += msgCount;
+        if (rankingType === "week") {
+            existing.msgCount = Math.max(existing.msgCount, msgCount);
+        } else {
+            existing.msgCount += msgCount;
+        }
         if (!existing.displayName && incomingDisplayName) {
             existing.displayName = incomingDisplayName;
         }
@@ -438,7 +558,7 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
                 userId: uid,
                 displayName: metaMap.get(uid)?.displayName || "",
                 avatarUrl: metaMap.get(uid)?.avatarUrl || "",
-                msgCount: 0,
+                msgCount: rankingType === "week" ? Number(weeklyCountMap.get(uid)) || 0 : 0,
                 joinDate: null,
             });
         }
@@ -454,7 +574,7 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
     });
 }
 
-function getRankingMeta(rankingType, vnParts) {
+function getRankingMeta(rankingType, vnParts, weekInfo, vnNowLabel) {
     if (rankingType === "total") {
         return {
             rankingType: "total",
@@ -473,6 +593,15 @@ function getRankingMeta(rankingType, vnParts) {
         };
     }
 
+    if (rankingType === "week") {
+        return {
+            rankingType: "week",
+            rankingTitle: "XẾP HẠNG CHAT TUẦN",
+            periodLabel: `Từ thứ 2 ngày ${weekInfo.weekStartLabel} đến ${vnNowLabel} (giờ Việt Nam)`,
+            replyLabel: `Bảng xếp hạng chat tuần từ thứ 2 ${weekInfo.weekStartLabel}`,
+        };
+    }
+
     return {
         rankingType: "day",
         rankingTitle: "XẾP HẠNG CHAT NGÀY",
@@ -483,9 +612,12 @@ function getRankingMeta(rankingType, vnParts) {
 
 async function handleXepHangChatCommand(api, message, threadId, User, options = {}) {
     const messageType = Number(message?.type) || 1;
-    const vnParts = getVNDateParts(new Date());
+    const now = new Date();
+    const vnParts = getVNDateParts(now);
+    const weekInfo = getVNWeekInfo(now);
+    const vnNowLabel = getVNDateTimeFormatted(now);
     const rankingType = String(options?.rankingType || "day").toLowerCase();
-    const rankingMeta = getRankingMeta(rankingType, vnParts);
+    const rankingMeta = getRankingMeta(rankingType, vnParts, weekInfo, vnNowLabel);
     const botUserId = String(options?.botUserId || "");
 
     const { memberIds, metaMap, expectedTotalMembers } = await loadGroupMembers(api, threadId);
@@ -501,11 +633,18 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
         query.userId = { $in: memberIds };
     }
 
-    const users = await User.find(query).lean();
+    const [users, weeklyCountMap] = await Promise.all([
+        User.find(query).lean(),
+        rankingMeta.rankingType === "week"
+            ? loadWeeklyCountMap(threadId, weekInfo, vnParts.dayKey)
+            : Promise.resolve(new Map()),
+    ]);
+
     const rankingUsers = buildRankingUsers(users, memberIds, metaMap, {
         rankingType: rankingMeta.rankingType,
         dayKey: vnParts.dayKey,
         monthKey: vnParts.monthKey,
+        weeklyCountMap,
     });
 
     const normalizedBotUserId = normalizeMemberId(botUserId);
@@ -611,7 +750,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
 
         await api.sendMessage(
             {
-                msg: `${rankingMeta.replyLabel} (${formatCount(totalMembers)} thành viên) - ${totalPages} ảnh, 10 người/ảnh.`,
+                msg: `${rankingMeta.replyLabel} (${formatCount(totalMembers)} thành viên) - ${totalPages} ảnh`,
                 attachments: outputPaths,
             },
             threadId,
@@ -631,4 +770,3 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
 module.exports = {
     handleXepHangChatCommand,
 };
-

@@ -1,6 +1,7 @@
-const { getVNDateParts } = require("../utils/vnTime");
+const { getVNDateParts, getVNWeekInfo } = require("../utils/vnTime");
 const { findMatchedBannedWord } = require("../config/bannedWords");
 const { UserDailyMessage } = require("../db/userDailyMessageModel");
+const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { AskUsage } = require("../db/askUsageModel");
 
 async function tryDeleteMutedMessage(api, message, threadId, userId) {
@@ -94,6 +95,7 @@ async function sendAutoMuteNotice(api, message, threadId, userId) {
 async function updateUserMessageCounters(User, threadId, userId, senderName) {
     const now = new Date();
     const { dayKey, monthKey } = getVNDateParts(now);
+    const { weekKey, weekStartDayKey, weekEndDayKey } = getVNWeekInfo(now);
 
     const current = await User.findOne({ groupId: threadId, userId }).lean();
     const currentDaily =
@@ -151,6 +153,32 @@ async function updateUserMessageCounters(User, threadId, userId, senderName) {
         ).lean();
     } catch (error) {
         console.error("[daily-stats] Loi cap nhat thong ke theo ngay:", error?.message || error);
+    }
+
+    try {
+        await UserWeeklyMessage.findOneAndUpdate(
+            { groupId: threadId, userId: normalizedUserId, weekKey },
+            {
+                $inc: { msgCount: 1 },
+                $set: {
+                    lastMessageAt: now,
+                    weekStartDayKey,
+                    weekEndDayKey,
+                },
+                $setOnInsert: {
+                    groupId: threadId,
+                    userId: normalizedUserId,
+                    weekKey,
+                },
+            },
+            {
+                upsert: true,
+                returnDocument: "after",
+                setDefaultsOnInsert: true,
+            }
+        ).lean();
+    } catch (error) {
+        console.error("[weekly-stats] Loi cap nhat thong ke theo tuan:", error?.message || error);
     }
 }
 
@@ -250,6 +278,7 @@ function createMessageHandler({
         removeQTVCommand,
         removeQTVAliasCommand,
         xepHangDayCommand,
+        xepHangWeekCommand,
         xepHangMonthCommand,
         xepHangTotalCommand,
         resetChatCommand,
@@ -276,6 +305,7 @@ function createMessageHandler({
         handleAddBQT,
         handleRemoveQTV,
         handleXepHangDay,
+        handleXepHangWeek,
         handleXepHangMonth,
         handleXepHangTotal,
         handleResetChat,
@@ -772,6 +802,7 @@ function createMessageHandler({
                 normalized === removeQTVAliasCommand ||
                 normalized.startsWith(`${removeQTVAliasCommand} `);
             const isXepHangDay = normalized === xepHangDayCommand;
+            const isXepHangWeek = normalized === xepHangWeekCommand;
             const isXepHangMonth = normalized === xepHangMonthCommand;
             const isXepHangTotal = normalized === xepHangTotalCommand;
             const isResetChat = normalized === resetChatCommand;
@@ -831,6 +862,7 @@ function createMessageHandler({
                 isAddBQT ||
                 isRemoveQTV ||
                 isXepHangDay ||
+                isXepHangWeek ||
                 isXepHangMonth ||
                 isXepHangTotal ||
                 isResetChat ||
@@ -893,6 +925,7 @@ function createMessageHandler({
                 !isAddBQT &&
                 !isRemoveQTV &&
                 !isXepHangDay &&
+                !isXepHangWeek &&
                 !isXepHangMonth &&
                 !isXepHangTotal &&
                 !isResetChat &&
@@ -1003,6 +1036,11 @@ function createMessageHandler({
 
             if (isXepHangDay) {
                 await handleXepHangDay(api, message, threadId, User, normalizedBotUserId);
+                return;
+            }
+
+            if (isXepHangWeek) {
+                await handleXepHangWeek(api, message, threadId, User, normalizedBotUserId);
                 return;
             }
 
