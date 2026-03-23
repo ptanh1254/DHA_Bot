@@ -6,9 +6,9 @@ let initialized = false;
 const FONT_FAMILY_SANS = "DHA Sans";
 const FONT_FAMILY_EMOJI = "DHA Emoji";
 const FONT_STACK =
-    `'${FONT_FAMILY_SANS}', 'Arial', 'Tahoma', 'Liberation Sans', 'DejaVu Sans', sans-serif`;
+    `'${FONT_FAMILY_SANS}', 'Arial', 'Calibri', 'Segoe UI', 'Roboto', 'Helvetica', 'Tahoma', 'Liberation Sans', 'DejaVu Sans', sans-serif`;
 const FONT_STACK_EMOJI =
-    `'${FONT_FAMILY_EMOJI}', 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif`;
+    `'${FONT_FAMILY_EMOJI}', 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Symbol', sans-serif`;
 
 function registerFontIfExists(filePath, family) {
     if (!filePath || !family) return false;

@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
-const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
+const { FONT_STACK, FONT_STACK_EMOJI, registerDesignFonts } = require("../shared/registerFonts");
 const { getSpecialUserTheme } = require("../specialUsersConfig");
 
 const CHECK_THEME = {
@@ -158,7 +158,7 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
     let fontSize = maxFontSize;
 
     while (fontSize > minFontSize) {
-        ctx.font = `700 ${fontSize}px ${FONT_STACK}`;
+        ctx.font = `700 ${fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         const lines = wrapTextByWords(ctx, safeText, maxWidth);
         if (lines.length <= maxLines) {
             return { lines, fontSize };
@@ -166,7 +166,7 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
         fontSize -= 2;
     }
 
-    ctx.font = `700 ${minFontSize}px ${FONT_STACK}`;
+    ctx.font = `700 ${minFontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     const lines = wrapTextByWords(ctx, safeText, maxWidth).slice(0, maxLines);
     if (lines.length === maxLines) {
         lines[maxLines - 1] = fitText(ctx, lines[maxLines - 1], maxWidth);
@@ -239,9 +239,8 @@ function drawAvatar(ctx, image, x, y, radius, displayName) {
         ctx.fillStyle = grad;
         ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
-        const letter = String(displayName || "?").trim()[0] || "?";
         const safeLetter = letter.toUpperCase();
-        ctx.font = `800 68px ${FONT_STACK}`;
+        ctx.font = `800 68px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         ctx.fillStyle = "#5f1240";
         const letterW = ctx.measureText(safeLetter).width;
         ctx.fillText(safeLetter, x - letterW / 2, y + 22);
@@ -296,7 +295,7 @@ async function createCheckImage(payload, options = {}) {
     const centerWidth = width - sideWidth * 2 - CHECK_THEME.centerPadding * 2;
     const centerX = width / 2;
 
-    ctx.font = `900 66px ${FONT_STACK}`;
+    ctx.font = `900 66px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.titleColor;
     const titleText = fitText(ctx, title, centerWidth - 80);
     const titleWidth = ctx.measureText(titleText).width;
@@ -310,32 +309,32 @@ async function createCheckImage(payload, options = {}) {
     const infoWidth = centerWidth - 360;
 
     drawDot(ctx, infoLeftX, 252, "#ec4899");
-    ctx.font = `800 48px ${FONT_STACK}`;
+    ctx.font = `800 48px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.labelColor;
     ctx.fillText("T\u00ean:", infoLeftX + 24, 266);
 
-    ctx.font = `800 50px ${FONT_STACK}`;
+    ctx.font = `800 50px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.valueColor;
     const safeName = fitText(ctx, displayName, infoWidth - 120);
     ctx.fillText(safeName, infoLeftX + 178, 266);
 
     drawDot(ctx, infoLeftX, 338, "#db2777");
-    ctx.font = `800 48px ${FONT_STACK}`;
+    ctx.font = `800 48px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.labelColor;
     ctx.fillText("M\u1ee9c \u0111\u1ed9:", infoLeftX + 24, 352);
 
-    ctx.font = `900 68px ${FONT_STACK}`;
+    ctx.font = `900 68px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = "#be185d";
     ctx.fillText(`${percent}%`, infoLeftX + 244, 360);
 
     drawDot(ctx, infoLeftX, 422, "#be185d");
-    ctx.font = `800 48px ${FONT_STACK}`;
+    ctx.font = `800 48px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.labelColor;
     ctx.fillText("Nh\u1eadn x\u00e9t:", infoLeftX + 24, 436);
 
     const commentWidth = infoWidth;
     const commentLayout = fitWrapText(ctx, comment, commentWidth, 45, 30, 4);
-    ctx.font = `700 ${commentLayout.fontSize}px ${FONT_STACK}`;
+    ctx.font = `700 ${commentLayout.fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.bodyColor;
     const lineHeight = Math.round(commentLayout.fontSize * 1.22);
     const commentStartY = 492;

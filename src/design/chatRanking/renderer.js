@@ -3,7 +3,7 @@ const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const { formatCount } = require("./template");
-const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
+const { FONT_STACK, FONT_STACK_EMOJI, registerDesignFonts } = require("../shared/registerFonts");
 const { getSpecialUserTheme, isSpecialUser } = require("../specialUsersConfig");
 
 const CHAT_RANKING_IMAGE_THEME = {
@@ -31,22 +31,22 @@ const CHAT_RANKING_IMAGE_THEME = {
     },
     title: {
         text: "X\u1ebfp H\u1ea1ng D\u00e2n T\u1ed5 DHA",
-        font: `800 44px ${FONT_STACK}`,
+        font: `800 44px ${FONT_STACK}, ${FONT_STACK_EMOJI}`,
         color: "#7c2d12",
-        subFont: `600 22px ${FONT_STACK}`,
+        subFont: `600 22px ${FONT_STACK}, ${FONT_STACK_EMOJI}`,
         subColor: "rgba(120, 53, 15, 0.88)",
     },
     row: {
         radius: 18,
         fill: "rgba(255, 255, 255, 0.78)",
         stroke: "rgba(180, 83, 9, 0.18)",
-        rankFont: `700 28px ${FONT_STACK}`,
+        rankFont: `700 28px ${FONT_STACK}, ${FONT_STACK_EMOJI}`,
         rankColor: "#7c2d12",
-        nameFont: `700 29px ${FONT_STACK}`,
+        nameFont: `700 29px ${FONT_STACK}, ${FONT_STACK_EMOJI}`,
         nameColor: "#451a03",
-        userFont: `600 18px ${FONT_STACK}`,
+        userFont: `600 18px ${FONT_STACK}, ${FONT_STACK_EMOJI}`,
         userColor: "rgba(120, 53, 15, 0.76)",
-        countFont: `700 24px ${FONT_STACK}`,
+        countFont: `700 24px ${FONT_STACK}, ${FONT_STACK_EMOJI}`,
         countColor: "#78350f",
         badgeBg: "rgba(254, 243, 199, 0.95)",
     },
@@ -277,7 +277,13 @@ function drawRow(ctx, row, y, width, avatarImage) {
 
     ctx.font = cfg.nameFont;
     ctx.fillStyle = isSpecial ? specialColor : cfg.nameColor;
-    const nameLines = wrapTextByWords(ctx, row.displayName || `UID ${row.userId}`, nameMaxWidth);
+    
+    const displayName = row.displayName || `UID ${row.userId}`;
+    const ingameName = String(row.ingameName || "").trim();
+    const ingameSuffix = ingameName ? ` (${ingameName})` : " (Chưa set ingame)";
+    const nameWithIngame = displayName + ingameSuffix;
+    
+    const nameLines = wrapTextByWords(ctx, nameWithIngame, nameMaxWidth);
     const maxNameLines = 2; // Allow up to 2 lines for name
     let nameY = y + 44;
     for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
-const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
+const { FONT_STACK, FONT_STACK_EMOJI, registerDesignFonts } = require("../shared/registerFonts");
 const { getSpecialUserTheme } = require("../specialUsersConfig");
 
 const CHECKTT_THEME = {
@@ -189,7 +189,7 @@ function drawAvatarFallback(ctx, displayName) {
     ctx.fillRect(cfg.x - cfg.radius, cfg.y - cfg.radius, cfg.radius * 2, cfg.radius * 2);
 
     const letter = String(displayName || "?").trim()[0] || "?";
-    ctx.font = `800 76px ${FONT_STACK}`;
+    ctx.font = `800 76px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = "#78350f";
     const width = ctx.measureText(letter.toUpperCase()).width;
     ctx.fillText(letter.toUpperCase(), cfg.x - width / 2, cfg.y + 28);
@@ -230,12 +230,12 @@ function drawTextBlock(ctx, payload, userId) {
     const { displayName, joinDate, totalMsgCount, addedByLabel, ingameName } = payload;
     const colors = getMergedCheckttThemeForUser(userId);
 
-    ctx.font = `800 42px ${FONT_STACK}`;
+    ctx.font = `800 42px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = colors.titleColor;
     ctx.fillText("THÔNG TIN THÀNH VIÊN", 392, 128);
 
     // Draw displayName with wrapping
-    ctx.font = `800 54px ${FONT_STACK}`;
+    ctx.font = `800 54px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = colors.displayNameColor;
     const nameLines = wrapTextByWords(ctx, displayName, 660);
     const maxNameLines = 2; // Allow up to 2 lines for name
@@ -245,12 +245,12 @@ function drawTextBlock(ctx, payload, userId) {
         nameY += 60; // Line height for 54px font
     }
 
-    ctx.font = `600 20px ${FONT_STACK}`;
+    ctx.font = `600 20px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = colors.uidColor;
     ctx.fillText(`UID: ${payload.userId}`, 394, 236 + (Math.max(0, nameLines.length - 1) * 60));
 
     let rows = [
-        { label: "Tên ingame", value: String(ingameName || "").trim() || "Chưa cập nhật" },
+        { label: "Tên ingame", value: String(ingameName || "").trim() || "Chưa set ingame" },
         { label: "Thời gian vào nhóm", value: formatDateTimeVN(joinDate) },
         { label: "Người thêm/duyệt", value: addedByLabel || "Chưa có dữ liệu" },
         { label: "Tổng tin nhận tích lũy", value: `${formatCount(totalMsgCount)} tin nhận` },
@@ -268,11 +268,11 @@ function drawTextBlock(ctx, payload, userId) {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        ctx.font = `600 22px ${FONT_STACK}`;
+        ctx.font = `600 22px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         ctx.fillStyle = colors.rowLabelColor;
         ctx.fillText(row.label, 420, y - 3);
 
-        ctx.font = `700 29px ${FONT_STACK}`;
+        ctx.font = `700 29px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         ctx.fillStyle = colors.rowValueColor;
         const valueLines = wrapTextByWords(ctx, row.value, 620);
         const maxValueLines = 2;

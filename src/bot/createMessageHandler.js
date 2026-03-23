@@ -236,6 +236,10 @@ function isRoleAdminFlag(member) {
     const role = Number(member.role);
     if (!Number.isNaN(role) && role >= 1 && role <= 3) return true;
     
+    // Also check type field (as per ZCA docs): 1=owner, 2=vice-owner, 3=admin/moderator
+    const type = Number(member.type);
+    if (!Number.isNaN(type) && type >= 1 && type <= 3) return true;
+
     // Also check roleID field variety
     const roleId = Number(member.roleId);
     if (!Number.isNaN(roleId) && roleId >= 1 && roleId <= 3) return true;
@@ -582,22 +586,15 @@ function createMessageHandler({
         }
 
         let isAdmin = false;
+        let isResponseSuspect = false;
         try {
             const response = await api.getGroupInfo(threadId);
             const gridInfoMap = response?.gridInfoMap || {};
             const groupInfo = gridInfoMap[threadId] || Object.values(gridInfoMap)[0];
 
             if (groupInfo) {
-                const ownerCandidates = [
-                    groupInfo?.creatorId,
-                    groupInfo?.ownerId,
-                    groupInfo?.creator,
-                    groupInfo?.owner,
-                    groupInfo?.groupOwnerId,
-                ];
-                const ownerSet = new Set(
-                    ownerCandidates.map(resolveIdFromUnknown).filter(Boolean)
-                );
+                const ownerId = resolveIdFromUnknown(groupInfo?.creatorId || groupInfo?.ownerId || groupInfo?.creator || groupInfo?.owner || groupInfo?.groupOwnerId);
+                const ownerSet = new Set([ownerId].filter(Boolean));
 
                 const adminSet = new Set();
                 const adminLists = [
@@ -620,33 +617,44 @@ function createMessageHandler({
                     : Array.isArray(groupInfo?.members)
                     ? groupInfo.members
                     : [];
+                
                 for (const member of members) {
                     const memberId = resolveIdFromUnknown(member);
                     if (!memberId) continue;
-                    // Check member's admin role flags
                     if (isRoleAdminFlag(member)) {
-                        adminSet.add(memberId);
-                    }
-                    // Also check member role codes (1=chủ, 2=phó, 3=quản lý)
-                    const memberRole = Number(member?.role);
-                    if (!Number.isNaN(memberRole) && memberRole >= 1 && memberRole <= 3) {
                         adminSet.add(memberId);
                     }
                 }
 
                 isAdmin = ownerSet.has(normalizedUserId) || adminSet.has(normalizedUserId);
-                console.log(`[isGroupAdmin] threadId=${threadId}, userId=${normalizedUserId}, isOwner=${ownerSet.has(normalizedUserId)}, isAdmin=${adminSet.has(normalizedUserId)}, result=${isAdmin}`);
+                
+                // Identify suspect response: missing creator AND (no admins AND no members)
+                // This usually means the API returned a skeleton object due to rate limiting or glitches.
+                if (!ownerId && adminSet.size === 0 && members.length === 0) {
+                    isResponseSuspect = true;
+                }
+
+                console.log(`[isGroupAdmin] threadId=${threadId}, userId=${normalizedUserId}, isOwner=${ownerSet.has(normalizedUserId)}, isAdmin=${adminSet.has(normalizedUserId)}, result=${isAdmin}, suspect=${isResponseSuspect}, memCount=${members.length}`);
             } else {
                 console.warn(`[isGroupAdmin] No groupInfo found for threadId=${threadId}`);
+                isResponseSuspect = true;
             }
         } catch (error) {
             console.error(`[isGroupAdmin] Error checking admin for ${normalizedUserId} in ${threadId}:`, error.message);
+            isResponseSuspect = true;
         }
 
-        adminCache.set(cacheKey, {
-            value: isAdmin,
-            expiresAt: Date.now() + ADMIN_CACHE_TTL_MS,
-        });
+        // Only cache if we found an admin OR the response didn't look suspect.
+        // We always cache TRUE results. We only skip caching FALSE results if the data was suspect.
+        if (isAdmin || !isResponseSuspect) {
+            adminCache.set(cacheKey, {
+                value: isAdmin,
+                expiresAt: Date.now() + ADMIN_CACHE_TTL_MS,
+            });
+        } else {
+            console.log(`[isGroupAdmin] Skip caching FALSE result for ${normalizedUserId} due to suspect API response`);
+        }
+
         pruneAdminCache(true);
         return isAdmin;
     }
@@ -894,12 +902,12 @@ function createMessageHandler({
                     }
                     
                     const isAuthorized = isAdmin || isQTVMember;
-                    console.log(`[auth] userId=${userId}, normalized=${normalizedUserId}, command=${normalized}, isSuperAdmin=${isSuperAdminUser}, isAdmin=${isAdmin}, isQTVMember=${isQTVMember}, authorized=${isAuthorized}`);
-                    
                     if (!isAuthorized) {
-                        console.log(`[auth] Blocked ${normalized} command from ${normalizedUserId} - not authorized`);
+                        console.log(`[auth] Blocked ${normalized} from ${normalizedSenderId} (${message.data?.dName || "Unknown"}). isAdmin=${isAdmin}, isQTVMember=${isQTVMember}`);
                         await handleUnauthorizedCommandAttempt(threadId, message, userId);
                         return;
+                    } else {
+                        console.log(`[auth] Allowed ${normalized} from ${normalizedSenderId} (${message.data?.dName || "Unknown"}). isAdmin=${isAdmin}, isQTVMember=${isQTVMember}`);
                     }
                 }
             }

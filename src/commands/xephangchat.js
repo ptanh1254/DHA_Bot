@@ -527,6 +527,7 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
                 userId: uid,
                 displayName: incomingDisplayName || metaMap.get(uid)?.displayName || "",
                 avatarUrl: metaMap.get(uid)?.avatarUrl || "",
+                ingameName: String(user?.ingameName || "").trim(),
                 msgCount,
                 joinDate: user?.joinDate || null,
             });
@@ -544,6 +545,9 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
         if (!existing.avatarUrl && metaMap.get(uid)?.avatarUrl) {
             existing.avatarUrl = metaMap.get(uid).avatarUrl;
         }
+        if (!existing.ingameName && String(user?.ingameName || "").trim()) {
+            existing.ingameName = String(user.ingameName).trim();
+        }
 
         const existingJoinTime = toTimeValue(existing.joinDate);
         const incomingJoinTime = toTimeValue(user?.joinDate);
@@ -558,6 +562,7 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
                 userId: uid,
                 displayName: metaMap.get(uid)?.displayName || "",
                 avatarUrl: metaMap.get(uid)?.avatarUrl || "",
+                ingameName: "",
                 msgCount: rankingType === "week" ? Number(weeklyCountMap.get(uid)) || 0 : 0,
                 joinDate: null,
             });
@@ -682,6 +687,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
             userId: uid,
             displayName: normalizeDisplayName(user.displayName || meta.displayName, uid),
             avatarUrl: user.avatarUrl || meta.avatarUrl || "",
+            ingameName: user.ingameName || "",
             msgCount: Number(user.msgCount) || 0,
         };
     });

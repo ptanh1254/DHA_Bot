@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
-const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
+const { FONT_STACK, FONT_STACK_EMOJI, registerDesignFonts } = require("../shared/registerFonts");
 
 const WELCOME_THEME = {
     width: 1500,
@@ -113,7 +113,7 @@ function fitTextWithSize(ctx, text, maxWidth, maxFontSize, minFontSize) {
     let fontSize = maxFontSize;
 
     while (fontSize > minFontSize) {
-        ctx.font = `800 ${fontSize}px ${FONT_STACK}`;
+        ctx.font = `800 ${fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         if (ctx.measureText(safeText).width <= maxWidth) {
             break;
         }
@@ -166,7 +166,7 @@ function fitTextWithWrap(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines
     let fontSize = maxFontSize;
 
     while (fontSize > minFontSize) {
-        ctx.font = `800 ${fontSize}px ${FONT_STACK}`;
+        ctx.font = `800 ${fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         const lines = wrapTextByWords(ctx, safeText, maxWidth);
         if (lines.length <= maxLines) {
             return { lines, fontSize };
@@ -174,7 +174,7 @@ function fitTextWithWrap(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines
         fontSize -= 2;
     }
 
-    ctx.font = `800 ${minFontSize}px ${FONT_STACK}`;
+    ctx.font = `800 ${minFontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     const rawLines = wrapTextByWords(ctx, safeText, maxWidth);
     const lines = rawLines.slice(0, maxLines);
     if (rawLines.length > maxLines && lines.length > 0) {
@@ -259,7 +259,7 @@ function drawAvatar(ctx, avatarImage, centerX, centerY, displayName) {
         ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
 
         const letter = String(displayName || "?").trim()[0] || "?";
-        ctx.font = `800 64px ${FONT_STACK}`;
+        ctx.font = `800 64px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         ctx.fillStyle = "#7c2d12";
         const textWidth = ctx.measureText(letter.toUpperCase()).width;
         ctx.fillText(letter.toUpperCase(), centerX - textWidth / 2, centerY + 22);
@@ -314,7 +314,7 @@ async function createWelcomeImage(profile, options = {}) {
     const text = `Ch\u00e0o m\u1eebng ${displayName} \u0111\u1ebfn v\u1edbi khu gi\u1ea3i tr\u00ed DHA`;
     const textAreaWidth = width - sideWidth * 2 - 110;
     const textLayout = fitTextWithWrap(ctx, text, textAreaWidth, 52, 30, 3);
-    ctx.font = `800 ${textLayout.fontSize}px ${FONT_STACK}`;
+    ctx.font = `800 ${textLayout.fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = WELCOME_THEME.textColor;
     const lineHeight = Math.round(textLayout.fontSize * 1.2);
     const firstLineY = 422 - ((textLayout.lines.length - 1) * lineHeight) / 2;
@@ -324,7 +324,7 @@ async function createWelcomeImage(profile, options = {}) {
         ctx.fillText(line, centerX - lineWidth / 2, firstLineY + i * lineHeight);
     }
 
-    ctx.font = `600 24px ${FONT_STACK}`;
+    ctx.font = `600 24px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = "rgba(120, 53, 15, 0.92)";
     const subText = "Ch\u00fac b\u1ea1n c\u00f3 nh\u1eefng ph\u00fat gi\u00e2y vui v\u1ebb c\u00f9ng c\u1ed9ng \u0111\u1ed3ng";
     const subWidth = ctx.measureText(subText).width;

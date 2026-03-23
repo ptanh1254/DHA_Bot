@@ -1,16 +1,17 @@
-﻿const { getMessageType } = require("../utils/commonHelpers");
+const { getMessageType } = require("../utils/commonHelpers");
 
 function pickName(row) {
     const candidates = [
+        row?.ingameName,
         row?.lastKnownName,
         row?.firstKnownName,
         row?.displayName,
         row?.userName,
     ];
 
-    for (const value of candidates) {
-        if (typeof value === "string" && value.trim()) {
-            return value.trim();
+    for (let candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) {
+            return candidate.trim();
         }
     }
 

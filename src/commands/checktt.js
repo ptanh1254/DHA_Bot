@@ -133,7 +133,7 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
         });
 
         const messageLines = [
-            `${displayName}`,
+            `${displayName} (${ingameName || "Chưa set ingame"})`,
             `Ingame: ${ingameName || "Chưa cập nhật"}`,
             `Vào nhóm: ${formatJoinDateVN(joinDate)}`,
             `Người thêm/duyệt: ${addedByLabel}`,
