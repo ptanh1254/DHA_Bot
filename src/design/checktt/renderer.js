@@ -5,7 +5,7 @@ const { FONT_STACK, FONT_STACK_EMOJI, registerDesignFonts } = require("../shared
 const { getSpecialUserTheme } = require("../specialUsersConfig");
 
 const CHECKTT_THEME = {
-    width: 1180,
+    width: 1400,
     height: 660,
     background: {
         top: "#fff8dc",
@@ -15,7 +15,7 @@ const CHECKTT_THEME = {
     panel: {
         x: 44,
         y: 42,
-        width: 1092,
+        width: 1312,
         height: 576,
         radius: 28,
         fill: "rgba(255, 252, 235, 0.92)",
@@ -237,7 +237,7 @@ function drawTextBlock(ctx, payload, userId) {
     // Draw displayName with wrapping
     ctx.font = `800 54px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = colors.displayNameColor;
-    const nameLines = wrapTextByWords(ctx, displayName, 660);
+    const nameLines = wrapTextByWords(ctx, displayName, 880);
     const maxNameLines = 2; // Allow up to 2 lines for name
     let nameY = 204;
     for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
@@ -261,7 +261,7 @@ function drawTextBlock(ctx, payload, userId) {
     let y = 286 + (Math.max(0, nameLines.length - 1) * 60);
 
     for (const row of rows) {
-        roundRect(ctx, 392, y - 34, 678, rowHeight, 15);
+        roundRect(ctx, 392, y - 34, 898, rowHeight, 15);
         ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
         ctx.fill();
         ctx.strokeStyle = "rgba(180, 83, 9, 0.24)";

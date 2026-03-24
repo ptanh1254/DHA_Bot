@@ -1,4 +1,4 @@
-const { getMessageType } = require("../utils/commonHelpers");
+const { getMessageType, getMentionedTargets, normalizeId } = require("../utils/commonHelpers");
 
 function normalizeIngameName(input) {
     return String(input || "")
@@ -8,11 +8,49 @@ function normalizeIngameName(input) {
 
 async function handleIngameCommand(api, message, threadId, User, argsText, prefix = "!") {
     const messageType = getMessageType(message);
+    const mentions = getMentionedTargets(message);
+
+    // Case 1: Checking ingame names via mentions
+    if (mentions.length > 0) {
+        const results = [];
+        const responseMentions = [];
+        let currentPos = 0;
+
+        for (const target of mentions) {
+            const userId = normalizeId(target.userId);
+            const userDoc = await User.findOne({ groupId: threadId, userId }).lean();
+            const ingameName = userDoc?.ingameName || "Chưa set ingame";
+            
+            const mentionText = `@${target.displayName}`;
+            const line = `${mentionText}: ${ingameName}`;
+            
+            responseMentions.push({
+                pos: currentPos,
+                uid: userId,
+                len: mentionText.length
+            });
+            
+            results.push(line);
+            currentPos += line.length + 1; // +1 for newline
+        }
+
+        await api.sendMessage(
+            {
+                msg: results.join("\n"),
+                mentions: responseMentions,
+            },
+            threadId,
+            messageType
+        );
+        return;
+    }
+
+    // Case 2: Setting own ingame name
     const rawName = normalizeIngameName(argsText);
     if (!rawName) {
         await api.sendMessage(
             {
-                msg: `Dùng đúng cú pháp: ${prefix}ingame TenIngame`,
+                msg: `Dùng đúng cú pháp:\n- Set ingame: ${prefix}ingame TenIngame\n- Xem ingame người khác: ${prefix}ingame @Tag`,
             },
             threadId,
             messageType
@@ -31,7 +69,7 @@ async function handleIngameCommand(api, message, threadId, User, argsText, prefi
         return;
     }
 
-    const userId = String(message?.data?.uidFrom || "").trim();
+    const userId = normalizeId(message?.data?.uidFrom || "");
     if (!userId) return;
 
     const existing = await User.findOne({ groupId: threadId, userId }).lean();

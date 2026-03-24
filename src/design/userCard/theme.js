@@ -3,7 +3,7 @@ const { SPECIAL_USERS } = require("../specialUsersConfig");
 
 const USER_CARD_THEME = {
     size: {
-        width: 1280,
+        width: 1500,
         height: 720,
     },
     background: {
@@ -25,7 +25,7 @@ const USER_CARD_THEME = {
     card: {
         x: 48,
         y: 44,
-        width: 1184,
+        width: 1404,
         height: 632,
         radius: 30,
         fill: "rgba(255, 252, 235, 0.9)",
@@ -46,7 +46,7 @@ const USER_CARD_THEME = {
     divider: {
         x: 370,
         y: 158,
-        width: 800,
+        width: 1020,
         color: "rgba(180, 83, 9, 0.28)",
         lineWidth: 1,
     },
@@ -74,7 +74,7 @@ const USER_CARD_THEME = {
     },
     name: {
         y: 505,
-        maxWidth: 320,
+        maxWidth: 540,
         font: `700 42px ${FONT_STACK}`,
         color: "#451a03",
     },
@@ -86,7 +86,7 @@ const USER_CARD_THEME = {
     rows: {
         boxX: 370,
         boxY: 194,
-        boxWidth: 820,
+        boxWidth: 1040,
         rowHeight: 66,
         rowGap: 12,
         radius: 16,
@@ -99,7 +99,7 @@ const USER_CARD_THEME = {
     },
     footer: {
         text: "PTADEV 2026",
-        x: 1134,
+        x: 1354,
         y: 650,
         font: `600 16px ${FONT_STACK}`,
         color: "rgba(120, 53, 15, 0.7)",

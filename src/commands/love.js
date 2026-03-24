@@ -24,13 +24,17 @@ function calculateLovePercentage(userId1, userId2) {
 }
 
 function getLoveMessage(percentage) {
-    if (percentage >= 95) return "Cặp đôi đỉnh cao, có vẻ rất hợp nhau!";
-    if (percentage >= 85) return "Độ tương hợp rất cao, tìm hiểu nghiêm túc được đó.";
-    if (percentage >= 75) return "Rất ổn, tiếp tục tương tác là có cửa.";
-    if (percentage >= 65) return "Khá hợp, cần thêm thời gian để kiểm chứng.";
-    if (percentage >= 50) return "Tạm ổn, có thể thử để xem duyên đến đâu.";
-    if (percentage >= 35) return "Hơi khó, cần nỗ lực hai phía.";
-    return "Độ khó cao, nhưng biết đâu bất ngờ!";
+    if (percentage >= 98) return "Coi chừng! Độ hợp nhau này là báo động đỏ cho một đám cưới linh đình rồi đó! 💍";
+    if (percentage >= 90) return "Tình trong như đã mặt ngoài còn e, hai bạn không cưới thì bot đi cưới hộ cho! ❤️";
+    if (percentage >= 80) return "Chỉ số tương hợp cực cao! Một người là chìa khóa, người kia là ổ khóa luôn rồi. ✨";
+    if (percentage >= 70) return "Cũng ra gì và này nọ đấy! Đẩy nhẹ cái là dính như keo 502 luôn. 😉";
+    if (percentage >= 60) return "Tầm này là trên tình bạn dưới tình yêu rồi, thiếu mỗi cái gật đầu thôi. 🤭";
+    if (percentage >= 50) return "Nửa nạc nửa mỡ, nếu cố gắng thì cũng thành cơm thành cháo đó. 🥣";
+    if (percentage >= 40) return "Hơi lệch một tí, nhưng biết đâu âm dương hút nhau thì sao? 🔋";
+    if (percentage >= 30) return "Friendzone đang vẫy gọi, nhưng đừng bỏ cuộc, người tính không bằng trời tính! 😅";
+    if (percentage >= 20) return "Vibe này là 'anh em nương tựa' rồi, khó mà tiến xa hơn được. 👬";
+    if (percentage >= 10) return "Tương hợp kiểu... nước sông không phạm nước giếng. Đau lòng quá! 🌊";
+    return "Friendzone vĩnh cửu! Kiếp này coi như mình làm anh em tốt cho nó bền. 💀";
 }
 
 function getSenderInfo(message) {

@@ -6,9 +6,9 @@ const { FONT_STACK, FONT_STACK_EMOJI, registerDesignFonts } = require("../shared
 const { getSpecialUserTheme } = require("../specialUsersConfig");
 
 const CHECK_THEME = {
-    width: 1500,
+    width: 1700,
     height: 760,
-    sideWidth: 340,
+    sideWidth: 280,
     centerPadding: 32,
     centerPanelRadius: 24,
     avatarRadius: 98,

@@ -289,6 +289,7 @@ function createMessageHandler({
         afkCommand,
         loveCommand,
         askCommand,
+        nghiepCommand,
         handleHelp,
         handleHello,
         handlePreventRecall,
@@ -316,6 +317,7 @@ function createMessageHandler({
         handleAFK,
         handleLove,
         handleAsk,
+        handleNghiep,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -816,6 +818,7 @@ function createMessageHandler({
             const isResetChat = normalized === resetChatCommand;
             const isAFK = normalized === afkCommand || normalized.startsWith(`${afkCommand} `);
             const isLove = normalized === loveCommand || normalized.startsWith(`${loveCommand} `);
+            const isNghiep = normalized === nghiepCommand || normalized.startsWith(`${nghiepCommand} `);
             const isAsk = normalized === askCommand || normalized.startsWith(`${askCommand} `);
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
@@ -876,11 +879,12 @@ function createMessageHandler({
                 isResetChat ||
                 isAFK ||
                 isLove ||
+                isNghiep ||
                 isAsk;
 
             if (!isBotSelf && isKnownCommand) {
-                // Public commands (không cần auth) - ingame, afk, love, ask
-                const isPublicCommand = isIngame || isAFK || isLove || isAsk;
+                // Public commands (không cần auth) - ingame, afk, love, ask, nghiep
+                const isPublicCommand = isIngame || isAFK || isLove || isAsk || isNghiep;
                 // Kick status view (không có args thì là public)
                 const isKickStatusOnly = isKick && kickArgs === "";
                 // AutoKick status/on/off (không thêm uid thì là public)
@@ -939,6 +943,7 @@ function createMessageHandler({
                 !isResetChat &&
                 !isAFK &&
                 !isLove &&
+                !isNghiep &&
                 !isAsk
             ) {
                 return;
@@ -1074,6 +1079,11 @@ function createMessageHandler({
 
             if (isLove) {
                 await handleLove(api, message, threadId, User);
+                return;
+            }
+
+            if (isNghiep) {
+                await handleNghiep(api, message, threadId);
                 return;
             }
 
