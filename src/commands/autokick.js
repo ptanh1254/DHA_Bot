@@ -1,4 +1,8 @@
 const { normalizeId, parseUidArg, getMessageType, sendMessage, buildErrorMessage } = require("../utils/commonHelpers");
+const {
+    PROTECTED_OWNER_BLOCK_MESSAGE,
+    isProtectedOwnerUid,
+} = require("../config/protectedUsers");
 
 function buildAutoKickStatusMessage(prefix, isEnabled) {
     const statusText = isEnabled ? "BẬT" : "TẮT";
@@ -74,6 +78,11 @@ async function handleAutoKickCommand(
             threadId,
             messageType
         );
+        return;
+    }
+
+    if (isProtectedOwnerUid(targetUid)) {
+        await sendMessage(api, { msg: PROTECTED_OWNER_BLOCK_MESSAGE }, threadId, messageType);
         return;
     }
 

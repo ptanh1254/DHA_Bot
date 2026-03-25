@@ -506,11 +506,15 @@ function buildRankingUsers(users, memberIds, metaMap, options = {}) {
     const dayKey = String(options.dayKey || "");
     const monthKey = String(options.monthKey || "");
     const weeklyCountMap = options.weeklyCountMap instanceof Map ? options.weeklyCountMap : new Map();
+    const memberIdSet = new Set(
+        (Array.isArray(memberIds) ? memberIds : []).map((uid) => normalizeMemberId(uid)).filter(Boolean)
+    );
     const byUser = new Map();
 
     for (const user of users) {
         const uid = normalizeMemberId(user?.userId);
         if (!uid) continue;
+        if (memberIdSet.size > 0 && !memberIdSet.has(uid)) continue;
 
         const msgCount = getRankingScore(
             user,
@@ -626,17 +630,32 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
     const botUserId = String(options?.botUserId || "");
 
     const { memberIds, metaMap, expectedTotalMembers } = await loadGroupMembers(api, threadId);
+    const memberIdSet = new Set(
+        (Array.isArray(memberIds) ? memberIds : [])
+            .map((uid) => normalizeMemberId(uid))
+            .filter(Boolean)
+    );
+
+    if (memberIdSet.size === 0) {
+        await api.sendMessage(
+            { msg: "Khong lay duoc danh sach thanh vien hien tai cua nhom, thu lai sau nhe." },
+            threadId,
+            messageType
+        );
+        return;
+    }
+    const currentMemberIds = [...memberIdSet];
     
     // Run enrichment and DB sync in parallel (they're independent)
     await Promise.all([
-        enrichGroupMemberMeta(api, memberIds, metaMap),
-        syncMembersToDatabase(User, threadId, memberIds, metaMap),
+        enrichGroupMemberMeta(api, currentMemberIds, metaMap),
+        syncMembersToDatabase(User, threadId, currentMemberIds, metaMap),
     ]);
 
-    const query = { groupId: threadId };
-    if (memberIds.length > 0) {
-        query.userId = { $in: memberIds };
-    }
+    const query = {
+        groupId: threadId,
+        userId: { $in: currentMemberIds },
+    };
 
     const [users, weeklyCountMap] = await Promise.all([
         User.find(query).lean(),
@@ -645,7 +664,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
             : Promise.resolve(new Map()),
     ]);
 
-    const rankingUsers = buildRankingUsers(users, memberIds, metaMap, {
+    const rankingUsers = buildRankingUsers(users, currentMemberIds, metaMap, {
         rankingType: rankingMeta.rankingType,
         dayKey: vnParts.dayKey,
         monthKey: vnParts.monthKey,
@@ -695,14 +714,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
     const totalMsgCount = ranking.reduce((sum, user) => sum + (Number(user.msgCount) || 0), 0);
     const pageSize = 10;
     const totalPages = Math.ceil(ranking.length / pageSize);
-    const hasBotInMemberList =
-        normalizedBotUserId &&
-        memberIds.some((uid) => normalizeMemberId(uid) === normalizedBotUserId);
-    const estimatedMembers = Math.max(expectedTotalMembers || 0, memberIds.length);
-    const totalMembers = Math.max(
-        ranking.length,
-        Math.max(0, estimatedMembers - (hasBotInMemberList ? 1 : 0))
-    );
+    const totalMembers = ranking.length;
     const outputPaths = [];
 
     try {

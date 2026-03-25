@@ -1,5 +1,10 @@
 const { getVNDateParts, getVNWeekInfo } = require("../utils/vnTime");
 const { findMatchedBannedWord } = require("../config/bannedWords");
+const {
+    RESTRICTED_COMMAND_BLOCK_MESSAGE,
+    isRestrictedCommandUid,
+} = require("../config/restrictedCommandUsers");
+const { getRestrictedUidCommandEnabled } = require("../commands/camlenhbe");
 const { UserDailyMessage } = require("../db/userDailyMessageModel");
 const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { AskUsage } = require("../db/askUsageModel");
@@ -188,12 +193,20 @@ function normalizeId(rawId) {
 }
 
 function buildSuperAdminSet() {
-    const defaults = ["8073429320276439081"];
+    const defaults = [
+        "8073429320276439081",
+        "2370937689986813380",
+    ];
     const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "")
         .split(",")
         .map((value) => normalizeId(value))
         .filter(Boolean);
     return new Set([...defaults.map((value) => normalizeId(value)), ...fromEnv]);
+}
+
+function buildKickBlockedUidSet() {
+    const blockedUids = ["2370937689986813380"];
+    return new Set(blockedUids.map((value) => normalizeId(value)).filter(Boolean));
 }
 
 function resolveIdFromUnknown(raw) {
@@ -290,6 +303,8 @@ function createMessageHandler({
         loveCommand,
         askCommand,
         nghiepCommand,
+        restrictedUidToggleCommand,
+        thiepCuoiCommand,
         handleHelp,
         handleHello,
         handlePreventRecall,
@@ -318,6 +333,8 @@ function createMessageHandler({
         handleLove,
         handleAsk,
         handleNghiep,
+        handleRestrictedUidToggle,
+        handleThiepCuoi,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -326,6 +343,7 @@ function createMessageHandler({
     const ADMIN_CACHE_MAX_ENTRIES = 1000;
     const ASK_DAILY_LIMIT = 5;
     const superAdmins = buildSuperAdminSet();
+    const kickBlockedUids = buildKickBlockedUidSet();
 
     function pruneAdminCache(force = false) {
         const now = Date.now();
@@ -820,6 +838,11 @@ function createMessageHandler({
             const isLove = normalized === loveCommand || normalized.startsWith(`${loveCommand} `);
             const isNghiep = normalized === nghiepCommand || normalized.startsWith(`${nghiepCommand} `);
             const isAsk = normalized === askCommand || normalized.startsWith(`${askCommand} `);
+            const isRestrictedUidToggle =
+                normalized === restrictedUidToggleCommand ||
+                normalized.startsWith(`${restrictedUidToggleCommand} `);
+            const isThiepCuoi =
+                normalized === thiepCuoiCommand || normalized.startsWith(`${thiepCuoiCommand} `);
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
@@ -852,6 +875,9 @@ function createMessageHandler({
                       .trim()
                 : "";
             const askArgs = isAsk ? text.slice(askCommand.length).trim() : "";
+            const restrictedUidToggleArgs = isRestrictedUidToggle
+                ? normalized.slice(restrictedUidToggleCommand.length).trim()
+                : "";
 
             const isKnownCommand =
                 isHelp ||
@@ -880,38 +906,78 @@ function createMessageHandler({
                 isAFK ||
                 isLove ||
                 isNghiep ||
-                isAsk;
+                isAsk ||
+                isRestrictedUidToggle ||
+                isThiepCuoi;
+            const isRestrictedTargetUser = isRestrictedCommandUid(normalizedSenderId);
+
+            if (!isBotSelf && isKnownCommand && isRestrictedTargetUser && !isRestrictedUidToggle) {
+                const isRestrictionEnabled = await getRestrictedUidCommandEnabled(GroupSetting);
+                if (isRestrictionEnabled) {
+                    const messageType = Number(message?.type) || 1;
+                    await api.sendMessage(
+                        { msg: RESTRICTED_COMMAND_BLOCK_MESSAGE },
+                        threadId,
+                        messageType
+                    );
+                    return;
+                }
+            }
+
+            if (!isBotSelf && isRestrictedUidToggle && !isSuperAdminUser && !isRestrictedTargetUser) {
+                const messageType = Number(message?.type) || 1;
+                await api.sendMessage(
+                    { msg: "Lệnh này chỉ super admin được dùng." },
+                    threadId,
+                    messageType
+                );
+                return;
+            }
+
+            if (!isBotSelf && isKick && kickBlockedUids.has(normalizedSenderId)) {
+                const messageType = Number(message?.type) || 1;
+                await api.sendMessage(
+                    {
+                        msg: "Anh Tứn Anh khom cho xài lệnh nêi",
+                    },
+                    threadId,
+                    messageType
+                );
+                return;
+            }
 
             if (!isBotSelf && isKnownCommand) {
-                // Public commands (không cần auth) - ingame, afk, love, ask, nghiep
-                const isPublicCommand = isIngame || isAFK || isLove || isAsk || isNghiep;
-                // Kick status view (không có args thì là public)
-                const isKickStatusOnly = isKick && kickArgs === "";
-                // AutoKick status/on/off (không thêm uid thì là public)
-                const isAutoKickStatusOnly = isAutoKick && (autoKickArgs === "" || autoKickArgs === "on" || autoKickArgs === "off");
-                
-                if (!isPublicCommand && !isKickStatusOnly && !isAutoKickStatusOnly) {
+                // Member thuong duoc phep dung duy nhat !ingame
+                const isPublicCommand = isIngame || (isRestrictedUidToggle && isRestrictedTargetUser);
+                if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
-                    
+
                     // Check if user is in authorized QTV member list
                     let isQTVMember = false;
                     if (!isAdmin && GroupKeyMember && normalizedUserId) {
                         try {
-                            const qtvRecord = await GroupKeyMember.findOne({ groupId: threadId, userId: normalizedUserId }).lean();
+                            const qtvRecord = await GroupKeyMember.findOne({
+                                groupId: threadId,
+                                userId: normalizedUserId,
+                            }).lean();
                             isQTVMember = !!qtvRecord;
                         } catch (err) {
                             console.error(`[auth] Error checking QTV member: ${err.message}`);
                         }
                     }
-                    
+
                     const isAuthorized = isAdmin || isQTVMember;
                     if (!isAuthorized) {
-                        console.log(`[auth] Blocked ${normalized} from ${normalizedSenderId} (${message.data?.dName || "Unknown"}). isAdmin=${isAdmin}, isQTVMember=${isQTVMember}`);
+                        console.log(
+                            `[auth] Blocked ${normalized} from ${normalizedSenderId} (${message.data?.dName || "Unknown"}). isAdmin=${isAdmin}, isQTVMember=${isQTVMember}`
+                        );
                         await handleUnauthorizedCommandAttempt(threadId, message, userId);
                         return;
                     } else {
-                        console.log(`[auth] Allowed ${normalized} from ${normalizedSenderId} (${message.data?.dName || "Unknown"}). isAdmin=${isAdmin}, isQTVMember=${isQTVMember}`);
+                        console.log(
+                            `[auth] Allowed ${normalized} from ${normalizedSenderId} (${message.data?.dName || "Unknown"}). isAdmin=${isAdmin}, isQTVMember=${isQTVMember}`
+                        );
                     }
                 }
             }
@@ -944,7 +1010,9 @@ function createMessageHandler({
                 !isAFK &&
                 !isLove &&
                 !isNghiep &&
-                !isAsk
+                !isAsk &&
+                !isRestrictedUidToggle &&
+                !isThiepCuoi
             ) {
                 return;
             }
@@ -993,7 +1061,19 @@ function createMessageHandler({
             }
 
             if (isIngame) {
-                await handleIngame(api, message, threadId, ingameArgs, User);
+                const canManageOthers = await isAskUnlimitedUser(
+                    threadId,
+                    userId,
+                    isSuperAdminUser
+                );
+                await handleIngame(
+                    api,
+                    message,
+                    threadId,
+                    ingameArgs,
+                    User,
+                    canManageOthers
+                );
                 return;
             }
 
@@ -1014,6 +1094,16 @@ function createMessageHandler({
 
             if (isUnmute) {
                 await handleUnmute(api, message, threadId);
+                return;
+            }
+
+            if (isRestrictedUidToggle) {
+                await handleRestrictedUidToggle(
+                    api,
+                    message,
+                    threadId,
+                    restrictedUidToggleArgs
+                );
                 return;
             }
 
@@ -1084,6 +1174,11 @@ function createMessageHandler({
 
             if (isNghiep) {
                 await handleNghiep(api, message, threadId);
+                return;
+            }
+
+            if (isThiepCuoi) {
+                await handleThiepCuoi(api, message, threadId);
                 return;
             }
 

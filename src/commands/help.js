@@ -4,7 +4,7 @@ function buildHelpPart1(prefix = "!") {
         "",
         "⚡ LƯU Ý CHUNG:",
         "• Các chế độ on/off (hello, kick) áp dụng theo từng nhóm",
-        "• Lệnh cần tag: check, checktt, checkingame, thongtin, node, kick, mute, unmute",
+        "• Lệnh cần tag: check, checktt, checkingame, thongtin, node, kick, mute, unmute, thiepcuoi",
         "• Mặc định: chủ nhóm/phó nhóm được dùng lệnh admin",
         "• Người dùng phổ thông vi phạm 10 lần = bị kick",
     ].join("\n");
@@ -57,6 +57,8 @@ function buildHelpPart5(prefix = "!") {
         "",
         `${prefix}addqtv @user - Thêm người vào danh sách bot`,
         `${prefix}removeqtv @user - Gỡ người khỏi danh sách bot`,
+        `${prefix}camlenhbe - Xem trạng thái chặn UID đặc biệt (global)`,
+        `${prefix}camlenhbe on/off - Bật/tắt chặn UID đặc biệt cho toàn hệ thống`,
     ].join("\n");
 }
 
@@ -81,8 +83,10 @@ function buildHelpPart7(prefix = "!") {
         `${prefix}checkingame @user - Xem danh sách người chưa set ingame`,
         `${prefix}node @user ghi chú - Lưu ghi chú cho user`,
         `${prefix}ingame <tên> - Lưu tên ingame của bạn`,
+        `${prefix}ingame @user <tên> - (Admin/BQT) set hoặc thay thế ingame cho người được tag`,
         `${prefix}xoaingame @user - Xóa ingame thành viên`,
         `${prefix}thongtin @user - Xem thông tin profile`,
+        `${prefix}thiepcuoi @a @b (@c...) - Tạo thiệp cưới hài hước cho 2-6 người`,
     ].join("\n");
 }
 

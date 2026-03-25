@@ -3,22 +3,16 @@ const path = require("path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { FONT_STACK, registerDesignFonts } = require("../shared/registerFonts");
 
-const { USER_CARD_THEME, SPECIAL_USERS, SPECIAL_USER_CARD_THEME } = require("./theme");
+const { USER_CARD_THEME } = require("./theme");
 const { getSpecialUserTheme } = require("../specialUsersConfig");
 const { buildUserCardRows } = require("./formatters");
-
-function getThemeForUser(userId, themeType) {
-    const specialTheme = getSpecialUserTheme(userId, themeType);
-    return specialTheme || USER_CARD_THEME[themeType];
-}
 
 function getMergedThemeForUser(userId) {
     const specialTheme = getSpecialUserTheme(userId, "userCard");
     if (!specialTheme) return USER_CARD_THEME;
-    
-    // Deep merge special theme with default theme
+
     const merged = JSON.parse(JSON.stringify(USER_CARD_THEME));
-    
+
     if (specialTheme.title) {
         merged.title = { ...merged.title, ...specialTheme.title };
     }
@@ -37,7 +31,7 @@ function getMergedThemeForUser(userId) {
     if (specialTheme.footer) {
         merged.footer = { ...merged.footer, ...specialTheme.footer };
     }
-    
+
     return merged;
 }
 
@@ -58,6 +52,7 @@ function roundRect(ctx, x, y, width, height, radius) {
 
 function fitText(ctx, text, maxWidth) {
     const input = String(text || "");
+    if (!maxWidth || maxWidth <= 0) return "";
     if (ctx.measureText(input).width <= maxWidth) return input;
 
     let out = input;
@@ -68,27 +63,113 @@ function fitText(ctx, text, maxWidth) {
     return `${out}...`;
 }
 
+function extractFontSize(font, fallback = 24) {
+    const match = String(font || "").match(/(\d+(?:\.\d+)?)px/i);
+    if (!match) return fallback;
+    const size = Number(match[1]);
+    return Number.isFinite(size) && size > 0 ? size : fallback;
+}
+
+function withFontSize(font, size) {
+    const safeSize = Math.max(8, Math.round(Number(size) || 0));
+    if (String(font || "").match(/(\d+(?:\.\d+)?)px/i)) {
+        return String(font).replace(/(\d+(?:\.\d+)?)px/i, `${safeSize}px`);
+    }
+    return `700 ${safeSize}px ${FONT_STACK}`;
+}
+
+function splitLongToken(ctx, token, maxWidth) {
+    const out = [];
+    let current = "";
+    const chars = Array.from(String(token || ""));
+
+    for (const ch of chars) {
+        const next = `${current}${ch}`;
+        if (current && ctx.measureText(next).width > maxWidth) {
+            out.push(current);
+            current = ch;
+        } else {
+            current = next;
+        }
+    }
+
+    if (current) out.push(current);
+    return out.length > 0 ? out : [""];
+}
+
 function wrapTextByWords(ctx, text, maxWidth) {
-    const words = String(text || "")
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-    if (words.length === 0) return [""];
+    const safeText = String(text || "").trim();
+    if (!safeText) return [""];
 
+    const words = safeText.split(/\s+/).filter(Boolean);
     const lines = [];
-    let current = words[0];
+    let current = "";
 
-    for (let i = 1; i < words.length; i += 1) {
-        const next = `${current} ${words[i]}`;
-        if (ctx.measureText(next).width <= maxWidth) {
+    for (const word of words) {
+        if (ctx.measureText(word).width > maxWidth) {
+            const pieces = splitLongToken(ctx, word, maxWidth);
+            for (const piece of pieces) {
+                if (!current) {
+                    current = piece;
+                } else {
+                    lines.push(current);
+                    current = piece;
+                }
+            }
+            continue;
+        }
+
+        const next = current ? `${current} ${word}` : word;
+        if (!current || ctx.measureText(next).width <= maxWidth) {
             current = next;
         } else {
             lines.push(current);
-            current = words[i];
+            current = word;
         }
     }
-    lines.push(current);
-    return lines;
+
+    if (current) lines.push(current);
+    return lines.length > 0 ? lines : [""];
+}
+
+function fitWrappedTextByFont(ctx, text, maxWidth, maxLines, maxFontSize, minFontSize, baseFont) {
+    let fontSize = Math.max(minFontSize, maxFontSize);
+
+    while (fontSize >= minFontSize) {
+        ctx.font = withFontSize(baseFont, fontSize);
+        const lines = wrapTextByWords(ctx, text, maxWidth);
+        if (lines.length <= maxLines) {
+            return { fontSize, lines };
+        }
+        fontSize -= 2;
+    }
+
+    ctx.font = withFontSize(baseFont, minFontSize);
+    const lines = wrapTextByWords(ctx, text, maxWidth).slice(0, maxLines);
+    if (lines.length > 0) {
+        lines[lines.length - 1] = fitText(ctx, lines[lines.length - 1], maxWidth);
+    }
+
+    return { fontSize: minFontSize, lines };
+}
+
+function fitSingleLineByFont(ctx, text, maxWidth, maxFontSize, minFontSize, baseFont) {
+    const raw = String(text || "");
+    let fontSize = Math.max(minFontSize, maxFontSize);
+
+    while (fontSize >= minFontSize) {
+        ctx.font = withFontSize(baseFont, fontSize);
+        if (ctx.measureText(raw).width <= maxWidth) {
+            return { fontSize, text: raw };
+        }
+        fontSize -= 1;
+    }
+
+    ctx.font = withFontSize(baseFont, minFontSize);
+    return {
+        fontSize: minFontSize,
+        text: fitText(ctx, raw, maxWidth),
+    };
 }
 
 async function loadAvatarImage(url) {
@@ -171,11 +252,13 @@ function drawTitle(ctx, userId) {
 
     ctx.font = title.titleFont;
     ctx.fillStyle = title.titleColor;
-    ctx.fillText(title.text, title.x, title.y);
+    const titleText = fitText(ctx, title.text, divider.width - 20);
+    ctx.fillText(titleText, title.x, title.y);
 
     ctx.font = title.subFont;
     ctx.fillStyle = title.subColor;
-    ctx.fillText(title.subText, title.x, title.y + 36);
+    const subtitleText = fitText(ctx, title.subText, divider.width - 20);
+    ctx.fillText(subtitleText, title.x, title.y + 36);
 
     ctx.beginPath();
     ctx.moveTo(divider.x, divider.y);
@@ -254,30 +337,45 @@ function drawName(ctx, profile, userId) {
     const mergedTheme = getMergedThemeForUser(userId);
     const nameCfg = mergedTheme.name;
     const uidCfg = mergedTheme.userId;
-    const avatarX = mergedTheme.avatar.x;
+    const leftBound = USER_CARD_THEME.card.x + 22;
+    const rightBound = Math.max(leftBound + 120, mergedTheme.rows.boxX - 24);
+    const nameMaxWidth = Math.max(180, rightBound - leftBound);
+    const nameCenterX = leftBound + nameMaxWidth / 2;
 
     const displayName = String(
         profile.displayName || profile.zaloName || "Ng\u01b0\u1eddi d\u00f9ng"
     ).trim();
 
-    ctx.font = nameCfg.font;
+    const nameBaseSize = extractFontSize(nameCfg.font, 42);
+    const nameLayout = fitWrappedTextByFont(
+        ctx,
+        displayName,
+        nameMaxWidth,
+        2,
+        nameBaseSize,
+        26,
+        nameCfg.font
+    );
+    ctx.font = withFontSize(nameCfg.font, nameLayout.fontSize);
     ctx.fillStyle = nameCfg.color;
-    const nameLines = wrapTextByWords(ctx, displayName, nameCfg.maxWidth);
-    const maxNameLines = 2; // Allow up to 2 lines for name
+    const lineHeight = Math.round(nameLayout.fontSize * 1.15);
     let nameY = nameCfg.y;
-    for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
-        const nameWidth = ctx.measureText(nameLines[i]).width;
-        ctx.fillText(nameLines[i], avatarX - nameWidth / 2, nameY);
-        nameY += 48; // Line height for 42px font
+    for (const line of nameLayout.lines) {
+        const nameWidth = ctx.measureText(line).width;
+        ctx.fillText(line, nameCenterX - nameWidth / 2, nameY);
+        nameY += lineHeight;
     }
 
     const uid = String(profile.userId || profile.uid || "").trim();
     if (uid) {
         const uidText = `UID: ${uid}`;
-        ctx.font = uidCfg.font;
+        const uidBaseSize = extractFontSize(uidCfg.font, 20);
+        const uidLayout = fitSingleLineByFont(ctx, uidText, nameMaxWidth, uidBaseSize, 14, uidCfg.font);
+        ctx.font = withFontSize(uidCfg.font, uidLayout.fontSize);
         ctx.fillStyle = uidCfg.color;
-        const uidWidth = ctx.measureText(uidText).width;
-        ctx.fillText(uidText, avatarX - uidWidth / 2, uidCfg.y + (Math.max(0, nameLines.length - 1) * 48));
+        const uidWidth = ctx.measureText(uidLayout.text).width;
+        const uidY = Math.max(uidCfg.y, nameCfg.y + nameLayout.lines.length * lineHeight + 12);
+        ctx.fillText(uidLayout.text, nameCenterX - uidWidth / 2, uidY);
     }
 }
 
@@ -299,16 +397,21 @@ function drawRows(ctx, profile, userId) {
         ctx.fillStyle = cfg.labelColor;
         ctx.fillText(row.label, cfg.boxX + 24, rowY + 41);
 
-        ctx.font = cfg.valueFont;
+        const valueBaseSize = extractFontSize(cfg.valueFont, 24);
+        const valueText = String(row.value || "Kh\u00f4ng r\u00f5");
+        const fittedValue = fitSingleLineByFont(
+            ctx,
+            valueText,
+            cfg.valueMaxWidth,
+            valueBaseSize,
+            16,
+            cfg.valueFont
+        );
+        ctx.font = withFontSize(cfg.valueFont, fittedValue.fontSize);
         ctx.fillStyle = cfg.valueColor || row.color;
-        const valueLines = wrapTextByWords(ctx, String(row.value || "Không rõ"), cfg.valueMaxWidth);
-        const maxValueLines = 2; // Allow up to 2 lines for value
-        let valueY = rowY + 41;
-        for (let i = 0; i < Math.min(valueLines.length, maxValueLines); i += 1) {
-            const textWidth = ctx.measureText(valueLines[i]).width;
-            ctx.fillText(valueLines[i], cfg.boxX + cfg.boxWidth - 24 - textWidth, valueY);
-            valueY += 28; // Line height for 24px font
-        }
+        const textWidth = ctx.measureText(fittedValue.text).width;
+        const valueY = rowY + Math.round(cfg.rowHeight / 2) + Math.round(fittedValue.fontSize * 0.35);
+        ctx.fillText(fittedValue.text, cfg.boxX + cfg.boxWidth - 24 - textWidth, valueY);
 
         rowY += cfg.rowHeight + cfg.rowGap;
     }
@@ -320,8 +423,11 @@ function drawFooter(ctx, userId) {
     ctx.font = footer.font;
     ctx.fillStyle = footer.color;
 
-    const width = ctx.measureText(footer.text).width;
-    ctx.fillText(footer.text, footer.x - width, footer.y);
+    const cardRight = USER_CARD_THEME.card.x + USER_CARD_THEME.card.width - 20;
+    const text = fitText(ctx, footer.text, 260);
+    const width = ctx.measureText(text).width;
+    const x = Math.min(footer.x - width, cardRight - width);
+    ctx.fillText(text, x, footer.y);
 }
 
 async function createUserInfoCard(profile, options = {}) {
@@ -358,5 +464,3 @@ module.exports = {
     USER_CARD_THEME,
     createUserInfoCard,
 };
-
-

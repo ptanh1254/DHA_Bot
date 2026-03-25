@@ -1,19 +1,42 @@
-﻿const { getMentionedTargets, getMessageType, sendMessage, buildErrorMessage, formatNameList } = require("../utils/commonHelpers");
+const {
+    getMentionedTargets,
+    getMessageType,
+    sendMessage,
+    buildErrorMessage,
+    formatNameList,
+} = require("../utils/commonHelpers");
+const {
+    PROTECTED_OWNER_BLOCK_MESSAGE,
+    isProtectedOwnerUid,
+} = require("../config/protectedUsers");
 
 async function handleMuteCommand(api, message, threadId, MutedMember, prefix = "!") {
     const messageType = getMessageType(message);
     const targets = getMentionedTargets(message);
     if (targets.length === 0) {
-        await sendMessage(api, buildErrorMessage("Hãy tag người cần mute", [`${prefix}mute @TenNguoiDung`]), threadId, messageType);
+        await sendMessage(
+            api,
+            buildErrorMessage("Hãy tag người cần mute", [`${prefix}mute @TenNguoiDung`]),
+            threadId,
+            messageType
+        );
         return;
     }
 
-    const targetIds = targets.map((target) => target.userId);
+    const protectedTargets = targets.filter((target) => isProtectedOwnerUid(target.userId));
+    const muteableTargets = targets.filter((target) => !isProtectedOwnerUid(target.userId));
+
+    if (protectedTargets.length > 0 && muteableTargets.length === 0) {
+        await sendMessage(api, { msg: PROTECTED_OWNER_BLOCK_MESSAGE }, threadId, messageType);
+        return;
+    }
+
+    const targetIds = muteableTargets.map((target) => target.userId);
     const mutedByUserId = String(message?.data?.uidFrom || "").trim();
     const mutedByName =
         typeof message?.data?.dName === "string" && message.data.dName.trim()
             ? message.data.dName.trim()
-            : "Ng\u01b0\u1eddi d\u00f9ng b\u00ed \u1ea9n";
+            : "Nguoi dung bi an";
 
     const operations = targetIds.map((userId) => ({
         updateOne: {
@@ -36,13 +59,20 @@ async function handleMuteCommand(api, message, threadId, MutedMember, prefix = "
 
     await MutedMember.bulkWrite(operations, { ordered: false });
 
-    await api.sendMessage(
+    const lines = [
+        "Đã bật chế độ mute cho:",
+        formatNameList(muteableTargets),
+        
+    ];
+
+    if (protectedTargets.length > 0) {
+        lines.push(`${formatNameList(protectedTargets)}: ${PROTECTED_OWNER_BLOCK_MESSAGE}`);
+    }
+
+    await sendMessage(
+        api,
         {
-            msg: [
-                "\ud83d\udd07 \u0110\u00e3 b\u1eadt mute chat t\u1ee9c th\u00ec cho:",
-                formatNameList(targets),
-                "T\u1eeb gi\u1edd nh\u1eefng ng\u01b0\u1eddi n\u00e0y nh\u1eafn l\u00e0 bot xo\u00e1 tin ngay.",
-            ].join("\n"),
+            msg: lines.join("\n"),
         },
         threadId,
         messageType

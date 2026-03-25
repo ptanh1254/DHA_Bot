@@ -38,6 +38,8 @@ const { handleAFKCommand } = require("./src/commands/afk");
 const { handleLoveCommand } = require("./src/commands/love");
 const { handleAskCommand } = require("./src/commands/ask");
 const { handleNghiepCommand } = require("./src/commands/nghiep");
+const { handleRestrictedUidToggleCommand } = require("./src/commands/camlenhbe");
+const { handleThiepCuoiCommand } = require("./src/commands/thiepcuoi");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
@@ -136,7 +138,9 @@ async function startBot() {
             checkIngameCommand: `${prefix}checkingame`.toLowerCase(),
             ingameCommand: `${prefix}ingame`.toLowerCase(),
             removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
-            preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),            nodeCommand: `${prefix}node`.toLowerCase(),            kickCommand: `${prefix}dapbaymau`.toLowerCase(),
+            preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),
+            nodeCommand: `${prefix}node`.toLowerCase(),
+            kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             kickAliasCommand: `${prefix}kick`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
             unmuteCommand: `${prefix}unmute`.toLowerCase(),
@@ -158,6 +162,8 @@ async function startBot() {
             loveCommand: `${prefix}love`.toLowerCase(),
             askCommand: `${prefix}ask`.toLowerCase(),
             nghiepCommand: `${prefix}nghiep`.toLowerCase(),
+            restrictedUidToggleCommand: `${prefix}camlenhbe`.toLowerCase(),
+            thiepCuoiCommand: `${prefix}thiepcuoi`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
             handleHello: (api, message, threadId, argsText) =>
@@ -169,8 +175,16 @@ async function startBot() {
                 handleCheckCommand(api, message, threadId, prefix),
             handleCheckIngame: (api, message, threadId) =>
                 handleCheckIngameCommand(api, message, threadId, User),
-            handleIngame: (api, message, threadId, argsText, User) =>
-                handleIngameCommand(api, message, threadId, User, argsText, prefix),
+            handleIngame: (api, message, threadId, argsText, User, canManageOthers = false) =>
+                handleIngameCommand(
+                    api,
+                    message,
+                    threadId,
+                    User,
+                    argsText,
+                    prefix,
+                    canManageOthers
+                ),
             handleRemoveIngame: (api, message, threadId, argsText, User) =>
                 handleRemoveIngameCommand(
                     api,
@@ -270,11 +284,22 @@ async function startBot() {
                 handleAskCommand(api, message, threadId, argsText, prefix),
             handleNghiep: (api, message, threadId) =>
                 handleNghiepCommand(api, message, threadId, prefix),
+            handleRestrictedUidToggle: (api, message, threadId, argsText) =>
+                handleRestrictedUidToggleCommand(
+                    api,
+                    message,
+                    threadId,
+                    GroupSetting,
+                    argsText,
+                    prefix
+                ),
+            handleThiepCuoi: (api, message, threadId) =>
+                handleThiepCuoiCommand(api, message, threadId, prefix),
         };
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangWeekCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}, ${commands.nghiepCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangWeekCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}, ${commands.nghiepCommand}, ${commands.restrictedUidToggleCommand}, ${commands.thiepCuoiCommand}`
         );
 
         const messageHandler = createMessageHandler({
@@ -373,7 +398,3 @@ async function startBot() {
 }
 
 startBot();
-
-
-
-

@@ -2,6 +2,10 @@ const fs = require("fs");
 
 const { createWelcomeImage } = require("../design/welcome/renderer");
 const { createKickEventImage, createLeaveEventImage } = require("../design/kick/renderer");
+const {
+    PROTECTED_OWNER_BLOCK_MESSAGE,
+    isProtectedOwnerUid,
+} = require("../config/protectedUsers");
 
 const LEAVE_AUTOKICK_ACTOR_ID = "__LEAVE_EVENT__";
 const LEAVE_AUTOKICK_ACTOR_NAME = "Tự rời nhóm";
@@ -298,6 +302,11 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
     }
 
     if (!history || (Number(history?.kickCount) || 0) <= 0) {
+        return false;
+    }
+
+    if (isProtectedOwnerUid(memberId)) {
+        await api.sendMessage({ msg: PROTECTED_OWNER_BLOCK_MESSAGE }, threadId, 1);
         return false;
     }
 

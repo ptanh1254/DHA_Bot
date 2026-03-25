@@ -31,18 +31,6 @@ const CHECKTT_THEME = {
     },
 };
 
-const SPECIAL_USER_CHECKTT_THEME = Object.values(require("../specialUsersConfig").SPECIAL_USERS)[0]?.themes?.checktt || {
-    background: {
-        top: "#ffc0cb",
-        bottom: "#ffb6c1",
-        glow: "rgba(255, 105, 180, 0.18)",
-    },
-    panel: {
-        fill: "rgba(255, 192, 203, 0.95)",
-        stroke: "rgba(219, 39, 119, 0.28)",
-    },
-};
-
 function roundRect(ctx, x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
     ctx.beginPath();
@@ -58,27 +46,126 @@ function roundRect(ctx, x, y, width, height, radius) {
     ctx.closePath();
 }
 
+function fitText(ctx, text, maxWidth) {
+    const input = String(text || "");
+    if (!maxWidth || maxWidth <= 0) return "";
+    if (ctx.measureText(input).width <= maxWidth) return input;
+
+    let out = input;
+    while (out.length > 0 && ctx.measureText(`${out}...`).width > maxWidth) {
+        out = out.slice(0, -1);
+    }
+
+    return `${out}...`;
+}
+
+function extractFontSize(font, fallback = 24) {
+    const match = String(font || "").match(/(\d+(?:\.\d+)?)px/i);
+    if (!match) return fallback;
+    const size = Number(match[1]);
+    return Number.isFinite(size) && size > 0 ? size : fallback;
+}
+
+function withFontSize(font, size) {
+    const safeSize = Math.max(8, Math.round(Number(size) || 0));
+    if (String(font || "").match(/(\d+(?:\.\d+)?)px/i)) {
+        return String(font).replace(/(\d+(?:\.\d+)?)px/i, `${safeSize}px`);
+    }
+    return `700 ${safeSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+}
+
+function splitLongToken(ctx, token, maxWidth) {
+    const out = [];
+    let current = "";
+    const chars = Array.from(String(token || ""));
+
+    for (const ch of chars) {
+        const next = `${current}${ch}`;
+        if (current && ctx.measureText(next).width > maxWidth) {
+            out.push(current);
+            current = ch;
+        } else {
+            current = next;
+        }
+    }
+
+    if (current) out.push(current);
+    return out.length > 0 ? out : [""];
+}
+
 function wrapTextByWords(ctx, text, maxWidth) {
-    const words = String(text || "")
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-    if (words.length === 0) return [""];
+    const safeText = String(text || "").trim();
+    if (!safeText) return [""];
 
+    const words = safeText.split(/\s+/).filter(Boolean);
     const lines = [];
-    let current = words[0];
+    let current = "";
 
-    for (let i = 1; i < words.length; i += 1) {
-        const next = `${current} ${words[i]}`;
-        if (ctx.measureText(next).width <= maxWidth) {
+    for (const word of words) {
+        if (ctx.measureText(word).width > maxWidth) {
+            const pieces = splitLongToken(ctx, word, maxWidth);
+            for (const piece of pieces) {
+                if (!current) {
+                    current = piece;
+                } else {
+                    lines.push(current);
+                    current = piece;
+                }
+            }
+            continue;
+        }
+
+        const next = current ? `${current} ${word}` : word;
+        if (!current || ctx.measureText(next).width <= maxWidth) {
             current = next;
         } else {
             lines.push(current);
-            current = words[i];
+            current = word;
         }
     }
-    lines.push(current);
-    return lines;
+
+    if (current) lines.push(current);
+    return lines.length > 0 ? lines : [""];
+}
+
+function fitWrappedTextByFont(ctx, text, maxWidth, maxLines, maxFontSize, minFontSize, baseFont) {
+    let fontSize = Math.max(minFontSize, maxFontSize);
+
+    while (fontSize >= minFontSize) {
+        ctx.font = withFontSize(baseFont, fontSize);
+        const lines = wrapTextByWords(ctx, text, maxWidth);
+        if (lines.length <= maxLines) {
+            return { fontSize, lines };
+        }
+        fontSize -= 1;
+    }
+
+    ctx.font = withFontSize(baseFont, minFontSize);
+    const lines = wrapTextByWords(ctx, text, maxWidth).slice(0, maxLines);
+    if (lines.length > 0) {
+        lines[lines.length - 1] = fitText(ctx, lines[lines.length - 1], maxWidth);
+    }
+
+    return { fontSize: minFontSize, lines };
+}
+
+function fitSingleLineByFont(ctx, text, maxWidth, maxFontSize, minFontSize, baseFont) {
+    const raw = String(text || "");
+    let fontSize = Math.max(minFontSize, maxFontSize);
+
+    while (fontSize >= minFontSize) {
+        ctx.font = withFontSize(baseFont, fontSize);
+        if (ctx.measureText(raw).width <= maxWidth) {
+            return { text: raw, fontSize };
+        }
+        fontSize -= 1;
+    }
+
+    ctx.font = withFontSize(baseFont, minFontSize);
+    return {
+        text: fitText(ctx, raw, maxWidth),
+        fontSize: minFontSize,
+    };
 }
 
 function formatCount(num) {
@@ -86,9 +173,9 @@ function formatCount(num) {
 }
 
 function formatDateTimeVN(dateLike) {
-    if (!dateLike) return "Chưa có dữ liệu";
+    if (!dateLike) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
     const date = new Date(dateLike);
-    if (Number.isNaN(date.getTime())) return "Chưa có dữ liệu";
+    if (Number.isNaN(date.getTime())) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
 
     const formatter = new Intl.DateTimeFormat("en-GB", {
         timeZone: "Asia/Ho_Chi_Minh",
@@ -164,10 +251,13 @@ function drawBackground(ctx, width, height, userId) {
     ctx.fillRect(0, 0, width, height);
 }
 
-function drawPanel(ctx, userId) {
+function drawPanel(ctx, userId, canvasHeight) {
     const panelCfg = CHECKTT_THEME.panel;
     const specialPanel = getSpecialUserTheme(userId, "checktt");
     const panelTheme = specialPanel?.panel || { fill: panelCfg.fill, stroke: panelCfg.stroke };
+
+    const panelHeight = Math.max(panelCfg.height, canvasHeight - panelCfg.y * 2);
+    roundRect(ctx, panelCfg.x, panelCfg.y, panelCfg.width, panelHeight, panelCfg.radius);
     ctx.fillStyle = panelTheme.fill;
     ctx.fill();
     ctx.strokeStyle = panelTheme.stroke;
@@ -195,15 +285,13 @@ function drawAvatarFallback(ctx, displayName) {
     ctx.fillText(letter.toUpperCase(), cfg.x - width / 2, cfg.y + 28);
 }
 
-async function drawAvatar(ctx, avatarUrl, displayName) {
+function drawAvatar(ctx, avatarImage, displayName) {
     const cfg = CHECKTT_THEME.avatar;
 
     ctx.beginPath();
     ctx.arc(cfg.x, cfg.y, cfg.radius + 9, 0, Math.PI * 2);
     ctx.fillStyle = cfg.ring;
     ctx.fill();
-
-    const avatarImage = await loadRemoteImage(avatarUrl);
 
     ctx.save();
     ctx.beginPath();
@@ -230,38 +318,44 @@ function drawTextBlock(ctx, payload, userId) {
     const { displayName, joinDate, totalMsgCount, addedByLabel, ingameName } = payload;
     const colors = getMergedCheckttThemeForUser(userId);
 
-    ctx.font = `800 42px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    const titleFont = `800 42px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    ctx.font = titleFont;
     ctx.fillStyle = colors.titleColor;
-    ctx.fillText("THÔNG TIN THÀNH VIÊN", 392, 128);
+    ctx.fillText(fitText(ctx, "TH\u00d4NG TIN TH\u00c0NH VI\u00caN", 880), 392, 128);
 
-    // Draw displayName with wrapping
-    ctx.font = `800 54px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    const nameBaseFont = `800 54px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    const nameLayout = fitWrappedTextByFont(ctx, displayName, 880, 2, 54, 30, nameBaseFont);
+    ctx.font = withFontSize(nameBaseFont, nameLayout.fontSize);
     ctx.fillStyle = colors.displayNameColor;
-    const nameLines = wrapTextByWords(ctx, displayName, 880);
-    const maxNameLines = 2; // Allow up to 2 lines for name
+    const nameLineHeight = Math.round(nameLayout.fontSize * 1.08);
     let nameY = 204;
-    for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
-        ctx.fillText(nameLines[i], 392, nameY);
-        nameY += 60; // Line height for 54px font
+    for (const line of nameLayout.lines) {
+        ctx.fillText(line, 392, nameY);
+        nameY += nameLineHeight;
     }
 
-    ctx.font = `600 20px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    const uidFont = `600 20px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    ctx.font = uidFont;
     ctx.fillStyle = colors.uidColor;
-    ctx.fillText(`UID: ${payload.userId}`, 394, 236 + (Math.max(0, nameLines.length - 1) * 60));
+    const uidY = nameY + 6;
+    ctx.fillText(fitText(ctx, `UID: ${payload.userId}`, 880), 394, uidY);
 
-    let rows = [
-        { label: "Tên ingame", value: String(ingameName || "").trim() || "Chưa set ingame" },
-        { label: "Thời gian vào nhóm", value: formatDateTimeVN(joinDate) },
-        { label: "Người thêm/duyệt", value: addedByLabel || "Chưa có dữ liệu" },
-        { label: "Tổng tin nhận tích lũy", value: `${formatCount(totalMsgCount)} tin nhận` },
+    const rows = [
+        { label: "T\u00ean ingame", value: String(ingameName || "").trim() || "Ch\u01b0a set ingame" },
+        { label: "Th\u1eddi gian v\u00e0o nh\u00f3m", value: formatDateTimeVN(joinDate) },
+        { label: "Ng\u01b0\u1eddi th\u00eam/duy\u1ec7t", value: addedByLabel || "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u" },
+        { label: "T\u1ed5ng tin nh\u1eafn t\u00edch l\u0169y", value: `${formatCount(totalMsgCount)} tin nh\u1eafn` },
     ];
 
-    const rowHeight = 76;
-    const rowGap = 18;
-    let y = 286 + (Math.max(0, nameLines.length - 1) * 60);
-
+    let rowTop = uidY + 26;
     for (const row of rows) {
-        roundRect(ctx, 392, y - 34, 898, rowHeight, 15);
+        const rowHeight = 76;
+        const rowRight = 392 + 898 - 24;
+        const labelX = 420;
+        const labelMaxWidth = 300;
+        const valueMaxWidth = Math.max(220, rowRight - labelX - labelMaxWidth - 16);
+
+        roundRect(ctx, 392, rowTop, 898, rowHeight, 15);
         ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
         ctx.fill();
         ctx.strokeStyle = "rgba(180, 83, 9, 0.24)";
@@ -270,20 +364,27 @@ function drawTextBlock(ctx, payload, userId) {
 
         ctx.font = `600 22px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         ctx.fillStyle = colors.rowLabelColor;
-        ctx.fillText(row.label, 420, y - 3);
+        const safeLabel = fitText(ctx, row.label, labelMaxWidth);
+        ctx.fillText(safeLabel, labelX, rowTop + 47);
 
-        ctx.font = `700 29px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+        const valueBaseFont = `700 29px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+        const valueLayout = fitSingleLineByFont(
+            ctx,
+            row.value,
+            valueMaxWidth,
+            29,
+            20,
+            valueBaseFont
+        );
+        ctx.font = withFontSize(valueBaseFont, valueLayout.fontSize);
         ctx.fillStyle = colors.rowValueColor;
-        const valueLines = wrapTextByWords(ctx, row.value, 620);
-        const maxValueLines = 2;
-        let valueY = y + 26;
-        for (let i = 0; i < Math.min(valueLines.length, maxValueLines); i += 1) {
-            ctx.fillText(valueLines[i], 420, valueY);
-            valueY += 35; // Line height for 29px font
-        }
+        const valueWidth = ctx.measureText(valueLayout.text).width;
+        ctx.fillText(valueLayout.text, rowRight - valueWidth, rowTop + 47);
 
-        y += rowHeight + rowGap;
+        rowTop += rowHeight + 14;
     }
+
+    return rowTop;
 }
 
 async function createCheckTTCard(payload, options = {}) {
@@ -291,15 +392,26 @@ async function createCheckTTCard(payload, options = {}) {
 
     const width = options.width || CHECKTT_THEME.width;
     const baseHeight = options.height || CHECKTT_THEME.height;
-    const height = baseHeight;
 
-    const canvas = createCanvas(width, Math.max(height, 420));
-    const ctx = canvas.getContext("2d");
+    const avatarImage = await loadRemoteImage(payload.avatarUrl);
 
-    drawBackground(ctx, width, canvas.height, payload.userId);
-    drawPanel(ctx, payload.userId);
-    await drawAvatar(ctx, payload.avatarUrl, payload.displayName);
-    drawTextBlock(ctx, payload, payload.userId);
+    function renderAtHeight(targetHeight) {
+        const canvas = createCanvas(width, Math.max(targetHeight, 420));
+        const ctx = canvas.getContext("2d");
+
+        drawBackground(ctx, width, canvas.height, payload.userId);
+        drawPanel(ctx, payload.userId, canvas.height);
+        drawAvatar(ctx, avatarImage, payload.displayName);
+        const bottomY = drawTextBlock(ctx, payload, payload.userId);
+
+        return { canvas, bottomY };
+    }
+
+    let { canvas, bottomY } = renderAtHeight(baseHeight);
+    const requiredHeight = Math.max(baseHeight, Math.ceil(bottomY + 44));
+    if (requiredHeight > canvas.height) {
+        ({ canvas } = renderAtHeight(requiredHeight));
+    }
 
     const tempDir = path.resolve(options.tempDir || "tmp");
     if (!fs.existsSync(tempDir)) {
@@ -319,4 +431,3 @@ module.exports = {
     CHECKTT_THEME,
     createCheckTTCard,
 };
-

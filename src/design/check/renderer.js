@@ -121,6 +121,7 @@ async function loadRemoteImageCached(url, { isDrive = false, cache = false } = {
 
 function fitText(ctx, text, maxWidth) {
     const input = String(text || "");
+    if (!maxWidth || maxWidth <= 0) return "";
     if (ctx.measureText(input).width <= maxWidth) return input;
 
     let out = input;
@@ -130,34 +131,73 @@ function fitText(ctx, text, maxWidth) {
     return `${out}...`;
 }
 
+function withFontSize(font, size) {
+    const safeSize = Math.max(8, Math.round(Number(size) || 0));
+    if (String(font || "").match(/(\d+(?:\.\d+)?)px/i)) {
+        return String(font).replace(/(\d+(?:\.\d+)?)px/i, `${safeSize}px`);
+    }
+    return `700 ${safeSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+}
+
+function splitLongToken(ctx, token, maxWidth) {
+    const out = [];
+    let current = "";
+    const chars = Array.from(String(token || ""));
+
+    for (const ch of chars) {
+        const next = `${current}${ch}`;
+        if (current && ctx.measureText(next).width > maxWidth) {
+            out.push(current);
+            current = ch;
+        } else {
+            current = next;
+        }
+    }
+
+    if (current) out.push(current);
+    return out.length > 0 ? out : [""];
+}
+
 function wrapTextByWords(ctx, text, maxWidth) {
-    const words = String(text || "")
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-    if (words.length === 0) return [""];
+    const safeText = String(text || "").trim();
+    if (!safeText) return [""];
 
+    const words = safeText.split(/\s+/).filter(Boolean);
     const lines = [];
-    let current = words[0];
+    let current = "";
 
-    for (let i = 1; i < words.length; i += 1) {
-        const next = `${current} ${words[i]}`;
-        if (ctx.measureText(next).width <= maxWidth) {
+    for (const word of words) {
+        if (ctx.measureText(word).width > maxWidth) {
+            const pieces = splitLongToken(ctx, word, maxWidth);
+            for (const piece of pieces) {
+                if (!current) {
+                    current = piece;
+                } else {
+                    lines.push(current);
+                    current = piece;
+                }
+            }
+            continue;
+        }
+
+        const next = current ? `${current} ${word}` : word;
+        if (!current || ctx.measureText(next).width <= maxWidth) {
             current = next;
         } else {
             lines.push(current);
-            current = words[i];
+            current = word;
         }
     }
-    lines.push(current);
-    return lines;
+
+    if (current) lines.push(current);
+    return lines.length > 0 ? lines : [""];
 }
 
 function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
     const safeText = String(text || "").trim();
     let fontSize = maxFontSize;
 
-    while (fontSize > minFontSize) {
+    while (fontSize >= minFontSize) {
         ctx.font = `700 ${fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         const lines = wrapTextByWords(ctx, safeText, maxWidth);
         if (lines.length <= maxLines) {
@@ -168,11 +208,25 @@ function fitWrapText(ctx, text, maxWidth, maxFontSize, minFontSize, maxLines) {
 
     ctx.font = `700 ${minFontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     const lines = wrapTextByWords(ctx, safeText, maxWidth).slice(0, maxLines);
-    if (lines.length === maxLines) {
-        lines[maxLines - 1] = fitText(ctx, lines[maxLines - 1], maxWidth);
+    if (lines.length > 0) {
+        lines[lines.length - 1] = fitText(ctx, lines[lines.length - 1], maxWidth);
     }
 
     return { lines, fontSize: minFontSize };
+}
+
+function fitSingleLineByFont(ctx, text, maxWidth, maxFontSize, minFontSize, baseFont) {
+    const raw = String(text || "");
+    let fontSize = maxFontSize;
+    while (fontSize >= minFontSize) {
+        ctx.font = withFontSize(baseFont, fontSize);
+        if (ctx.measureText(raw).width <= maxWidth) {
+            return { text: raw, fontSize };
+        }
+        fontSize -= 1;
+    }
+    ctx.font = withFontSize(baseFont, minFontSize);
+    return { text: fitText(ctx, raw, maxWidth), fontSize: minFontSize };
 }
 
 function drawBackground(ctx, width, height, userId) {
@@ -239,7 +293,8 @@ function drawAvatar(ctx, image, x, y, radius, displayName) {
         ctx.fillStyle = grad;
         ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
 
-        const safeLetter = letter.toUpperCase();
+        const fallbackName = String(displayName || "?").trim();
+        const safeLetter = (fallbackName[0] || "?").toUpperCase();
         ctx.font = `800 68px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
         ctx.fillStyle = "#5f1240";
         const letterW = ctx.measureText(safeLetter).width;
@@ -297,7 +352,16 @@ async function createCheckImage(payload, options = {}) {
 
     ctx.font = `900 66px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.fillStyle = CHECK_THEME.titleColor;
-    const titleText = fitText(ctx, title, centerWidth - 80);
+    const titleLayout = fitSingleLineByFont(
+        ctx,
+        title,
+        centerWidth - 80,
+        66,
+        40,
+        `900 66px ${FONT_STACK}, ${FONT_STACK_EMOJI}`
+    );
+    ctx.font = withFontSize(`900 66px ${FONT_STACK}, ${FONT_STACK_EMOJI}`, titleLayout.fontSize);
+    const titleText = titleLayout.text;
     const titleWidth = ctx.measureText(titleText).width;
     ctx.fillText(titleText, centerX - titleWidth / 2, 140);
 
@@ -313,9 +377,17 @@ async function createCheckImage(payload, options = {}) {
     ctx.fillStyle = CHECK_THEME.labelColor;
     ctx.fillText("T\u00ean:", infoLeftX + 24, 266);
 
-    ctx.font = `800 50px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+    const nameLayout = fitSingleLineByFont(
+        ctx,
+        displayName,
+        infoWidth - 120,
+        50,
+        30,
+        `800 50px ${FONT_STACK}, ${FONT_STACK_EMOJI}`
+    );
+    ctx.font = withFontSize(`800 50px ${FONT_STACK}, ${FONT_STACK_EMOJI}`, nameLayout.fontSize);
     ctx.fillStyle = CHECK_THEME.valueColor;
-    const safeName = fitText(ctx, displayName, infoWidth - 120);
+    const safeName = nameLayout.text;
     ctx.fillText(safeName, infoLeftX + 178, 266);
 
     drawDot(ctx, infoLeftX, 338, "#db2777");
