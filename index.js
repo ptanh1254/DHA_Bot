@@ -44,6 +44,7 @@ const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
 const { createMessageStore } = require("./src/runtime/messageStore");
+const { createWeekendRaceReminder } = require("./src/runtime/weekendRaceReminder");
 const { getVNDateParts } = require("./src/utils/vnTime");
 console.log("=== BOT DANG KHOI DONG ===");
 const config = loadConfig();
@@ -321,8 +322,17 @@ async function startBot() {
             kickIntentStore,
             botUserId,
         });
+        const weekendRaceReminder = createWeekendRaceReminder({
+            api,
+            GroupSetting,
+            targetGroupIds: ["8257388680843944123"],
+        });
         api.listener.on("message", messageHandler);
         api.listener.on("group_event", groupEventHandler);
+        weekendRaceReminder.start();
+        console.log(
+            "[weekend-reminder] Da bat lich nhac tu dong 19:59-20:05 T7/CN (2 phut/lan)."
+        );
 
         // Handle message recall/undo events
         api.listener.on("undo", async (undo) => {

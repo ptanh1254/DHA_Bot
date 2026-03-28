@@ -3,7 +3,7 @@ const PROTECTED_OWNER_UIDS = [
     "9095318723300347162",
 ];
 
-const PROTECTED_OWNER_BLOCK_MESSAGE = "eiu c\u1ee7a ch\u1ee7 bot k \u0111\u1ee5ng \u0111\u01b0\u1ee3c \u0111\u00e2u";
+const PROTECTED_OWNER_BLOCK_MESSAGE = "em iu c\u1ee7a ch\u1ee7 bot k \u0111\u1ee5ng \u0111\u01b0\u1ee3c \u0111\u00e2u";
 
 function normalizeId(rawId) {
     if (rawId === null || rawId === undefined) return "";

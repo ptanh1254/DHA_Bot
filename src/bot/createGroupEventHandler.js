@@ -286,6 +286,62 @@ async function persistKickHistory(
     }
 }
 
+function extractAddBackReason(result, memberId) {
+    const normalizedMemberId = normalizeUserId(memberId);
+    if (!normalizedMemberId) return "";
+
+    const errorData =
+        result && typeof result === "object" && result.error_data && typeof result.error_data === "object"
+            ? result.error_data
+            : null;
+    if (!errorData) return "";
+
+    for (const [reason, memberIds] of Object.entries(errorData)) {
+        if (!Array.isArray(memberIds)) continue;
+        const matched = memberIds.some((id) => normalizeUserId(id) === normalizedMemberId);
+        if (matched) return String(reason || "").trim();
+    }
+
+    return "";
+}
+
+async function tryAutoAddBackProtectedMember(api, threadId, memberProfile) {
+    const memberId = normalizeUserId(memberProfile?.userId);
+    if (!memberId) return false;
+    if (!isProtectedOwnerUid(memberId)) return false;
+
+    try {
+        try {
+            await api.sendMessage({ msg: PROTECTED_OWNER_BLOCK_MESSAGE }, threadId, 1);
+        } catch (_) {}
+
+        try {
+            await api.acceptFriendRequest(memberId);
+        } catch (_) {}
+
+        const addResult = await api.addUserToGroup(memberId, threadId);
+        const failedIds = Array.isArray(addResult?.errorMembers)
+            ? addResult.errorMembers.map((id) => normalizeUserId(id))
+            : [];
+        const failedSet = new Set(failedIds);
+
+        if (failedSet.has(memberId)) {
+            const reason = extractAddBackReason(addResult, memberId);
+            if (reason) {
+                console.warn(
+                    `Khong the tu dong moi lai UID ${memberId} vao nhom ${threadId}. Ly do: ${reason}`
+                );
+            }
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error("Loi auto moi lai thanh vien duoc bao ve:", error);
+        return false;
+    }
+}
+
 async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory, setting) {
     if (!KickHistory) return false;
     if (setting?.autoKickRejoinEnabled === false) return false;
@@ -306,7 +362,6 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
     }
 
     if (isProtectedOwnerUid(memberId)) {
-        await api.sendMessage({ msg: PROTECTED_OWNER_BLOCK_MESSAGE }, threadId, 1);
         return false;
     }
 
@@ -585,7 +640,10 @@ function createGroupEventHandler({
                         continue;
                     }
 
-                    if (setting?.welcomeEnabled !== false) {
+                    if (
+                        setting?.welcomeEnabled !== false &&
+                        !isProtectedOwnerUid(profile?.userId)
+                    ) {
                         await sendWelcomeForMember(api, threadId, profile);
                     }
                 }
@@ -628,24 +686,40 @@ function createGroupEventHandler({
                 );
             }
 
+            if (type === "remove_member") {
+                for (const member of memberProfiles) {
+                    await tryAutoAddBackProtectedMember(api, threadId, member);
+                }
+            }
+
             if (setting?.kickEnabled === false) return;
 
-            const notifyMsg = buildLeaveKickMessage(
-                type,
-                memberProfiles,
-                actorMeta,
-                actorOverrideByUserId
-            );
-            await api.sendMessage({ msg: notifyMsg }, threadId, 1);
+            const notifyTargets =
+                type === "remove_member"
+                    ? memberProfiles.filter((member) => !isProtectedOwnerUid(member?.userId))
+                    : memberProfiles;
 
-            if (type === "remove_member") {
-                await sendKickImageBundle(
-                    api,
-                    threadId,
-                    memberProfiles,
+            if (notifyTargets.length > 0) {
+                const notifyMsg = buildLeaveKickMessage(
+                    type,
+                    notifyTargets,
                     actorMeta,
                     actorOverrideByUserId
                 );
+                await api.sendMessage({ msg: notifyMsg }, threadId, 1);
+            }
+
+            if (type === "remove_member") {
+                const kickImageTargets = notifyTargets;
+                if (kickImageTargets.length > 0) {
+                    await sendKickImageBundle(
+                        api,
+                        threadId,
+                        kickImageTargets,
+                        actorMeta,
+                        actorOverrideByUserId
+                    );
+                }
             } else if (type === "leave") {
                 await sendLeaveImageBundle(api, threadId, memberProfiles);
             }
