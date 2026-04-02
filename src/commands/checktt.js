@@ -9,9 +9,9 @@ function formatCount(num) {
 }
 
 function formatJoinDateVN(dateLike) {
-    if (!dateLike) return "Chưa có dữ liệu";
+    if (!dateLike) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
     const date = new Date(dateLike);
-    if (Number.isNaN(date.getTime())) return "Chưa có dữ liệu";
+    if (Number.isNaN(date.getTime())) return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
 
     const hh = String(date.getHours()).padStart(2, "0");
     const mm = String(date.getMinutes()).padStart(2, "0");
@@ -30,7 +30,14 @@ function formatAddedByLabel(addedByName, addedByUserId) {
     }
     if (safeName) return safeName;
     if (safeId) return `UID ${safeId}`;
-    return "Chưa có dữ liệu";
+    return "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u";
+}
+
+function splitUserNoteLines(noteRaw) {
+    return String(noteRaw || "")
+        .split(/\r?\n+/)
+        .map((line) => String(line || "").replace(/^[-*\u2022]+\s*/, "").trim())
+        .filter(Boolean);
 }
 
 async function resolveRealtimeProfile(api, userId) {
@@ -70,7 +77,7 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
     const targetUserId = getMentionedUserId(message);
     if (!targetUserId) {
         await api.sendMessage(
-            { msg: `Bạn hãy tag 1 người dùng. Ví dụ: ${prefix}checktt @TenNguoiDung` },
+            { msg: `B\u1ea1n h\u00e3y tag 1 ng\u01b0\u1eddi d\u00f9ng. V\u00ed d\u1ee5: ${prefix}checktt @TenNguoiDung` },
             threadId,
             messageType
         );
@@ -117,7 +124,8 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
 
     // Get user note
     const userNoteRecord = await UserNote.findOne({ groupId: threadId, userId: targetUserId });
-    const userNote = userNoteRecord?.note || "";
+    const userNoteLines = splitUserNoteLines(userNoteRecord?.note || "");
+    const userNoteForCard = userNoteLines.join("\n");
 
     let outputPath = "";
     try {
@@ -129,19 +137,18 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
             joinDate,
             addedByLabel,
             ingameName,
-            userNote,
+            userNote: userNoteForCard,
         });
 
         const messageLines = [
-            `${displayName} (${ingameName || "Chưa set ingame"})`,
-            `Ingame: ${ingameName || "Chưa cập nhật"}`,
-            `Vào nhóm: ${formatJoinDateVN(joinDate)}`,
-            `Người thêm/duyệt: ${addedByLabel}`,
-            `Tổng tin nhận tích lũy: ${formatCount(totalMsgCount)}`,
+            `${displayName} (${ingameName || "Ch\u01b0a set ingame"})`,
+            `Ingame: ${ingameName || "Ch\u01b0a c\u1eadp nh\u1eadt"}`,
+            `V\u00e0o nh\u00f3m: ${formatJoinDateVN(joinDate)}`,
+            `Ng\u01b0\u1eddi th\u00eam/duy\u1ec7t: ${addedByLabel}`,
+            `T\u1ed5ng tin nh\u1eadn t\u00edch l\u0169y: ${formatCount(totalMsgCount)}`,
         ];
 
-        if (userNote) {
-            let noteDisplay = `Ghi chú: ${userNote}`;
+        if (userNoteLines.length > 0) {
             const noteParts = [];
             
             if (userNoteRecord?.createdByName && String(userNoteRecord.createdByName).trim()) {
@@ -152,9 +159,13 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
             }
             
             if (noteParts.length > 0) {
-                noteDisplay += ` (${noteParts.join(" - ")})`;
+                messageLines.push(`Ng\u01b0\u1eddi ghi ch\u00fa: ${noteParts.join(" - ")}`);
             }
-            messageLines.push(noteDisplay);
+            messageLines.push("Ghi ch\u00fa:");
+
+            for (const noteLine of userNoteLines) {
+                messageLines.push(`- ${noteLine}`);
+            }
         }
 
         await api.sendMessage(
@@ -177,3 +188,4 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
 module.exports = {
     handleCheckTTCommand,
 };
+

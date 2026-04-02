@@ -22,7 +22,7 @@ const { handleCheckIngameCommand } = require("./src/commands/checkingame");
 const { handleIngameCommand } = require("./src/commands/ingame");
 const { handleRemoveIngameCommand } = require("./src/commands/removeingame");
 const { handlePreventRecallCommand } = require("./src/commands/chongthuhoi");
-const { handleNodeCommand } = require("./src/commands/node");
+const { handleNodeCommand, handleXoaNodeCommand } = require("./src/commands/node");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
@@ -141,6 +141,7 @@ async function startBot() {
             removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
             preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),
             nodeCommand: `${prefix}node`.toLowerCase(),
+            xoaNodeCommand: `${prefix}xoanode`.toLowerCase(),
             kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             kickAliasCommand: `${prefix}kick`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
@@ -199,6 +200,8 @@ async function startBot() {
                 handlePreventRecallCommand(api, message, threadId, GroupSetting, argsText, prefix),
             handleNode: (api, message, threadId) =>
                 handleNodeCommand(api, message, threadId, prefix),
+            handleXoaNode: (api, message, threadId) =>
+                handleXoaNodeCommand(api, message, threadId, prefix),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,
@@ -209,8 +212,8 @@ async function startBot() {
                     prefix,
                     kickIntentStore
                 ),
-            handleMute: (api, message, threadId) =>
-                handleMuteCommand(api, message, threadId, MutedMember, prefix),
+            handleMute: (api, message, threadId, argsText) =>
+                handleMuteCommand(api, message, threadId, MutedMember, prefix, argsText),
             handleUnmute: (api, message, threadId) =>
                 handleUnmuteCommand(api, message, threadId, MutedMember, prefix),
             handleCamNoiBay: (api, message, threadId, argsText) =>

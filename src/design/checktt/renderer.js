@@ -223,6 +223,8 @@ function getMergedCheckttThemeForUser(userId) {
             uidColor: "rgba(120, 53, 15, 0.9)",
             rowLabelColor: "rgba(120, 53, 15, 0.95)",
             rowValueColor: "#7c2d12",
+            rainbow: false,
+            rainbowColors: null,
         };
     }
 
@@ -232,7 +234,18 @@ function getMergedCheckttThemeForUser(userId) {
         uidColor: specialTheme.uid || "rgba(120, 53, 15, 0.9)",
         rowLabelColor: specialTheme.rowLabel || "rgba(120, 53, 15, 0.95)",
         rowValueColor: specialTheme.rowValue || "#7c2d12",
+        rainbow: specialTheme.rainbow === true && Array.isArray(specialTheme.colors),
+        rainbowColors: specialTheme.colors || null,
     };
+}
+
+function createRainbowGradient(ctx, x, textWidth, colors) {
+    const grad = ctx.createLinearGradient(x, 0, x + Math.max(textWidth, 1), 0);
+    const steps = colors.length;
+    for (let i = 0; i < steps; i++) {
+        grad.addColorStop(i / (steps - 1), colors[i]);
+    }
+    return grad;
 }
 
 function drawBackground(ctx, width, height, userId) {
@@ -317,28 +330,45 @@ function drawAvatar(ctx, avatarImage, displayName) {
 function drawTextBlock(ctx, payload, userId) {
     const { displayName, joinDate, totalMsgCount, addedByLabel, ingameName } = payload;
     const colors = getMergedCheckttThemeForUser(userId);
+    const isRainbow = colors.rainbow && Array.isArray(colors.rainbowColors);
 
     const titleFont = `800 42px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.font = titleFont;
-    ctx.fillStyle = colors.titleColor;
+    if (isRainbow) {
+        const tw = ctx.measureText("THÔNG TIN THÀNH VIÊN").width;
+        ctx.fillStyle = createRainbowGradient(ctx, 392, tw, colors.rainbowColors);
+    } else {
+        ctx.fillStyle = colors.titleColor;
+    }
     ctx.fillText(fitText(ctx, "TH\u00d4NG TIN TH\u00c0NH VI\u00caN", 880), 392, 128);
 
     const nameBaseFont = `800 54px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     const nameLayout = fitWrappedTextByFont(ctx, displayName, 880, 2, 54, 30, nameBaseFont);
     ctx.font = withFontSize(nameBaseFont, nameLayout.fontSize);
-    ctx.fillStyle = colors.displayNameColor;
     const nameLineHeight = Math.round(nameLayout.fontSize * 1.08);
     let nameY = 204;
     for (const line of nameLayout.lines) {
+        if (isRainbow) {
+            const lw = ctx.measureText(line).width;
+            ctx.fillStyle = createRainbowGradient(ctx, 392, lw, colors.rainbowColors);
+        } else {
+            ctx.fillStyle = colors.displayNameColor;
+        }
         ctx.fillText(line, 392, nameY);
         nameY += nameLineHeight;
     }
 
     const uidFont = `600 20px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
     ctx.font = uidFont;
-    ctx.fillStyle = colors.uidColor;
+    const uidText = fitText(ctx, `UID: ${payload.userId}`, 880);
     const uidY = nameY + 6;
-    ctx.fillText(fitText(ctx, `UID: ${payload.userId}`, 880), 394, uidY);
+    if (isRainbow) {
+        const uw = ctx.measureText(uidText).width;
+        ctx.fillStyle = createRainbowGradient(ctx, 394, uw, colors.rainbowColors);
+    } else {
+        ctx.fillStyle = colors.uidColor;
+    }
+    ctx.fillText(uidText, 394, uidY);
 
     const rows = [
         { label: "T\u00ean ingame", value: String(ingameName || "").trim() || "Ch\u01b0a set ingame" },
@@ -358,7 +388,11 @@ function drawTextBlock(ctx, payload, userId) {
         roundRect(ctx, 392, rowTop, 898, rowHeight, 15);
         ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
         ctx.fill();
-        ctx.strokeStyle = "rgba(180, 83, 9, 0.24)";
+        if (isRainbow) {
+            ctx.strokeStyle = `rgba(130, 80, 200, 0.28)`;
+        } else {
+            ctx.strokeStyle = "rgba(180, 83, 9, 0.24)";
+        }
         ctx.lineWidth = 1;
         ctx.stroke();
 
@@ -377,8 +411,12 @@ function drawTextBlock(ctx, payload, userId) {
             valueBaseFont
         );
         ctx.font = withFontSize(valueBaseFont, valueLayout.fontSize);
-        ctx.fillStyle = colors.rowValueColor;
         const valueWidth = ctx.measureText(valueLayout.text).width;
+        if (isRainbow) {
+            ctx.fillStyle = createRainbowGradient(ctx, rowRight - valueWidth, valueWidth, colors.rainbowColors);
+        } else {
+            ctx.fillStyle = colors.rowValueColor;
+        }
         ctx.fillText(valueLayout.text, rowRight - valueWidth, rowTop + 47);
 
         rowTop += rowHeight + 14;

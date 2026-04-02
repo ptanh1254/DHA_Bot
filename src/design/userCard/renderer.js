@@ -7,6 +7,15 @@ const { USER_CARD_THEME } = require("./theme");
 const { getSpecialUserTheme } = require("../specialUsersConfig");
 const { buildUserCardRows } = require("./formatters");
 
+function createRainbowGradient(ctx, x, textWidth, colors) {
+    const grad = ctx.createLinearGradient(x, 0, x + Math.max(textWidth, 1), 0);
+    const steps = colors.length;
+    for (let i = 0; i < steps; i++) {
+        grad.addColorStop(i / (steps - 1), colors[i]);
+    }
+    return grad;
+}
+
 function getMergedThemeForUser(userId) {
     const specialTheme = getSpecialUserTheme(userId, "userCard");
     if (!specialTheme) return USER_CARD_THEME;
@@ -346,6 +355,10 @@ function drawName(ctx, profile, userId) {
         profile.displayName || profile.zaloName || "Ng\u01b0\u1eddi d\u00f9ng"
     ).trim();
 
+    const specialTheme = getSpecialUserTheme(userId, "userCard");
+    const isRainbow = specialTheme?.rainbow === true && Array.isArray(specialTheme.colors);
+    const rainbowColors = isRainbow ? specialTheme.colors : null;
+
     const nameBaseSize = extractFontSize(nameCfg.font, 42);
     const nameLayout = fitWrappedTextByFont(
         ctx,
@@ -357,11 +370,15 @@ function drawName(ctx, profile, userId) {
         nameCfg.font
     );
     ctx.font = withFontSize(nameCfg.font, nameLayout.fontSize);
-    ctx.fillStyle = nameCfg.color;
     const lineHeight = Math.round(nameLayout.fontSize * 1.15);
     let nameY = nameCfg.y;
     for (const line of nameLayout.lines) {
         const nameWidth = ctx.measureText(line).width;
+        if (isRainbow) {
+            ctx.fillStyle = createRainbowGradient(ctx, nameCenterX - nameWidth / 2, nameWidth, rainbowColors);
+        } else {
+            ctx.fillStyle = nameCfg.color;
+        }
         ctx.fillText(line, nameCenterX - nameWidth / 2, nameY);
         nameY += lineHeight;
     }
@@ -372,9 +389,13 @@ function drawName(ctx, profile, userId) {
         const uidBaseSize = extractFontSize(uidCfg.font, 20);
         const uidLayout = fitSingleLineByFont(ctx, uidText, nameMaxWidth, uidBaseSize, 14, uidCfg.font);
         ctx.font = withFontSize(uidCfg.font, uidLayout.fontSize);
-        ctx.fillStyle = uidCfg.color;
         const uidWidth = ctx.measureText(uidLayout.text).width;
         const uidY = Math.max(uidCfg.y, nameCfg.y + nameLayout.lines.length * lineHeight + 12);
+        if (isRainbow) {
+            ctx.fillStyle = createRainbowGradient(ctx, nameCenterX - uidWidth / 2, uidWidth, rainbowColors);
+        } else {
+            ctx.fillStyle = uidCfg.color;
+        }
         ctx.fillText(uidLayout.text, nameCenterX - uidWidth / 2, uidY);
     }
 }

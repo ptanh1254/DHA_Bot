@@ -8,6 +8,7 @@ const { getRestrictedUidCommandEnabled } = require("../commands/camlenhbe");
 const { UserDailyMessage } = require("../db/userDailyMessageModel");
 const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { AskUsage } = require("../db/askUsageModel");
+const { BannedWordStrike } = require("../db/bannedWordStrikeModel");
 
 async function tryDeleteMutedMessage(api, message, threadId, userId) {
     const msgId = String(message?.data?.msgId || "").trim();
@@ -41,12 +42,94 @@ function shouldSendMuteNotice(strikeCount) {
     return value > 10 && value % 10 === 0;
 }
 
-async function sendMuteNotice(api, message, threadId, userId, strikeCount) {
+function resolveBannedWordMutePolicy(strikeCount) {
+    const count = Math.max(1, Number(strikeCount) || 1);
+    if (count === 1) {
+        return {
+            durationMs: 1 * 60 * 1000,
+            requiresManualUnmute: false,
+            label: "1 ph\u00fat",
+        };
+    }
+
+    if (count === 2) {
+        return {
+            durationMs: 5 * 60 * 1000,
+            requiresManualUnmute: false,
+            label: "5 ph\u00fat",
+        };
+    }
+
+    return {
+        durationMs: null,
+        requiresManualUnmute: true,
+        label: "\u0111\u1ebfn khi QTV m\u1edf",
+    };
+}
+
+function formatMuteRemainingLabel(muteEntry) {
+    if (!muteEntry || typeof muteEntry !== "object") return "";
+    if (muteEntry.requiresManualUnmute === true) {
+        return "\u0111\u1ebfn khi QTV m\u1edf";
+    }
+
+    const muteUntilMs = muteEntry?.muteUntil ? new Date(muteEntry.muteUntil).getTime() : NaN;
+    if (!Number.isFinite(muteUntilMs)) return "";
+
+    const remainingMs = Math.max(0, muteUntilMs - Date.now());
+    if (remainingMs <= 0) return "s\u1eafp h\u1ebft";
+
+    const minutes = Math.ceil(remainingMs / (60 * 1000));
+    if (minutes <= 1) return "kho\u1ea3ng 1 ph\u00fat";
+    return `kho\u1ea3ng ${minutes} ph\u00fat`;
+}
+
+async function getActiveMutedEntry(MutedMember, threadId, userId) {
+    if (!MutedMember) return null;
+
+    const userIdVariants = buildIdVariants(userId);
+    if (userIdVariants.length === 0) return null;
+
+    const entry = await MutedMember.findOne({
+        groupId: threadId,
+        userId: { $in: userIdVariants },
+    })
+        .sort({ mutedAt: -1 })
+        .lean();
+    if (!entry) return null;
+
+    if (entry.requiresManualUnmute === true) {
+        return entry;
+    }
+
+    const muteUntilMs = entry?.muteUntil ? new Date(entry.muteUntil).getTime() : NaN;
+    if (Number.isFinite(muteUntilMs) && muteUntilMs <= Date.now()) {
+        try {
+            await MutedMember.deleteMany({
+                groupId: threadId,
+                userId: { $in: userIdVariants },
+            });
+        } catch (_) {}
+        return null;
+    }
+
+    if (!Number.isFinite(muteUntilMs) && entry?.muteSource !== "banned_word") {
+        return entry;
+    }
+
+    return entry;
+}
+
+async function sendMuteNotice(api, message, threadId, userId, strikeCount, muteEntry = null) {
     const rawName =
         typeof message?.data?.dName === "string" ? message.data.dName.trim() : "";
-    const safeName = rawName || "Người dùng";
+    const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
     const mentionText = `@${safeName}`;
-    const msg = `${mentionText} bị khoá mõm rồi cưng ơi (${strikeCount})`;
+    const remainingLabel = formatMuteRemainingLabel(muteEntry);
+    const statusLine = remainingLabel
+        ? `${mentionText} \u0111ang b\u1ecb mute ${remainingLabel}.`
+        : `${mentionText} \u0111ang b\u1ecb mute.`;
+    const msg = `${statusLine}\nTin nh\u1eafn vi ph\u1ea1m \u0111\u00e3 b\u1ecb x\u00f3a (${strikeCount}).`;
     const messageType = Number(message?.type) || 1;
 
     try {
@@ -65,16 +148,32 @@ async function sendMuteNotice(api, message, threadId, userId, strikeCount) {
             messageType
         );
     } catch (error) {
-        console.error("Lỗi gửi cảnh báo mute:", error);
+        console.error("L\u1ed7i g\u1eedi c\u1ea3nh b\u00e1o mute:", error);
     }
 }
 
-async function sendAutoMuteNotice(api, message, threadId, userId) {
+async function sendAutoMuteNotice(
+    api,
+    message,
+    threadId,
+    userId,
+    matchedWord,
+    strikeCount,
+    mutePolicy
+) {
     const rawName =
         typeof message?.data?.dName === "string" ? message.data.dName.trim() : "";
-    const safeName = rawName || "Người dùng";
+    const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
     const mentionText = `@${safeName}`;
-    const msg = `${mentionText} nói bậy hả, khoá mõm này cưng`;
+    const strikeLabel = `L\u1ea7n vi ph\u1ea1m t\u1eeb c\u1ea5m: ${strikeCount}.`;
+    const muteLabel = mutePolicy?.requiresManualUnmute
+        ? "B\u1ea1n \u0111\u00e3 b\u1ecb mute \u0111\u1ebfn khi QTV m\u1edf."
+        : `B\u1ea1n \u0111\u00e3 b\u1ecb mute ${mutePolicy?.label || ""}.`;
+    const msg = [
+        `${mentionText} v\u1eeba d\u00f9ng t\u1eeb c\u1ea5m "${matchedWord}".`,
+        strikeLabel,
+        muteLabel,
+    ].join("\n");
     const messageType = Number(message?.type) || 1;
 
     try {
@@ -93,7 +192,7 @@ async function sendAutoMuteNotice(api, message, threadId, userId) {
             messageType
         );
     } catch (error) {
-        console.error("Lỗi gửi thông báo auto mute:", error);
+        console.error("L\u1ed7i g\u1eedi th\u00f4ng b\u00e1o auto mute:", error);
     }
 }
 
@@ -192,6 +291,22 @@ function normalizeId(rawId) {
     return String(rawId).replace(/_\d+$/, "").trim();
 }
 
+function buildIdVariants(rawId) {
+    const raw = String(rawId || "").trim();
+    const normalized = normalizeId(rawId);
+    const set = new Set();
+
+    if (raw) set.add(raw);
+    if (normalized) {
+        set.add(normalized);
+        set.add(`${normalized}_0`);
+        set.add(`${normalized}_1`);
+        set.add(`${normalized}_2`);
+    }
+
+    return [...set].filter(Boolean);
+}
+
 function buildSuperAdminSet() {
     const defaults = [
         "8073429320276439081",
@@ -206,7 +321,7 @@ function buildSuperAdminSet() {
 }
 
 function buildKickBlockedUidSet() {
-    const blockedUids = ["2370937689986813380", "9095318723300347162"];
+    const blockedUids = ["2370937689986813380", "9095318723300347162", "3347672659938300246"];
     return new Set(blockedUids.map((value) => normalizeId(value)).filter(Boolean));
 }
 
@@ -249,7 +364,7 @@ function isRoleAdminFlag(member) {
     // Check role field: 1=owner, 2=vice-owner, 3=admin/moderator
     const role = Number(member.role);
     if (!Number.isNaN(role) && role >= 1 && role <= 3) return true;
-    
+
     // Also check type field (as per ZCA docs): 1=owner, 2=vice-owner, 3=admin/moderator
     const type = Number(member.type);
     if (!Number.isNaN(type) && type >= 1 && type <= 3) return true;
@@ -257,7 +372,7 @@ function isRoleAdminFlag(member) {
     // Also check roleID field variety
     const roleId = Number(member.roleId);
     if (!Number.isNaN(roleId) && roleId >= 1 && roleId <= 3) return true;
-    
+
     return false;
 }
 
@@ -277,6 +392,7 @@ function createMessageHandler({
         helloCommand,
         preventRecallCommand,
         nodeCommand,
+        xoaNodeCommand,
         thongTinCommand,
         checkTTCommand,
         checkCommand,
@@ -310,6 +426,7 @@ function createMessageHandler({
         handleHello,
         handlePreventRecall,
         handleNode,
+        handleXoaNode,
         handleThongTin,
         handleCheckTT,
         handleCheck,
@@ -558,7 +675,7 @@ function createMessageHandler({
             if (kickSuccess) {
                 try {
                     await CommandViolation.deleteOne({ groupId: threadId, userId: normalizedUserId });
-                } catch (_) {}
+                } catch (_) { }
                 const messageType = Number(message?.type) || 1;
                 await api.sendMessage(
                     {
@@ -636,9 +753,9 @@ function createMessageHandler({
                 const members = Array.isArray(groupInfo?.currentMems)
                     ? groupInfo.currentMems
                     : Array.isArray(groupInfo?.members)
-                    ? groupInfo.members
-                    : [];
-                
+                        ? groupInfo.members
+                        : [];
+
                 for (const member of members) {
                     const memberId = resolveIdFromUnknown(member);
                     if (!memberId) continue;
@@ -648,7 +765,7 @@ function createMessageHandler({
                 }
 
                 isAdmin = ownerSet.has(normalizedUserId) || adminSet.has(normalizedUserId);
-                
+
                 // Identify suspect response: missing creator AND (no admins AND no members)
                 // This usually means the API returned a skeleton object due to rate limiting or glitches.
                 if (!ownerId && adminSet.size === 0 && members.length === 0) {
@@ -711,18 +828,27 @@ function createMessageHandler({
             const isSuperAdminUser = isSuperAdmin(userId);
 
             if (!isBotSelf && !isSuperAdminUser && MutedMember) {
-                const mutedEntry = await MutedMember.findOneAndUpdate(
-                    { groupId: threadId, userId },
-                    { $inc: { blockedMsgCount: 1 } },
-                    { returnDocument: "after" }
-                ).lean();
+                const mutedEntry = await getActiveMutedEntry(MutedMember, threadId, userId);
 
                 if (mutedEntry) {
+                    const updatedMutedEntry = await MutedMember.findOneAndUpdate(
+                        { groupId: threadId, userId: mutedEntry.userId },
+                        { $inc: { blockedMsgCount: 1 } },
+                        { returnDocument: "after" }
+                    ).lean();
+
                     await tryDeleteMutedMessage(api, message, threadId, userId);
 
-                    const strikeCount = Number(mutedEntry?.blockedMsgCount) || 1;
+                    const strikeCount = Number(updatedMutedEntry?.blockedMsgCount) || 1;
                     if (shouldSendMuteNotice(strikeCount)) {
-                        await sendMuteNotice(api, message, threadId, userId, strikeCount);
+                        await sendMuteNotice(
+                            api,
+                            message,
+                            threadId,
+                            userId,
+                            strikeCount,
+                            updatedMutedEntry || mutedEntry
+                        );
                     }
                     return;
                 }
@@ -736,18 +862,45 @@ function createMessageHandler({
                         : null;
                     const isAutoMuteEnabled = setting?.bannedWordMuteEnabled !== false;
                     if (isAutoMuteEnabled) {
+                        const strikeRecord = await BannedWordStrike.findOneAndUpdate(
+                            { groupId: threadId, userId: normalizedSenderId || userId },
+                            {
+                                $inc: { strikeCount: 1 },
+                                $set: { lastViolationAt: new Date() },
+                                $setOnInsert: {
+                                    groupId: threadId,
+                                    userId: normalizedSenderId || userId,
+                                },
+                            },
+                            {
+                                upsert: true,
+                                returnDocument: "after",
+                                setDefaultsOnInsert: true,
+                            }
+                        ).lean();
+
+                        const strikeCount = Math.max(1, Number(strikeRecord?.strikeCount) || 1);
+                        const mutePolicy = resolveBannedWordMutePolicy(strikeCount);
+                        const muteUntil = mutePolicy.durationMs
+                            ? new Date(Date.now() + mutePolicy.durationMs)
+                            : null;
+
                         await MutedMember.findOneAndUpdate(
-                            { groupId: threadId, userId },
+                            { groupId: threadId, userId: normalizedSenderId || userId },
                             {
                                 $set: {
                                     mutedByUserId: "AUTO_MOD_BANNED_WORD",
-                                    mutedByName: "Auto mute từ cấm",
+                                    mutedByName: "Auto mute t\u1eeb c\u1ea5m",
                                     mutedAt: new Date(),
+                                    muteUntil,
+                                    requiresManualUnmute: mutePolicy.requiresManualUnmute === true,
+                                    muteSource: "banned_word",
+                                    muteReason: "Vi ph\u1ea1m t\u1eeb c\u1ea5m: " + matchedWord,
+                                    blockedMsgCount: 0,
                                 },
-                                $inc: { blockedMsgCount: 1 },
                                 $setOnInsert: {
                                     groupId: threadId,
-                                    userId,
+                                    userId: normalizedSenderId || userId,
                                 },
                             },
                             {
@@ -758,9 +911,24 @@ function createMessageHandler({
                         ).lean();
 
                         await tryDeleteMutedMessage(api, message, threadId, userId);
-                        await sendAutoMuteNotice(api, message, threadId, userId);
+                        await sendAutoMuteNotice(
+                            api,
+                            message,
+                            threadId,
+                            userId,
+                            matchedWord,
+                            strikeCount,
+                            mutePolicy
+                        );
                         console.log(
-                            `[AUTO_MUTE] thread=${threadId} user=${userId} matchedWord=${matchedWord}`
+                            "[AUTO_MUTE] thread=" +
+                                threadId +
+                                " user=" +
+                                userId +
+                                " matchedWord=" +
+                                matchedWord +
+                                " strike=" +
+                                strikeCount
                         );
                         return;
                     }
@@ -786,6 +954,8 @@ function createMessageHandler({
                 normalized.startsWith(`${preventRecallCommand} `);
             const isNode =
                 normalized === nodeCommand || normalized.startsWith(`${nodeCommand} `);
+            const isXoaNode =
+                normalized === xoaNodeCommand || normalized.startsWith(`${xoaNodeCommand} `);
             const isThongTin = normalized.startsWith(thongTinCommand);
             const isCheckTT =
                 normalized === checkTTCommand || normalized.startsWith(`${checkTTCommand} `);
@@ -847,6 +1017,7 @@ function createMessageHandler({
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
+            const muteArgs = isMute ? text.slice(muteCommand.length).trim() : "";
             const camNoiBayArgs = isCamNoiBay
                 ? normalized.slice(camNoiBayCommand.length).trim()
                 : "";
@@ -855,12 +1026,12 @@ function createMessageHandler({
                 : "";
             const autoKickRemoveArgs = isAutoKickRemove
                 ? text
-                      .slice(
-                          normalized.startsWith(goAutoKickCommand)
-                              ? goAutoKickCommand.length
-                              : autoKickRemoveCommand.length
-                      )
-                      .trim()
+                    .slice(
+                        normalized.startsWith(goAutoKickCommand)
+                            ? goAutoKickCommand.length
+                            : autoKickRemoveCommand.length
+                    )
+                    .trim()
                 : "";
             const ingameArgs = isIngame ? text.slice(ingameCommand.length).trim() : "";
             const removeIngameArgs = isRemoveIngame
@@ -868,12 +1039,12 @@ function createMessageHandler({
                 : "";
             const removeQTVArgs = isRemoveQTV
                 ? text
-                      .slice(
-                          normalized.startsWith(removeQTVAliasCommand)
-                              ? removeQTVAliasCommand.length
-                              : removeQTVCommand.length
-                      )
-                      .trim()
+                    .slice(
+                        normalized.startsWith(removeQTVAliasCommand)
+                            ? removeQTVAliasCommand.length
+                            : removeQTVCommand.length
+                    )
+                    .trim()
                 : "";
             const askArgs = isAsk ? text.slice(askCommand.length).trim() : "";
             const restrictedUidToggleArgs = isRestrictedUidToggle
@@ -987,6 +1158,8 @@ function createMessageHandler({
                 message.isSelf &&
                 !isHelp &&
                 !isHello &&
+                !isNode &&
+                !isXoaNode &&
                 !isThongTin &&
                 !isCheckTT &&
                 !isCheck &&
@@ -1033,6 +1206,12 @@ function createMessageHandler({
             if (isNode) {
                 await handleNode(api, message, threadId);
                 console.log(`Đã xử lý command ${nodeCommand} tại thread ${threadId}`);
+                return;
+            }
+
+            if (isXoaNode) {
+                await handleXoaNode(api, message, threadId);
+                console.log(`Da xu ly command ${xoaNodeCommand} tai thread ${threadId}`);
                 return;
             }
 
@@ -1089,7 +1268,7 @@ function createMessageHandler({
             }
 
             if (isMute) {
-                await handleMute(api, message, threadId);
+                await handleMute(api, message, threadId, muteArgs);
                 return;
             }
 

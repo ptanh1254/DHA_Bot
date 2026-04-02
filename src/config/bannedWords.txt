@@ -1,0 +1,256 @@
+# Danh sach tu/cum tu cam (viet khong dau, 1 dong 1 muc)
+# Bot se normalize tin nhan -> khong dau + viet thuong + bo ky tu dac biet
+# Co the bo sung them neu nhom dung nhieu cach viet lac hon
+
+# Viet tat/noi tuc pho bien
+dm
+dmm
+dmmm
+dcm
+dcmn
+dcmnm
+dkm
+dmk
+dml
+dmmay
+dcmay
+dm me
+dcm me
+dm may
+dcm may
+dm no
+dcm no
+dm thang
+dm con
+vcl
+vl
+vcc
+vkl
+vclz
+vlz
+vloz
+vlon
+vccl
+cl
+c l
+clm
+clmm
+cc
+c c
+ccm
+cmn
+cmnl
+clgt
+cmm
+djt
+djt me
+djt may
+djt con me
+d1t
+d1t me
+d1t may
+dm3
+dcm3
+dit m3
+
+# Cum tu chui tuc tieng viet
+dit
+dit me
+dit me may
+dit me m
+dit me no
+dit me thang
+dit me con
+dit con me
+dit ba may
+dit cha may
+dit bo may
+dit cu may
+dit cu no
+dit cu m
+dit cha no
+dit bo no
+dit ba no
+dit cu
+dit het
+dit vo mom
+dit vao mom
+dit vao mat
+dit vao mo
+dit con ba may
+dit con cha may
+dit con bo may
+dit me thang cho
+dit me con cho
+an cut
+an cut di
+an cut nhe
+do an cut
+cut me may
+cut me no
+cut bo may
+cut cha may
+do cut
+thang cut
+con cut
+cai cut
+oc cho
+do oc cho
+thang oc cho
+con oc cho
+ngu
+ngu vl
+ngu vc
+ngu vcl
+ngu nhu cho
+ngu nhu bo
+ngu nhu lon
+thang ngu
+con ngu
+do ngu
+mat day
+mat day vo hoc
+vo hoc
+do vo hoc
+suc vat
+do suc vat
+thang suc vat
+con suc vat
+khon nan
+do khon nan
+vong on
+do vong on
+cho de
+cho chet
+thang cho de
+con cho de
+thang cho
+con cho
+do cho
+ca cho
+thang khi
+con khi
+thang heo
+con heo
+thang lon
+con lon
+vai lon
+vai loz
+vailon
+vailoz
+lon me
+lon me may
+lon me no
+lon mat
+lon gi
+lon cho
+loz
+l0z
+lozz
+l0zz
+lz
+lzm
+loz me may
+loz mat
+do loz
+thang loz
+con loz
+cac loz
+cho loz
+con cac
+cai cac
+an cac
+do cac
+thang cac
+cac cho
+cac lon
+cac buoi
+dau buoi
+do buoi
+thang buoi
+con buoi
+cai buoi
+buoi cac
+buoi lon
+deo me
+deo me may
+deo me no
+deo biet
+deo chiu
+deo phai
+deo duoc
+deo them
+deo can
+deo co
+eo me may
+eo biet
+eo can
+eo co
+cam mom
+cam mieng
+im mom
+im me
+im mom may
+im me may
+ngam mom
+ngam mieng
+im cai mom
+xam lon
+xam loz
+xam cut
+xam cho
+xam shit
+
+# Tieng anh tuc tiuu/insult
+fuck
+fuk
+fck
+fuc
+fucking
+fucker
+mother fucker
+motherfucker
+mf
+mfer
+shit
+shjt
+bullshit
+ass
+asshole
+arsehole
+bitch
+b1tch
+son of bitch
+sob
+bastard
+dick
+dickhead
+dick face
+cock
+cocksucker
+pussy
+slut
+whore
+hoe
+cunt
+twat
+retard
+retarded
+stupid bitch
+piece of shit
+wtf
+stfu
+f u
+f u c k
+f off
+go fuck
+go fuck yourself
+fuck you
+fck you
+suck my dick
+suck dick
+eat shit
+eat my ass
+kiss my ass
+damn you
+holy shit

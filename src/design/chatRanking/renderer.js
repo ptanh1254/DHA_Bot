@@ -187,6 +187,18 @@ function drawHeader(ctx, meta, width) {
     ctx.stroke();
 }
 
+/**
+ * Tạo gradient rainbow ngang theo chiều rộng text
+ */
+function createRainbowGradient(ctx, x, textWidth, colors) {
+    const grad = ctx.createLinearGradient(x, 0, x + textWidth, 0);
+    const steps = colors.length;
+    for (let i = 0; i < steps; i++) {
+        grad.addColorStop(i / (steps - 1), colors[i]);
+    }
+    return grad;
+}
+
 function drawSpecialUserIndicator(ctx, row, width) {
     if (!row || !isSpecialUser(row.userId)) {
         return;
@@ -197,10 +209,16 @@ function drawSpecialUserIndicator(ctx, row, width) {
     const y = 32;
     const indicator = specialTheme?.indicator || "♦";
     const text = `${indicator} ${row.displayName}`;
-    const color = specialTheme?.color || "#ff69b4";
 
     ctx.font = `700 28px ${FONT_STACK}`;
-    ctx.fillStyle = color;
+
+    if (specialTheme?.rainbow && Array.isArray(specialTheme.colors)) {
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillStyle = createRainbowGradient(ctx, x, textWidth, specialTheme.colors);
+    } else {
+        ctx.fillStyle = specialTheme?.color || "#ff69b4";
+    }
+
     ctx.fillText(text, x, y);
 }
 
@@ -276,24 +294,39 @@ function drawRow(ctx, row, y, width, avatarImage) {
     const nameMaxWidth = Math.max(180, countBadgeX - nameX - 26);
 
     ctx.font = cfg.nameFont;
-    ctx.fillStyle = isSpecial ? specialColor : cfg.nameColor;
-    
+
     const displayName = row.displayName || `UID ${row.userId}`;
     const ingameName = String(row.ingameName || "").trim();
     const ingameSuffix = ingameName ? ` (${ingameName})` : " (Chưa set ingame)";
     const nameWithIngame = displayName + ingameSuffix;
-    
+
     const nameLines = wrapTextByWords(ctx, nameWithIngame, nameMaxWidth);
-    const maxNameLines = 2; // Allow up to 2 lines for name
+    const maxNameLines = 2;
     let nameY = y + 44;
+
+    const isRainbow = isSpecial && specialTheme?.rainbow && Array.isArray(specialTheme.colors);
+
     for (let i = 0; i < Math.min(nameLines.length, maxNameLines); i += 1) {
+        if (isRainbow) {
+            const lineWidth = ctx.measureText(nameLines[i]).width;
+            ctx.fillStyle = createRainbowGradient(ctx, nameX, lineWidth, specialTheme.colors);
+        } else {
+            ctx.fillStyle = isSpecial ? specialColor : cfg.nameColor;
+        }
         ctx.fillText(nameLines[i], nameX, nameY);
-        nameY += 32; // Line height for 29px font
+        nameY += 32;
     }
 
     ctx.font = cfg.userFont;
-    ctx.fillStyle = isSpecial ? specialColor : cfg.userColor;
-    ctx.fillText(`UID: ${row.userId}`, nameX, y + 73);
+    if (isRainbow) {
+        const uidText = `UID: ${row.userId}`;
+        const uidWidth = ctx.measureText(uidText).width;
+        ctx.fillStyle = createRainbowGradient(ctx, nameX, uidWidth, specialTheme.colors);
+        ctx.fillText(uidText, nameX, y + 73);
+    } else {
+        ctx.fillStyle = isSpecial ? specialColor : cfg.userColor;
+        ctx.fillText(`UID: ${row.userId}`, nameX, y + 73);
+    }
 }
 
 function drawFooter(ctx, width, height) {

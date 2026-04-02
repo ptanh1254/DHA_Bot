@@ -216,6 +216,81 @@ function toSafeActor(actorMeta = {}) {
     };
 }
 
+function resolveHistoricalActorOverride(history, normalizedBotUserId) {
+    if (!history || typeof history !== "object") return null;
+
+    const candidates = [
+        {
+            userId: history?.lastKickedByUserId,
+            name: history?.lastKickedByName,
+        },
+        {
+            userId: history?.firstKickedByUserId,
+            name: history?.firstKickedByName,
+        },
+    ];
+
+    const normalizedCandidates = candidates.map((candidate) => ({
+        userId: normalizeUserId(candidate?.userId),
+        name: String(candidate?.name || "").trim(),
+    }));
+
+    const preferred = normalizedCandidates.find((candidate) => {
+        if (!candidate.userId && !candidate.name) return false;
+        if (normalizedBotUserId && candidate.userId === normalizedBotUserId) return false;
+        if (candidate.userId === LEAVE_AUTOKICK_ACTOR_ID) return false;
+        return true;
+    });
+
+    const fallback = normalizedCandidates.find((candidate) => {
+        if (!candidate.userId && !candidate.name) return false;
+        if (normalizedBotUserId && candidate.userId === normalizedBotUserId) return false;
+        return true;
+    });
+
+    const chosen = preferred || fallback;
+    if (!chosen) return null;
+
+    return {
+        actorUserId: chosen.userId,
+        actorName: chosen.name || (chosen.userId ? `UID ${chosen.userId}` : ""),
+    };
+}
+
+async function applyAutoKickActorOverrideFromHistory({
+    KickHistory,
+    threadId,
+    memberProfiles,
+    actorMeta,
+    actorOverrideByUserId,
+    normalizedBotUserId,
+}) {
+    if (!KickHistory) return;
+    if (!normalizedBotUserId) return;
+
+    const eventActorId = normalizeUserId(actorMeta?.userId);
+    if (!eventActorId || eventActorId !== normalizedBotUserId) return;
+
+    for (const member of memberProfiles) {
+        const memberId = normalizeUserId(member?.userId);
+        if (!memberId) continue;
+        if (actorOverrideByUserId.has(memberId)) continue;
+
+        let history = null;
+        try {
+            history = await KickHistory.findOne({ groupId: threadId, userId: memberId }).lean();
+        } catch (error) {
+            console.error("Loi doc lich su kick de giu nguoi kick cu:", error);
+            continue;
+        }
+
+        const actorOverride = resolveHistoricalActorOverride(history, normalizedBotUserId);
+        if (actorOverride) {
+            actorOverrideByUserId.set(memberId, actorOverride);
+        }
+    }
+}
+
 function buildKickHistoryOperations(
     threadId,
     memberProfiles,
@@ -606,6 +681,8 @@ function createGroupEventHandler({
     kickIntentStore,
     botUserId = "",
 }) {
+    const normalizedBotUserId = normalizeUserId(botUserId);
+
     return async function onGroupEvent(groupEvent) {
         try {
             const type = String(groupEvent?.type || "").toLowerCase();
@@ -667,6 +744,17 @@ function createGroupEventHandler({
                 members.map((member) => fetchMemberProfile(api, member.userId, member))
             );
 
+            if (type === "remove_member") {
+                await applyAutoKickActorOverrideFromHistory({
+                    KickHistory,
+                    threadId,
+                    memberProfiles,
+                    actorMeta,
+                    actorOverrideByUserId,
+                    normalizedBotUserId,
+                });
+            }
+
             if (type === "leave") {
                 for (const member of memberProfiles) {
                     actorOverrideByUserId.set(member.userId, {
@@ -686,7 +774,7 @@ function createGroupEventHandler({
                 );
             }
 
-            if (type === "remove_member") {
+            if (type === "remove_member" || type === "leave") {
                 for (const member of memberProfiles) {
                     await tryAutoAddBackProtectedMember(api, threadId, member);
                 }

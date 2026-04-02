@@ -7,6 +7,10 @@ const mutedMemberSchema = new mongoose.Schema(
         mutedByUserId: { type: String, default: "" },
         mutedByName: { type: String, default: "" },
         mutedAt: { type: Date, default: Date.now },
+        muteUntil: { type: Date, default: null },
+        requiresManualUnmute: { type: Boolean, default: false },
+        muteSource: { type: String, default: "manual" },
+        muteReason: { type: String, default: "" },
         blockedMsgCount: { type: Number, default: 0 },
     },
     {

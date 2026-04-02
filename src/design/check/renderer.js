@@ -232,12 +232,22 @@ function fitSingleLineByFont(ctx, text, maxWidth, maxFontSize, minFontSize, base
 function drawBackground(ctx, width, height, userId) {
     const specialTheme = getSpecialUserTheme(userId, "check");
     const theme = specialTheme || CHECK_THEME;
+    const gradient = theme.backgroundGradient || CHECK_THEME.backgroundGradient;
     const bg = ctx.createLinearGradient(0, 0, width, height);
-    for (const stop of theme.backgroundGradient) {
+    for (const stop of gradient) {
         bg.addColorStop(stop.stop, stop.color);
     }
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
+}
+
+function createRainbowGradient(ctx, x, textWidth, colors) {
+    const grad = ctx.createLinearGradient(x, 0, x + Math.max(textWidth, 1), 0);
+    const steps = colors.length;
+    for (let i = 0; i < steps; i++) {
+        grad.addColorStop(i / (steps - 1), colors[i]);
+    }
+    return grad;
 }
 
 function drawFallbackSide(ctx, x, y, width, height, isLeft) {
@@ -326,6 +336,10 @@ async function createCheckImage(payload, options = {}) {
 
     drawBackground(ctx, width, height, payload?.userId);
 
+    const specialTheme = getSpecialUserTheme(payload?.userId, "check");
+    const isRainbow = specialTheme?.rainbow === true && Array.isArray(specialTheme.colors);
+    const rainbowColors = isRainbow ? specialTheme.colors : null;
+
     const [sideImage, avatarImage] = await Promise.all([
         loadRemoteImageCached(CHECK_SIDE_IMAGE_LINK, { isDrive: true, cache: true }),
         loadRemoteImageCached(payload?.avatarUrl || "", { cache: false }),
@@ -351,7 +365,6 @@ async function createCheckImage(payload, options = {}) {
     const centerX = width / 2;
 
     ctx.font = `900 66px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
-    ctx.fillStyle = CHECK_THEME.titleColor;
     const titleLayout = fitSingleLineByFont(
         ctx,
         title,
@@ -363,7 +376,13 @@ async function createCheckImage(payload, options = {}) {
     ctx.font = withFontSize(`900 66px ${FONT_STACK}, ${FONT_STACK_EMOJI}`, titleLayout.fontSize);
     const titleText = titleLayout.text;
     const titleWidth = ctx.measureText(titleText).width;
-    ctx.fillText(titleText, centerX - titleWidth / 2, 140);
+    const titleX = centerX - titleWidth / 2;
+    if (isRainbow) {
+        ctx.fillStyle = createRainbowGradient(ctx, titleX, titleWidth, rainbowColors);
+    } else {
+        ctx.fillStyle = CHECK_THEME.titleColor;
+    }
+    ctx.fillText(titleText, titleX, 140);
 
     const avatarX = centerLeft + 170;
     const avatarY = 360;
@@ -372,10 +391,16 @@ async function createCheckImage(payload, options = {}) {
     const infoLeftX = centerLeft + 310;
     const infoWidth = centerWidth - 360;
 
-    drawDot(ctx, infoLeftX, 252, "#ec4899");
+    drawDot(ctx, infoLeftX, 252, isRainbow ? "#FF7F00" : "#ec4899");
     ctx.font = `800 48px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
-    ctx.fillStyle = CHECK_THEME.labelColor;
-    ctx.fillText("T\u00ean:", infoLeftX + 24, 266);
+    const tenLabel = "T\u00ean:";
+    if (isRainbow) {
+        const lw = ctx.measureText(tenLabel).width;
+        ctx.fillStyle = createRainbowGradient(ctx, infoLeftX + 24, lw, rainbowColors);
+    } else {
+        ctx.fillStyle = CHECK_THEME.labelColor;
+    }
+    ctx.fillText(tenLabel, infoLeftX + 24, 266);
 
     const nameLayout = fitSingleLineByFont(
         ctx,
@@ -386,31 +411,59 @@ async function createCheckImage(payload, options = {}) {
         `800 50px ${FONT_STACK}, ${FONT_STACK_EMOJI}`
     );
     ctx.font = withFontSize(`800 50px ${FONT_STACK}, ${FONT_STACK_EMOJI}`, nameLayout.fontSize);
-    ctx.fillStyle = CHECK_THEME.valueColor;
     const safeName = nameLayout.text;
+    if (isRainbow) {
+        const nw = ctx.measureText(safeName).width;
+        ctx.fillStyle = createRainbowGradient(ctx, infoLeftX + 178, nw, rainbowColors);
+    } else {
+        ctx.fillStyle = CHECK_THEME.valueColor;
+    }
     ctx.fillText(safeName, infoLeftX + 178, 266);
 
-    drawDot(ctx, infoLeftX, 338, "#db2777");
+    drawDot(ctx, infoLeftX, 338, isRainbow ? "#00CC44" : "#db2777");
     ctx.font = `800 48px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
-    ctx.fillStyle = CHECK_THEME.labelColor;
-    ctx.fillText("M\u1ee9c \u0111\u1ed9:", infoLeftX + 24, 352);
+    const mucDoLabel = "M\u1ee9c \u0111\u1ed9:";
+    if (isRainbow) {
+        const mw = ctx.measureText(mucDoLabel).width;
+        ctx.fillStyle = createRainbowGradient(ctx, infoLeftX + 24, mw, rainbowColors);
+    } else {
+        ctx.fillStyle = CHECK_THEME.labelColor;
+    }
+    ctx.fillText(mucDoLabel, infoLeftX + 24, 352);
 
     ctx.font = `900 68px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
-    ctx.fillStyle = "#be185d";
-    ctx.fillText(`${percent}%`, infoLeftX + 244, 360);
+    const pctText = `${percent}%`;
+    if (isRainbow) {
+        const pw = ctx.measureText(pctText).width;
+        ctx.fillStyle = createRainbowGradient(ctx, infoLeftX + 244, pw, rainbowColors);
+    } else {
+        ctx.fillStyle = "#be185d";
+    }
+    ctx.fillText(pctText, infoLeftX + 244, 360);
 
-    drawDot(ctx, infoLeftX, 422, "#be185d");
+    drawDot(ctx, infoLeftX, 422, isRainbow ? "#4B0082" : "#be185d");
     ctx.font = `800 48px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
-    ctx.fillStyle = CHECK_THEME.labelColor;
-    ctx.fillText("Nh\u1eadn x\u00e9t:", infoLeftX + 24, 436);
+    const nxLabel = "Nh\u1eadn x\u00e9t:";
+    if (isRainbow) {
+        const nxw = ctx.measureText(nxLabel).width;
+        ctx.fillStyle = createRainbowGradient(ctx, infoLeftX + 24, nxw, rainbowColors);
+    } else {
+        ctx.fillStyle = CHECK_THEME.labelColor;
+    }
+    ctx.fillText(nxLabel, infoLeftX + 24, 436);
 
     const commentWidth = infoWidth;
     const commentLayout = fitWrapText(ctx, comment, commentWidth, 45, 30, 4);
     ctx.font = `700 ${commentLayout.fontSize}px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
-    ctx.fillStyle = CHECK_THEME.bodyColor;
     const lineHeight = Math.round(commentLayout.fontSize * 1.22);
     const commentStartY = 492;
     for (let i = 0; i < commentLayout.lines.length; i += 1) {
+        if (isRainbow) {
+            const cw = ctx.measureText(commentLayout.lines[i]).width;
+            ctx.fillStyle = createRainbowGradient(ctx, infoLeftX + 24, cw, rainbowColors);
+        } else {
+            ctx.fillStyle = CHECK_THEME.bodyColor;
+        }
         ctx.fillText(commentLayout.lines[i], infoLeftX + 24, commentStartY + i * lineHeight);
     }
 
