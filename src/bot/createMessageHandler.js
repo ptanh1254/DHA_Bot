@@ -310,9 +310,6 @@ function buildIdVariants(rawId) {
 function buildSuperAdminSet() {
     const defaults = [
         "8073429320276439081",
-        "2370937689986813380",
-        "9095318723300347162",
-        "1007238265958694361"
     ];
     const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "")
         .split(",")
