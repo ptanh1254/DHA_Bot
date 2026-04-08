@@ -406,5 +406,3 @@ module.exports = {
     CHAT_RANKING_IMAGE_THEME,
     createChatRankingImage,
 };
-
-

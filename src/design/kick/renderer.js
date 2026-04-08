@@ -279,7 +279,7 @@ async function createKickEventImage(payload, options = {}) {
     );
     const actionText =
         payload?.actionText ||
-        `${targetName} \u0111\u00e3 b\u1ecb ${kickerName} s\u00fat kh\u1ecfi nh\u00f3m DHA`;
+        `${targetName} \u0111\u00e3 b\u1ecb ${kickerName} s\u00fat kh\u1ecfi nh\u00f3m GE`;
 
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
@@ -377,7 +377,7 @@ async function createLeaveEventImage(payload, options = {}) {
         payload?.member?.displayName || payload?.member?.userId || "Th\u00e0nh vi\u00ean"
     );
     const actionText =
-        payload?.actionText || `${memberName} \u0111\u00e3 x\u00e1ch d\u00e9p r\u1eddi nh\u00f3m DHA`;
+        payload?.actionText || `${memberName} \u0111\u00e3 x\u00e1ch d\u00e9p r\u1eddi nh\u00f3m GE`;
 
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");

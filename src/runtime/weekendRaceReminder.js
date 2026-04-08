@@ -9,7 +9,7 @@ const WEEKEND_REMINDER_TEXT =
     "⚠️ **THÔNG BÁO ĐUA ĐỘI - LƯU Ý GIỜ VÀO ĐUA**\n\n" +
     "⏰ **Thời gian bắt đầu:** Đúng **20h05**.\n\n" +
     "🚫 **CẢNH BÁO:** Để trải nghiệm tốt nhất cho cả đội, tuyệt đối không vào sớm. Phát hiện vi phạm sẽ bị kick.\n\n" +
-    "🙏 *Đây là tin nhắn nhắc nhở tự động 2 phút/lần (19h59 - 20h05). Rất xin lỗi nếu làm phiền cả nhà DHA, chúc toàn bộ anh em tổ lái đua tốt!*";
+    "🙏 *Đây là tin nhắn nhắc nhở tự động 2 phút/lần (19h59 - 20h05).Tún Anh rất xin lỗi nếu làm phiền cả nhà DHA, chúc toàn bộ anh em tổ lái đua tốt!*";
 
 const WEEKEND_START_TEXT = "🚀 **GIỜ G ĐÃ ĐẾN!** Cả nhà vào đua đội ngay thôi nào! Chúc anh em cuối tuần rực rỡ! 🔥";
 

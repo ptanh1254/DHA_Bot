@@ -145,5 +145,3 @@ module.exports = {
     SPECIAL_USERS,
     SPECIAL_USER_CARD_THEME,
 };
-
-

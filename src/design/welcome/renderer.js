@@ -352,4 +352,3 @@ module.exports = {
     SIDE_IMAGE_LINKS,
     createWelcomeImage,
 };
-

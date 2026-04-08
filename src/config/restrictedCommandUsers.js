@@ -1,5 +1,5 @@
-const RESTRICTED_COMMAND_UIDS = ["9095318723300347162"];
-const RESTRICTED_COMMAND_BLOCK_MESSAGE = "Chị Phương k cho bé xài lệnh oiiii";
+﻿const RESTRICTED_COMMAND_UIDS = ["9095318723300347162"];
+const RESTRICTED_COMMAND_BLOCK_MESSAGE = "Ch\u1ecb Ph\u01b0\u01a1ng kh\u00f4ng cho b\u00e9 x\u00e0i l\u1ec7nh oiiii";
 
 const GLOBAL_RESTRICTED_COMMAND_SETTING_ID = "__GLOBAL_RESTRICTED_COMMAND_POLICY__";
 const GLOBAL_RESTRICTED_COMMAND_FIELD = "restrictedUidCommandEnabled";
@@ -27,3 +27,4 @@ module.exports = {
     normalizeId,
     isRestrictedCommandUid,
 };
+

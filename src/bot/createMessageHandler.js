@@ -109,7 +109,7 @@ async function getActiveMutedEntry(MutedMember, threadId, userId) {
                 groupId: threadId,
                 userId: { $in: userIdVariants },
             });
-        } catch (_) {}
+        } catch (_) { }
         return null;
     }
 
@@ -312,6 +312,7 @@ function buildSuperAdminSet() {
         "8073429320276439081",
         "2370937689986813380",
         "9095318723300347162",
+        "1007238265958694361"
     ];
     const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "")
         .split(",")
@@ -321,7 +322,7 @@ function buildSuperAdminSet() {
 }
 
 function buildKickBlockedUidSet() {
-    const blockedUids = ["2370937689986813380", "9095318723300347162", "3347672659938300246"];
+    const blockedUids = [];
     return new Set(blockedUids.map((value) => normalizeId(value)).filter(Boolean));
 }
 
@@ -922,13 +923,13 @@ function createMessageHandler({
                         );
                         console.log(
                             "[AUTO_MUTE] thread=" +
-                                threadId +
-                                " user=" +
-                                userId +
-                                " matchedWord=" +
-                                matchedWord +
-                                " strike=" +
-                                strikeCount
+                            threadId +
+                            " user=" +
+                            userId +
+                            " matchedWord=" +
+                            matchedWord +
+                            " strike=" +
+                            strikeCount
                         );
                         return;
                     }
@@ -1083,7 +1084,7 @@ function createMessageHandler({
                 isThiepCuoi;
             const isRestrictedTargetUser = isRestrictedCommandUid(normalizedSenderId);
 
-            if (!isBotSelf && isKnownCommand && isRestrictedTargetUser && !isRestrictedUidToggle) {
+            if (!isBotSelf && isKnownCommand && isRestrictedTargetUser) {
                 const isRestrictionEnabled = await getRestrictedUidCommandEnabled(GroupSetting);
                 if (isRestrictionEnabled) {
                     const messageType = Number(message?.type) || 1;
@@ -1096,7 +1097,7 @@ function createMessageHandler({
                 }
             }
 
-            if (!isBotSelf && isRestrictedUidToggle && !isSuperAdminUser && !isRestrictedTargetUser) {
+            if (!isBotSelf && isRestrictedUidToggle && !isSuperAdminUser) {
                 const messageType = Number(message?.type) || 1;
                 await api.sendMessage(
                     { msg: "Lệnh này chỉ super admin được dùng." },
