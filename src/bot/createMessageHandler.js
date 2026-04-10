@@ -42,6 +42,35 @@ function shouldSendMuteNotice(strikeCount) {
     return value > 10 && value % 10 === 0;
 }
 
+const MUTE_SPAM_KICK_THRESHOLD = 20;
+
+async function tryKickMutedSpammer(api, threadId, userId) {
+    const normalizedUserId = normalizeId(userId);
+    if (!normalizedUserId) {
+        return { attempted: false, success: false };
+    }
+
+    try {
+        const result = await api.removeUserFromGroup([normalizedUserId], threadId);
+        const failedIds = Array.isArray(result?.errorMembers)
+            ? result.errorMembers.map((id) => normalizeId(id))
+            : [];
+        const failedSet = new Set(failedIds);
+        return {
+            attempted: true,
+            success: !failedSet.has(normalizedUserId),
+            userId: normalizedUserId,
+        };
+    } catch (error) {
+        console.error("[mute-spam] L\u1ed7i kick user \u0111ang b\u1ecb mute:", error);
+        return {
+            attempted: true,
+            success: false,
+            userId: normalizedUserId,
+        };
+    }
+}
+
 function resolveBannedWordMutePolicy(strikeCount) {
     const count = Math.max(1, Number(strikeCount) || 1);
     if (count === 1) {
@@ -838,6 +867,80 @@ function createMessageHandler({
                     await tryDeleteMutedMessage(api, message, threadId, userId);
 
                     const strikeCount = Number(updatedMutedEntry?.blockedMsgCount) || 1;
+                    if (strikeCount >= MUTE_SPAM_KICK_THRESHOLD) {
+                        const kickTargetUserId = normalizeId(mutedEntry?.userId || userId);
+                        const kickResult = await tryKickMutedSpammer(
+                            api,
+                            threadId,
+                            kickTargetUserId
+                        );
+
+                        if (kickResult.success) {
+                            try {
+                                await MutedMember.deleteMany({
+                                    groupId: threadId,
+                                    userId: { $in: buildIdVariants(kickTargetUserId) },
+                                });
+                            } catch (_) {}
+
+                            const messageType = Number(message?.type) || 1;
+                            const rawName =
+                                typeof message?.data?.dName === "string"
+                                    ? message.data.dName.trim()
+                                    : "";
+                            const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
+                            const mentionText = `@${safeName}`;
+                            try {
+                                await api.sendMessage(
+                                    {
+                                        msg: `${mentionText} \u0111\u00e3 spam ${MUTE_SPAM_KICK_THRESHOLD} tin khi \u0111ang b\u1ecb mute n\u00ean bot \u0111\u00e3 kick kh\u1ecfi nh\u00f3m.`,
+                                        mentions: [
+                                            {
+                                                pos: 0,
+                                                uid: kickTargetUserId || String(userId),
+                                                len: mentionText.length,
+                                            },
+                                        ],
+                                    },
+                                    threadId,
+                                    messageType
+                                );
+                            } catch (error) {
+                                console.error("[mute-spam] L\u1ed7i g\u1eedi th\u00f4ng b\u00e1o kick:", error);
+                            }
+                            return;
+                        }
+
+                        if (strikeCount === MUTE_SPAM_KICK_THRESHOLD) {
+                            const messageType = Number(message?.type) || 1;
+                            const rawName =
+                                typeof message?.data?.dName === "string"
+                                    ? message.data.dName.trim()
+                                    : "";
+                            const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
+                            const mentionText = `@${safeName}`;
+                            try {
+                                await api.sendMessage(
+                                    {
+                                        msg: `${mentionText} \u0111\u00e3 spam ${MUTE_SPAM_KICK_THRESHOLD} tin khi \u0111ang b\u1ecb mute nh\u01b0ng bot ch\u01b0a kick \u0111\u01b0\u1ee3c. Ki\u1ec3m tra quy\u1ec1n admin c\u1ee7a bot nh\u00e9.`,
+                                        mentions: [
+                                            {
+                                                pos: 0,
+                                                uid: kickTargetUserId || String(userId),
+                                                len: mentionText.length,
+                                            },
+                                        ],
+                                    },
+                                    threadId,
+                                    messageType
+                                );
+                            } catch (error) {
+                                console.error("[mute-spam] L\u1ed7i g\u1eedi th\u00f4ng b\u00e1o l\u1ed7i kick:", error);
+                            }
+                        }
+                        return;
+                    }
+
                     if (shouldSendMuteNotice(strikeCount)) {
                         await sendMuteNotice(
                             api,
