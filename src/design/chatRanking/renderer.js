@@ -248,6 +248,12 @@ function drawAvatarCircle(ctx, image, x, y, radius, fallbackText) {
     ctx.restore();
 }
 
+function getJoinedDaysText(row) {
+    const days = Number(row?.joinedDays);
+    if (!Number.isFinite(days) || days <= 0) return "không rõ";
+    return `${formatCount(days)} ngày`;
+}
+
 function drawRow(ctx, row, y, width, avatarImage) {
     const cfg = CHAT_RANKING_IMAGE_THEME.row;
     const isSpecial = isSpecialUser(row.userId);
@@ -318,14 +324,14 @@ function drawRow(ctx, row, y, width, avatarImage) {
     }
 
     ctx.font = cfg.userFont;
+    const joinedText = `Đã gia nhập: ${getJoinedDaysText(row)}`;
     if (isRainbow) {
-        const uidText = `UID: ${row.userId}`;
-        const uidWidth = ctx.measureText(uidText).width;
-        ctx.fillStyle = createRainbowGradient(ctx, nameX, uidWidth, specialTheme.colors);
-        ctx.fillText(uidText, nameX, y + 73);
+        const joinedWidth = ctx.measureText(joinedText).width;
+        ctx.fillStyle = createRainbowGradient(ctx, nameX, joinedWidth, specialTheme.colors);
+        ctx.fillText(joinedText, nameX, y + 73);
     } else {
         ctx.fillStyle = isSpecial ? specialColor : cfg.userColor;
-        ctx.fillText(`UID: ${row.userId}`, nameX, y + 73);
+        ctx.fillText(joinedText, nameX, y + 73);
     }
 }
 

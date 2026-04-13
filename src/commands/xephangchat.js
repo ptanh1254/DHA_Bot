@@ -482,6 +482,17 @@ function toTimeValue(dateLike) {
     return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
 }
 
+function calculateJoinedDays(joinDate, now = new Date()) {
+    if (!joinDate) return null;
+    const joinedAtMs = new Date(joinDate).getTime();
+    const nowMs = new Date(now).getTime();
+    if (!Number.isFinite(joinedAtMs) || !Number.isFinite(nowMs)) return null;
+
+    const diffMs = Math.max(0, nowMs - joinedAtMs);
+    const days = Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
+    return Math.max(1, days);
+}
+
 function getRankingScore(user, rankingType, dayKey, monthKey, weeklyCountMap = new Map()) {
     if (rankingType === "week") {
         const uid = normalizeMemberId(user?.userId);
@@ -707,6 +718,7 @@ async function handleXepHangChatCommand(api, message, threadId, User, options = 
             displayName: normalizeDisplayName(user.displayName || meta.displayName, uid),
             avatarUrl: user.avatarUrl || meta.avatarUrl || "",
             ingameName: user.ingameName || "",
+            joinedDays: calculateJoinedDays(user.joinDate, now),
             msgCount: Number(user.msgCount) || 0,
         };
     });

@@ -39,7 +39,14 @@ function buildXepHangMessage(rankingRows, page, totalPages, totalMembers) {
             default: rankIcon = `[${String(row.rank).padStart(2, "0")}]`; break;
         }
 
-        return `${rankIcon} ${row.displayName} ${formatCount(row.msgCount)} ${icons.message}`;
+        const ingameName = String(row?.ingameName || "").trim();
+        const ingameText = ingameName ? `ingame: ${ingameName}` : "ingame: ch\u01b0a c\u1eadp nh\u1eadt";
+        const joinedDays = Number(row?.joinedDays);
+        const joinedText =
+            Number.isFinite(joinedDays) && joinedDays > 0
+                ? `\u0111\u00e3 gia nh\u1eadp: ${formatCount(joinedDays)} ng\u00e0y`
+                : "\u0111\u00e3 gia nh\u1eadp: kh\u00f4ng r\u00f5";
+        return `${rankIcon} ${row.displayName} (${ingameText}) (${joinedText}) | ${formatCount(row.msgCount)} ${icons.message}`;
     });
 
     // Footer
@@ -56,4 +63,3 @@ module.exports = {
     formatCount,
     buildXepHangMessage,
 };
-
