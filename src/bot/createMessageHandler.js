@@ -826,7 +826,18 @@ function createMessageHandler({
 
     return async function onMessage(message) {
         try {
-            const threadId = String(message.threadId);
+            let threadId = String(message?.threadId || "").trim();
+            if (!threadId || threadId === "0" || threadId.toLowerCase() === "undefined") {
+                threadId = String(
+                    message?.data?.idTo ||
+                    message?.data?.threadId ||
+                    message?.data?.uidFrom ||
+                    ""
+                ).trim();
+            }
+            if (!threadId || threadId === "0") {
+                return;
+            }
             const userId = String(message.data?.uidFrom || "unknown");
             const rawText =
                 typeof message.data?.content === "string" ? message.data.content : "";

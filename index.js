@@ -49,6 +49,73 @@ const { getVNDateParts } = require("./src/utils/vnTime");
 console.log("=== BOT DANG KHOI DONG ===");
 const config = loadConfig();
 
+function isCannotSendFromSelfError(error) {
+    const code = Number(error?.code);
+    if (code === 123) return true;
+
+    const message = String(error?.message || "").toLowerCase();
+    return (
+        message.includes("không thể nhắn tin nhắn từ bạn") ||
+        message.includes("khong the nhan tin nhan tu ban")
+    );
+}
+
+function patchApiSendMessage(api) {
+    if (!api || typeof api.sendMessage !== "function" || api.__sendMessagePatched) {
+        return;
+    }
+
+    const rawSendMessage = api.sendMessage.bind(api);
+    Object.defineProperty(api, "__sendMessagePatched", {
+        value: true,
+        enumerable: false,
+        writable: false,
+        configurable: false,
+    });
+
+    api.sendMessage = async (message, threadId, type) => {
+        const resolvedThreadId = String(threadId || "").trim();
+        if (!resolvedThreadId || resolvedThreadId === "0") {
+            throw new Error("Invalid threadId for sendMessage");
+        }
+
+        const candidates = [];
+        if (type !== undefined && type !== null && String(type).trim() !== "") {
+            candidates.push(type);
+        }
+        // Retry common thread types when upstream throws code 123.
+        candidates.push(1, 0, 2, undefined);
+
+        const seen = new Set();
+        let lastError = null;
+
+        for (const candidate of candidates) {
+            const key = `${typeof candidate}:${String(candidate)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            try {
+                if (candidate === undefined) {
+                    return await rawSendMessage(message, resolvedThreadId);
+                }
+                return await rawSendMessage(message, resolvedThreadId, candidate);
+            } catch (error) {
+                lastError = error;
+                if (!isCannotSendFromSelfError(error)) {
+                    throw error;
+                }
+                console.warn(
+                    `[sendMessage-retry] code=123 threadId=${resolvedThreadId} type=${String(
+                        candidate
+                    )} retry...`
+                );
+            }
+        }
+
+        throw lastError || new Error("Khong gui duoc tin nhan.");
+    };
+}
+
 const zalo = new Zalo({
     selfListen: true,
     checkUpdate: true,
@@ -121,6 +188,7 @@ async function startBot() {
             imei,
             userAgent,
         });
+        patchApiSendMessage(api);
 
         const accountInfo = await api.fetchAccountInfo().catch(() => null);
         const botUserId = String(accountInfo?.userId || "").replace(/_0$/, "").trim();
