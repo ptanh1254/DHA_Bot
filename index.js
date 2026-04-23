@@ -1,4 +1,4 @@
-const path = require("path");
+﻿const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 const mongoose = require("mongoose");
 const { Zalo } = require("zca-js");
@@ -208,8 +208,8 @@ async function startBot() {
             ingameCommand: `${prefix}ingame`.toLowerCase(),
             removeIngameCommand: `${prefix}xoaingame`.toLowerCase(),
             preventRecallCommand: `${prefix}chongthuhoi`.toLowerCase(),
-            nodeCommand: `${prefix}node`.toLowerCase(),
-            xoaNodeCommand: `${prefix}xoanode`.toLowerCase(),
+            noteCommand: `${prefix}note`.toLowerCase(),
+            xoaNoteCommand: `${prefix}xoanote`.toLowerCase(),
             kickCommand: `${prefix}dapbaymau`.toLowerCase(),
             kickAliasCommand: `${prefix}kick`.toLowerCase(),
             muteCommand: `${prefix}mute`.toLowerCase(),
