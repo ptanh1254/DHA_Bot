@@ -418,8 +418,8 @@ function createMessageHandler({
         helpCommand,
         helloCommand,
         preventRecallCommand,
-        nodeCommand,
-        xoaNodeCommand,
+        noteCommand,
+        xoaNoteCommand,
         thongTinCommand,
         checkTTCommand,
         checkCommand,
@@ -452,8 +452,8 @@ function createMessageHandler({
         handleHelp,
         handleHello,
         handlePreventRecall,
-        handleNode,
-        handleXoaNode,
+        handleNote,
+        handleXoaNote,
         handleThongTin,
         handleCheckTT,
         handleCheck,
@@ -1064,10 +1064,10 @@ function createMessageHandler({
             const isPreventRecall =
                 normalized === preventRecallCommand ||
                 normalized.startsWith(`${preventRecallCommand} `);
-            const isNode =
-                normalized === nodeCommand || normalized.startsWith(`${nodeCommand} `);
-            const isXoaNode =
-                normalized === xoaNodeCommand || normalized.startsWith(`${xoaNodeCommand} `);
+            const isNote =
+                normalized === noteCommand || normalized.startsWith(`${noteCommand} `);
+            const isXoaNote =
+                normalized === xoaNoteCommand || normalized.startsWith(`${xoaNoteCommand} `);
             const isThongTin = normalized.startsWith(thongTinCommand);
             const isCheckTT =
                 normalized === checkTTCommand || normalized.startsWith(`${checkTTCommand} `);
@@ -1167,6 +1167,8 @@ function createMessageHandler({
                 isHelp ||
                 isHello ||
                 isPreventRecall ||
+                isNote ||
+                isXoaNote ||
                 isThongTin ||
                 isCheckTT ||
                 isCheck ||
@@ -1270,8 +1272,8 @@ function createMessageHandler({
                 message.isSelf &&
                 !isHelp &&
                 !isHello &&
-                !isNode &&
-                !isXoaNode &&
+                !isNote &&
+                !isXoaNote &&
                 !isThongTin &&
                 !isCheckTT &&
                 !isCheck &&
@@ -1315,15 +1317,15 @@ function createMessageHandler({
                 return;
             }
 
-            if (isNode) {
-                await handleNode(api, message, threadId);
-                console.log(`Đã xử lý command ${nodeCommand} tại thread ${threadId}`);
+            if (isNote) {
+                await handleNote(api, message, threadId);
+                console.log(`Đã xử lý command ${noteCommand} tại thread ${threadId}`);
                 return;
             }
 
-            if (isXoaNode) {
-                await handleXoaNode(api, message, threadId);
-                console.log(`Da xu ly command ${xoaNodeCommand} tai thread ${threadId}`);
+            if (isXoaNote) {
+                await handleXoaNote(api, message, threadId);
+                console.log(`Da xu ly command ${xoaNoteCommand} tai thread ${threadId}`);
                 return;
             }
 

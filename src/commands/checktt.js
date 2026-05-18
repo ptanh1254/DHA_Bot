@@ -40,6 +40,46 @@ function splitUserNoteLines(noteRaw) {
         .filter(Boolean);
 }
 
+function formatNoteAuthor(noteItem, fallbackRecord) {
+    const name = String(noteItem?.createdByName || fallbackRecord?.createdByName || "").trim();
+    const uid = String(noteItem?.createdBy || fallbackRecord?.createdBy || "").trim();
+    const time = noteItem?.createdAt || fallbackRecord?.updatedAt || fallbackRecord?.createdAt;
+    const parts = [];
+
+    if (name) {
+        parts.push(name);
+    } else if (uid) {
+        parts.push(`UID ${uid}`);
+    } else {
+        parts.push("Khong ro nguoi ghi");
+    }
+
+    if (time) {
+        parts.push(formatJoinDateVN(time));
+    }
+
+    return parts.join(" - ");
+}
+
+function getUserNoteItems(userNoteRecord) {
+    const structuredNotes = Array.isArray(userNoteRecord?.notes) ? userNoteRecord.notes : [];
+    const cleanStructuredNotes = structuredNotes
+        .map((item) => ({
+            content: String(item?.content || "").trim(),
+            authorLabel: formatNoteAuthor(item, userNoteRecord),
+        }))
+        .filter((item) => item.content);
+
+    if (cleanStructuredNotes.length > 0) {
+        return cleanStructuredNotes;
+    }
+
+    return splitUserNoteLines(userNoteRecord?.note || "").map((content) => ({
+        content,
+        authorLabel: formatNoteAuthor(null, userNoteRecord),
+    }));
+}
+
 async function resolveRealtimeProfile(api, userId) {
     try {
         const info = await api.getUserInfo(userId);
@@ -124,7 +164,10 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
 
     // Get user note
     const userNoteRecord = await UserNote.findOne({ groupId: threadId, userId: targetUserId });
-    const userNoteLines = splitUserNoteLines(userNoteRecord?.note || "");
+    const userNoteItems = getUserNoteItems(userNoteRecord);
+    const userNoteLines = userNoteItems.map(
+        (item, index) => `${index + 1}. ${item.content} (${item.authorLabel})`
+    );
     const userNoteForCard = userNoteLines.join("\n");
 
     let outputPath = "";
@@ -149,22 +192,12 @@ async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") 
         ];
 
         if (userNoteLines.length > 0) {
-            const noteParts = [];
-            
-            if (userNoteRecord?.createdByName && String(userNoteRecord.createdByName).trim()) {
-                noteParts.push(userNoteRecord.createdByName);
-            }
-            if (userNoteRecord?.updatedAt) {
-                noteParts.push(formatJoinDateVN(userNoteRecord.updatedAt));
-            }
-            
-            if (noteParts.length > 0) {
-                messageLines.push(`Ng\u01b0\u1eddi ghi ch\u00fa: ${noteParts.join(" - ")}`);
-            }
             messageLines.push("Ghi ch\u00fa:");
 
-            for (const noteLine of userNoteLines) {
-                messageLines.push(`- ${noteLine}`);
+            for (let i = 0; i < userNoteItems.length; i += 1) {
+                const noteItem = userNoteItems[i];
+                messageLines.push(`${i + 1}. ${noteItem.content}`);
+                messageLines.push(`  Nguoi ghi: ${noteItem.authorLabel}`);
             }
         }
 

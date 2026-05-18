@@ -4,6 +4,14 @@ const userNoteSchema = new mongoose.Schema({
     groupId: String,
     userId: String,
     note: { type: String, default: "" },
+    notes: [
+        {
+            content: { type: String, default: "" },
+            createdBy: String,
+            createdByName: String,
+            createdAt: { type: Date, default: Date.now },
+        },
+    ],
     createdBy: String,
     createdByName: String,
     createdAt: { type: Date, default: Date.now },

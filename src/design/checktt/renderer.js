@@ -422,6 +422,62 @@ function drawTextBlock(ctx, payload, userId) {
         rowTop += rowHeight + 14;
     }
 
+    const noteLines = String(payload.userNote || "")
+        .split(/\r?\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 6);
+
+    if (noteLines.length > 0) {
+        const noteX = 392;
+        const noteWidth = 898;
+        const notePaddingX = 28;
+        const noteTop = rowTop + 2;
+        const noteTitleHeight = 42;
+        const noteMaxWidth = noteWidth - notePaddingX * 2 - 24;
+        const wrappedNoteLines = [];
+
+        ctx.font = `600 24px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+        for (const noteLine of noteLines) {
+            const wrapped = wrapTextByWords(ctx, noteLine, noteMaxWidth);
+            for (let i = 0; i < wrapped.length; i += 1) {
+                wrappedNoteLines.push({ text: wrapped[i], isFirst: false });
+                if (wrappedNoteLines.length >= 8) break;
+            }
+            if (wrappedNoteLines.length >= 8) break;
+        }
+
+        if (wrappedNoteLines.length > 0 && noteLines.length > 0) {
+            const lineHeight = 31;
+            const noteHeight = noteTitleHeight + wrappedNoteLines.length * lineHeight + 26;
+
+            roundRect(ctx, noteX, noteTop, noteWidth, noteHeight, 18);
+            ctx.fillStyle = "rgba(255, 251, 235, 0.86)";
+            ctx.fill();
+            ctx.strokeStyle = isRainbow ? "rgba(130, 80, 200, 0.28)" : "rgba(180, 83, 9, 0.26)";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            ctx.font = `800 25px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+            ctx.fillStyle = colors.rowLabelColor;
+            ctx.fillText("Ghi ch\u00fa n\u1ed9i b\u1ed9", noteX + notePaddingX, noteTop + 34);
+
+            ctx.font = `600 24px ${FONT_STACK}, ${FONT_STACK_EMOJI}`;
+            ctx.fillStyle = colors.rowValueColor;
+            let noteLineY = noteTop + noteTitleHeight + 24;
+            for (let i = 0; i < wrappedNoteLines.length; i += 1) {
+                ctx.fillText(
+                    fitText(ctx, wrappedNoteLines[i].text, noteMaxWidth + 24),
+                    noteX + notePaddingX,
+                    noteLineY
+                );
+                noteLineY += lineHeight;
+            }
+
+            rowTop = noteTop + noteHeight + 14;
+        }
+    }
+
     return rowTop;
 }
 

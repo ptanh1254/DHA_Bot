@@ -22,7 +22,7 @@ const { handleCheckIngameCommand } = require("./src/commands/checkingame");
 const { handleIngameCommand } = require("./src/commands/ingame");
 const { handleRemoveIngameCommand } = require("./src/commands/removeingame");
 const { handlePreventRecallCommand } = require("./src/commands/chongthuhoi");
-const { handleNodeCommand, handleXoaNodeCommand } = require("./src/commands/node");
+const { handleNoteCommand, handleXoaNoteCommand } = require("./src/commands/note");
 const { handleKickCommand } = require("./src/commands/kick");
 const { handleMuteCommand } = require("./src/commands/mute");
 const { handleUnmuteCommand } = require("./src/commands/unmute");
@@ -266,10 +266,10 @@ async function startBot() {
                 ),
             handlePreventRecall: (api, message, threadId, argsText) =>
                 handlePreventRecallCommand(api, message, threadId, GroupSetting, argsText, prefix),
-            handleNode: (api, message, threadId) =>
-                handleNodeCommand(api, message, threadId, prefix),
-            handleXoaNode: (api, message, threadId) =>
-                handleXoaNodeCommand(api, message, threadId, prefix),
+            handleNote: (api, message, threadId) =>
+                handleNoteCommand(api, message, threadId, prefix),
+            handleXoaNote: (api, message, threadId) =>
+                handleXoaNoteCommand(api, message, threadId, prefix),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,
