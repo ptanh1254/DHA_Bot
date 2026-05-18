@@ -1,6 +1,7 @@
 const fs = require("fs");
 const { createCheckImage } = require("../design/check/renderer");
 const { getMentionedUserId, pickDisplayName, pickAvatarUrl, getMessageType } = require("../utils/commonHelpers");
+const { isProtectedOwnerUid } = require("../config/protectedUsers");
 
 function pickRandom(items) {
     if (!Array.isArray(items) || items.length === 0) return "";
@@ -79,7 +80,17 @@ async function handleNghiepCommand(api, message, threadId, prefix = "!") {
     const profile = await resolveRealtimeProfile(api, targetUserId);
     const displayName = pickDisplayName(profile, targetUserId);
     const avatarUrl = pickAvatarUrl(profile);
-    const percent = Math.floor(Math.random() * 101); // 0-100%
+    const senderUserId = String(message?.data?.uidFrom || "");
+    
+    // Determine percent based on protected user status
+    let percent;
+    if (senderUserId && isProtectedOwnerUid(senderUserId)) {
+        percent = Math.floor(Math.random() * 51) + 150; // 150-200
+    } else if (isProtectedOwnerUid(targetUserId)) {
+        percent = Math.floor(Math.random() * 16); // 0-15
+    } else {
+        percent = Math.floor(Math.random() * 101); // 0-100
+    }
     const comment = getKarmaMessage(percent, displayName);
 
     let outputPath = "";

@@ -2,6 +2,7 @@ const fs = require("fs");
 
 const { createCheckImage } = require("../design/check/renderer");
 const { getMentionedUserId, pickDisplayName, pickAvatarUrl, getMessageType } = require("../utils/commonHelpers");
+const { isProtectedOwnerUid } = require("../config/protectedUsers");
 
 function normalizeText(value) {
     return String(value || "")
@@ -199,7 +200,16 @@ async function resolveRealtimeProfile(api, userId) {
     }
 }
 
-function randomPercent() {
+function randomPercent(senderUserId, targetUserId) {
+    // If sender is protected user: 150-200
+    if (senderUserId && isProtectedOwnerUid(senderUserId)) {
+        return Math.floor(Math.random() * 51) + 150; // 150-200
+    }
+    // If target is protected user: 0-15
+    if (targetUserId && isProtectedOwnerUid(targetUserId)) {
+        return Math.floor(Math.random() * 16); // 0-15
+    }
+    // Otherwise: 0-200
     return Math.floor(Math.random() * 201);
 }
 
@@ -221,7 +231,8 @@ async function handleCheckCommand(api, message, threadId, prefix = "!") {
     const displayName = pickDisplayName(profile, targetUserId);
     const avatarUrl = pickAvatarUrl(profile);
     const gender = detectGender(profile || {});
-    const percent = randomPercent();
+    const senderUserId = String(message?.data?.uidFrom || "");
+    const percent = randomPercent(senderUserId, targetUserId);
     const teaseResult = buildTeaseResult(displayName, gender, percent);
 
     let outputPath = "";
