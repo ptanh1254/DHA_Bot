@@ -223,6 +223,10 @@ function getMergedCheckttThemeForUser(userId) {
             uidColor: "rgba(120, 53, 15, 0.9)",
             rowLabelColor: "rgba(120, 53, 15, 0.95)",
             rowValueColor: "#7c2d12",
+            rowFill: "rgba(255, 255, 255, 0.75)",
+            rowStroke: "rgba(180, 83, 9, 0.24)",
+            noteFill: "rgba(255, 251, 235, 0.86)",
+            noteStroke: "rgba(180, 83, 9, 0.26)",
             rainbow: false,
             rainbowColors: null,
         };
@@ -234,6 +238,10 @@ function getMergedCheckttThemeForUser(userId) {
         uidColor: specialTheme.uid || "rgba(120, 53, 15, 0.9)",
         rowLabelColor: specialTheme.rowLabel || "rgba(120, 53, 15, 0.95)",
         rowValueColor: specialTheme.rowValue || "#7c2d12",
+        rowFill: specialTheme.rowFill || "rgba(255, 255, 255, 0.75)",
+        rowStroke: specialTheme.rowStroke || "rgba(180, 83, 9, 0.24)",
+        noteFill: specialTheme.noteFill || "rgba(255, 251, 235, 0.86)",
+        noteStroke: specialTheme.noteStroke || "rgba(180, 83, 9, 0.26)",
         rainbow: specialTheme.rainbow === true && Array.isArray(specialTheme.colors),
         rainbowColors: specialTheme.colors || null,
     };
@@ -386,13 +394,9 @@ function drawTextBlock(ctx, payload, userId) {
         const valueMaxWidth = Math.max(220, rowRight - labelX - labelMaxWidth - 16);
 
         roundRect(ctx, 392, rowTop, 898, rowHeight, 15);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.fillStyle = colors.rowFill;
         ctx.fill();
-        if (isRainbow) {
-            ctx.strokeStyle = `rgba(130, 80, 200, 0.28)`;
-        } else {
-            ctx.strokeStyle = "rgba(180, 83, 9, 0.24)";
-        }
+        ctx.strokeStyle = colors.rowStroke;
         ctx.lineWidth = 1;
         ctx.stroke();
 
@@ -452,9 +456,9 @@ function drawTextBlock(ctx, payload, userId) {
             const noteHeight = noteTitleHeight + wrappedNoteLines.length * lineHeight + 26;
 
             roundRect(ctx, noteX, noteTop, noteWidth, noteHeight, 18);
-            ctx.fillStyle = "rgba(255, 251, 235, 0.86)";
+            ctx.fillStyle = colors.noteFill;
             ctx.fill();
-            ctx.strokeStyle = isRainbow ? "rgba(130, 80, 200, 0.28)" : "rgba(180, 83, 9, 0.26)";
+            ctx.strokeStyle = colors.noteStroke;
             ctx.lineWidth = 1.2;
             ctx.stroke();
 

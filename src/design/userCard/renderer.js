@@ -16,6 +16,29 @@ function createRainbowGradient(ctx, x, textWidth, colors) {
     return grad;
 }
 
+function createLinearPaint(ctx, paint, fallback, bounds) {
+    if (!paint || !Array.isArray(paint.colors) || paint.colors.length === 0) {
+        return fallback;
+    }
+
+    const fromX = bounds.x + bounds.width * (paint.from?.x ?? 0);
+    const fromY = bounds.y + bounds.height * (paint.from?.y ?? 0);
+    const toX = bounds.x + bounds.width * (paint.to?.x ?? 1);
+    const toY = bounds.y + bounds.height * (paint.to?.y ?? 1);
+    const gradient = ctx.createLinearGradient(fromX, fromY, toX, toY);
+
+    for (let i = 0; i < paint.colors.length; i++) {
+        const item = paint.colors[i];
+        if (typeof item === "string") {
+            gradient.addColorStop(i / Math.max(paint.colors.length - 1, 1), item);
+        } else {
+            gradient.addColorStop(item.stop, item.color);
+        }
+    }
+
+    return gradient;
+}
+
 function getMergedThemeForUser(userId) {
     const specialTheme = getSpecialUserTheme(userId, "userCard");
     if (!specialTheme) return USER_CARD_THEME;
@@ -238,19 +261,25 @@ function drawContainer(ctx, userId) {
     const card = USER_CARD_THEME.card;
     const specialCardTheme = getSpecialUserTheme(userId, "userCard");
     const cardTheme = specialCardTheme?.card || { fill: card.fill, stroke: card.stroke };
+    const cardBounds = {
+        x: card.x,
+        y: card.y,
+        width: card.width,
+        height: card.height,
+    };
 
     ctx.save();
-    ctx.shadowColor = card.blurShadow;
-    ctx.shadowBlur = 40;
-    ctx.shadowOffsetY = 18;
+    ctx.shadowColor = cardTheme.shadow || card.blurShadow;
+    ctx.shadowBlur = cardTheme.shadowBlur || 40;
+    ctx.shadowOffsetY = cardTheme.shadowOffsetY || 18;
     roundRect(ctx, card.x, card.y, card.width, card.height, card.radius);
-    ctx.fillStyle = cardTheme.fill;
+    ctx.fillStyle = createLinearPaint(ctx, cardTheme.fillGradient, cardTheme.fill, cardBounds);
     ctx.fill();
     ctx.restore();
 
     roundRect(ctx, card.x, card.y, card.width, card.height, card.radius);
-    ctx.strokeStyle = cardTheme.stroke;
-    ctx.lineWidth = card.lineWidth;
+    ctx.strokeStyle = createLinearPaint(ctx, cardTheme.strokeGradient, cardTheme.stroke, cardBounds);
+    ctx.lineWidth = cardTheme.lineWidth || card.lineWidth;
     ctx.stroke();
 }
 

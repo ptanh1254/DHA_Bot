@@ -60,81 +60,111 @@ const SPECIAL_USERS = {
     },
 
     "2370937689986813380": {
-        name: "Special User 2",
-        colors: {
-            primary: "#ff0303",
-            secondary: "",
-            textColor: "#ffffff",
-        },
         themes: {
             userCard: {
                 background: {
                     gradient: [
-                        { stop: 0, color: "#a6251e" },
-                        { stop: 0.55, color: "#821616" },
-                        { stop: 1, color: "#5c0f0f" },
+                        { stop: 0, color: "#070012" },
+                        { stop: 0.22, color: "#14103f" },
+                        { stop: 0.45, color: "#002f3c" },
+                        { stop: 0.68, color: "#36115a" },
+                        { stop: 1, color: "#090013" },
                     ],
                     glow: [
-                        { x: 0.14, y: 0.18, radius: 360, color: "rgba(130, 22, 22, 0.18)" },
-                        { x: 0.84, y: 0.74, radius: 320, color: "rgba(92, 15, 15, 0.14)" },
+                        { x: 0.16, y: 0.14, radius: 460, color: "rgba(0, 245, 255, 0.28)" },
+                        { x: 0.78, y: 0.28, radius: 430, color: "rgba(255, 42, 170, 0.24)" },
+                        { x: 0.52, y: 0.88, radius: 520, color: "rgba(255, 213, 74, 0.18)" },
                     ],
                     dots: {
-                        color: "rgba(28, 26, 26, 0.15)",
-                        step: 40,
-                        size: 1.2,
+                        color: "rgba(255, 255, 255, 0.16)",
+                        step: 34,
+                        size: 1.35,
                     },
                 },
                 card: {
-                    fill: "rgba(130, 22, 22, 0.92)",
-                    stroke: "rgba(28, 26, 26, 0.32)",
+                    fill: "rgba(8, 6, 24, 0.82)",
+                    fillGradient: {
+                        from: { x: 0, y: 0 },
+                        to: { x: 1, y: 1 },
+                        colors: [
+                            { stop: 0, color: "rgba(255, 255, 255, 0.18)" },
+                            { stop: 0.38, color: "rgba(10, 8, 38, 0.88)" },
+                            { stop: 1, color: "rgba(255, 42, 170, 0.16)" },
+                        ],
+                    },
+                    stroke: "rgba(255, 213, 74, 0.9)",
+                    strokeGradient: {
+                        from: { x: 0, y: 0 },
+                        to: { x: 1, y: 0 },
+                        colors: ["#FFD54A", "#00F5FF", "#FF2AAA", "#B8FF5A"],
+                    },
+                    lineWidth: 3.2,
+                    shadow: "rgba(0, 245, 255, 0.32)",
+                    shadowBlur: 58,
+                    shadowOffsetY: 20,
                 },
                 title: {
-                    titleColor: "#ffffff",
-                    subColor: "rgba(255, 255, 255, 0.9)",
+                    titleColor: "#fff7c2",
+                    subColor: "rgba(194, 255, 252, 0.9)",
                 },
                 avatar: {
-                    placeholderText: "#ffffff",
+                    placeholderText: "#fff7c2",
                 },
                 name: {
-                    color: "#ffffff",
+                    color: "#fff7c2",
                 },
                 userId: {
-                    color: "rgba(255, 255, 255, 0.9)",
+                    color: "rgba(194, 255, 252, 0.88)",
                 },
                 rows: {
-                    labelColor: "rgba(255, 255, 255, 0.92)",
-                    valueColor: "#ffffff",
+                    fill: "rgba(255, 255, 255, 0.10)",
+                    stroke: "rgba(0, 245, 255, 0.22)",
+                    labelColor: "rgba(194, 255, 252, 0.9)",
+                    valueColor: "#fff7c2",
                 },
                 footer: {
-                    color: "rgba(255, 255, 255, 0.7)",
+                    color: "rgba(255, 213, 74, 0.72)",
                 },
+                rainbow: true,
+                colors: ["#FFF7C2", "#FFD54A", "#B8FF5A", "#00F5FF", "#7A7CFF", "#FF2AAA", "#FFF7C2"],
             },
             checktt: {
                 background: {
-                    top: "#a6251e",
-                    bottom: "#821616",
-                    glow: "rgba(130, 22, 22, 0.18)",
+                    top: "#070012",
+                    bottom: "#002f3c",
+                    glow: "rgba(0, 245, 255, 0.28)",
                 },
                 panel: {
-                    fill: "rgba(130, 22, 22, 0.94)",
-                    stroke: "rgba(28, 26, 26, 0.30)",
+                    fill: "rgba(8, 6, 24, 0.84)",
+                    stroke: "rgba(255, 213, 74, 0.82)",
                 },
-                title: "#ffffff",
-                displayName: "#ffffff",
-                uid: "rgba(255, 255, 255, 0.9)",
-                rowLabel: "rgba(255, 255, 255, 0.92)",
-                rowValue: "#ffffff",
+                title: "#fff7c2",
+                displayName: "#fff7c2",
+                uid: "rgba(194, 255, 252, 0.9)",
+                rowLabel: "rgba(194, 255, 252, 0.9)",
+                rowValue: "#fff7c2",
+                rowFill: "rgba(255, 255, 255, 0.10)",
+                rowStroke: "rgba(0, 245, 255, 0.24)",
+                noteFill: "rgba(255, 255, 255, 0.09)",
+                noteStroke: "rgba(255, 213, 74, 0.32)",
+                rainbow: true,
+                colors: ["#FFF7C2", "#FFD54A", "#B8FF5A", "#00F5FF", "#7A7CFF", "#FF2AAA", "#FFF7C2"],
             },
             check: {
                 backgroundGradient: [
-                    { stop: 0, color: "#a6251e" },
-                    { stop: 0.5, color: "#821616" },
-                    { stop: 1, color: "#5c0f0f" },
+                    { stop: 0, color: "#FF6B6B" },
+                    { stop: 0.25, color: "#FDCB6E" },
+                    { stop: 0.5, color: "#55EFC4" },
+                    { stop: 0.75, color: "#74B9FF" },
+                    { stop: 1, color: "#A29BFE" },
                 ],
+                rainbow: true,
+                colors: ["#FF0000", "#FF7F00", "#FFD700", "#00CC44", "#1E90FF", "#4B0082", "#8B00FF"],
             },
             chatRanking: {
-                indicator: "♦",
-                color: "#ff0303",
+                indicator: "🌈",
+                rainbow: true,
+                colors: ["#FF0000", "#FF7F00", "#FFD700", "#00CC44", "#1E90FF", "#4B0082", "#8B00FF"],
             },
         },
     },
@@ -146,6 +176,115 @@ const SPECIAL_USERS = {
                 color: "#f39200",
             }
         }
+    },
+    "8073429320276439081": {
+        themes: {
+            userCard: {
+                background: {
+                    gradient: [
+                        { stop: 0, color: "#070012" },
+                        { stop: 0.22, color: "#14103f" },
+                        { stop: 0.45, color: "#002f3c" },
+                        { stop: 0.68, color: "#36115a" },
+                        { stop: 1, color: "#090013" },
+                    ],
+                    glow: [
+                        { x: 0.16, y: 0.14, radius: 460, color: "rgba(0, 245, 255, 0.28)" },
+                        { x: 0.78, y: 0.28, radius: 430, color: "rgba(255, 42, 170, 0.24)" },
+                        { x: 0.52, y: 0.88, radius: 520, color: "rgba(255, 213, 74, 0.18)" },
+                    ],
+                    dots: {
+                        color: "rgba(255, 255, 255, 0.16)",
+                        step: 34,
+                        size: 1.35,
+                    },
+                },
+                card: {
+                    fill: "rgba(8, 6, 24, 0.82)",
+                    fillGradient: {
+                        from: { x: 0, y: 0 },
+                        to: { x: 1, y: 1 },
+                        colors: [
+                            { stop: 0, color: "rgba(255, 255, 255, 0.18)" },
+                            { stop: 0.38, color: "rgba(10, 8, 38, 0.88)" },
+                            { stop: 1, color: "rgba(255, 42, 170, 0.16)" },
+                        ],
+                    },
+                    stroke: "rgba(255, 213, 74, 0.9)",
+                    strokeGradient: {
+                        from: { x: 0, y: 0 },
+                        to: { x: 1, y: 0 },
+                        colors: ["#FFD54A", "#00F5FF", "#FF2AAA", "#B8FF5A"],
+                    },
+                    lineWidth: 3.2,
+                    shadow: "rgba(0, 245, 255, 0.32)",
+                    shadowBlur: 58,
+                    shadowOffsetY: 20,
+                },
+                title: {
+                    titleColor: "#fff7c2",
+                    subColor: "rgba(194, 255, 252, 0.9)",
+                },
+                avatar: {
+                    placeholderText: "#fff7c2",
+                },
+                name: {
+                    color: "#fff7c2",
+                },
+                userId: {
+                    color: "rgba(194, 255, 252, 0.88)",
+                },
+                rows: {
+                    fill: "rgba(255, 255, 255, 0.10)",
+                    stroke: "rgba(0, 245, 255, 0.22)",
+                    labelColor: "rgba(194, 255, 252, 0.9)",
+                    valueColor: "#fff7c2",
+                },
+                footer: {
+                    color: "rgba(255, 213, 74, 0.72)",
+                },
+                rainbow: true,
+                colors: ["#FFF7C2", "#FFD54A", "#B8FF5A", "#00F5FF", "#7A7CFF", "#FF2AAA", "#FFF7C2"],
+            },
+            checktt: {
+                background: {
+                    top: "#070012",
+                    bottom: "#002f3c",
+                    glow: "rgba(0, 245, 255, 0.28)",
+                },
+                panel: {
+                    fill: "rgba(8, 6, 24, 0.84)",
+                    stroke: "rgba(255, 213, 74, 0.82)",
+                },
+                title: "#fff7c2",
+                displayName: "#fff7c2",
+                uid: "rgba(194, 255, 252, 0.9)",
+                rowLabel: "rgba(194, 255, 252, 0.9)",
+                rowValue: "#fff7c2",
+                rowFill: "rgba(255, 255, 255, 0.10)",
+                rowStroke: "rgba(0, 245, 255, 0.24)",
+                noteFill: "rgba(255, 255, 255, 0.09)",
+                noteStroke: "rgba(255, 213, 74, 0.32)",
+                rainbow: true,
+                colors: ["#FFF7C2", "#FFD54A", "#B8FF5A", "#00F5FF", "#7A7CFF", "#FF2AAA", "#FFF7C2"],
+            },
+            check: {
+                backgroundGradient: [
+                    { stop: 0, color: "#FF6B6B" },
+                    { stop: 0.25, color: "#FDCB6E" },
+                    { stop: 0.5, color: "#55EFC4" },
+                    { stop: 0.75, color: "#74B9FF" },
+                    { stop: 1, color: "#A29BFE" },
+                ],
+                rainbow: true,
+                colors: ["#FF0000", "#FF7F00", "#FFD700", "#00CC44", "#1E90FF", "#4B0082", "#8B00FF"],
+            },
+            chatRanking: {
+                indicator: "🌈",
+                rainbow: true,
+                colors: ["#FF0000", "#FF7F00", "#FFD700", "#00CC44", "#1E90FF", "#4B0082", "#8B00FF"],
+            },
+        },
     },
     "9095318723300347162": {
         themes: {
@@ -202,7 +341,7 @@ const SPECIAL_USERS = {
                 colors: ["#FF0000", "#FF7F00", "#FFD700", "#00CC44", "#1E90FF", "#4B0082", "#8B00FF"],
             },
             chatRanking: {
-                indicator: "🌈",
+                indicator: "ðŸŒˆ",
                 rainbow: true,
                 colors: ["#FF0000", "#FF7F00", "#FFD700", "#00CC44", "#1E90FF", "#4B0082", "#8B00FF"],
             },
