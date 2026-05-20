@@ -1,7 +1,7 @@
 const fs = require("fs");
 const { createCheckImage } = require("../design/check/renderer");
 const { getMentionedUserId, pickDisplayName, pickAvatarUrl, getMessageType } = require("../utils/commonHelpers");
-const { isProtectedOwnerUid } = require("../config/protectedUsers");
+const { getProtectedRandomPercent } = require("../config/protectedUsers");
 
 function pickRandom(items) {
     if (!Array.isArray(items) || items.length === 0) return "";
@@ -18,31 +18,43 @@ function getKarmaMessage(percent, displayName) {
             `${safeName} hiền như cục đất, nghiệp báo chắc chưa tìm thấy địa chỉ rồi.`,
             `${safeName} tâm hồn trong sáng, nghiệp tụ vành môi nhưng môi chỉ nói lời hay.`,
             `${safeName} vibe thánh thiện, kiếp này chắc đi tu quá!`,
+            `${safeName} hiền quá mức, chắc nghiệp cũng lười tìm bạn quá.`,
+            `${safeName} nhìn hiền vậy chứ cũng có lúc để nghiệp ngủ quên.`,
         ],
         [
             `${safeName} có tí nghiệp nhẹ hều, đủ để bị muỗi đốt vài cái thôi.`,
             `${safeName} sống lỗi nhẹ, nhưng vẫn còn cứu vãn được nha.`,
             `${safeName} nghiệp này chỉ tầm 'ăn vụng không chùi mép'.`,
+            `${safeName} nghiệp như gió thoảng, qua rồi là hết.`,
+            `${safeName} đôi khi làm xấu chút thôi, còn có thể sửa được.`,
         ],
         [
             `${safeName} nghiệp bắt đầu dày rồi đó, đi đứng cẩn thận kẻo tuột xích xe.`,
             `${safeName} bắt đầu thấy mùi nghiệp quật quanh đây rồi nha.`,
             `${safeName} level nghiệp trung cấp, chuẩn bị nhận 'quà' từ vũ trụ.`,
+            `${safeName} nghiệp dính nhẹ như keo, chừa chỗ để tỉnh ngộ.`,
+            `${safeName} có vẻ hay gây chuyện nhỏ, chú ý lời ăn tiếng nói nha.`,
         ],
         [
             `${safeName} gánh nghiệp cho cả group hay sao mà nhiều thế?`,
             `${safeName} nghiệp quật hơi đau nha, đề nghị bớt tạo khẩu nghiệp lại.`,
             `${safeName} vibe này là chuẩn bị lên bảng vàng danh dự ngành 'nghiệp'.`,
+            `${safeName} nghiệp sáng bừng, ai gặp cũng phải né cho xa.`,
+            `${safeName} đang đứng ở top trending của nghiệp rồi đó.`,
         ],
         [
             `${safeName} nghiệp dày như từ điển Tiếng Việt, đề nghị đi chùa gấp!`,
             `${safeName} level nghiệp thượng thừa, bot cũng không dám đứng gần.`,
             `${safeName} coi chừng! Nghiệp nhiều đến mức báo động đỏ luôn rồi.`,
+            `${safeName} nghiệp dày như núi, chặng đường tu hành còn dài.`,
+            `${safeName} tối nay có lẽ nên cúng dâng một chút để nhẹ lòng.`,
         ],
         [
             `${safeName} chính thức thành 'Trùm Nghiệp', quật phát nào là thốn phát đó!`,
             `${safeName} huyền thoại của sự sống lỗi, nghiệp tụ thành núi luôn rồi.`,
             `${safeName} 💀 Báo động: Nghiệp này chỉ có thể là do kiếp trước phá đình phá chùa.`,
+            `${safeName} không ai dám đứng gần, nghiệp bạn quá ghê gớm rồi.`,
+            `${safeName} nếu có bốc thăm trúng nghiệp thì bạn đã trúng jackpot.`,
         ],
     ];
 
@@ -81,16 +93,9 @@ async function handleNghiepCommand(api, message, threadId, prefix = "!") {
     const displayName = pickDisplayName(profile, targetUserId);
     const avatarUrl = pickAvatarUrl(profile);
     const senderUserId = String(message?.data?.uidFrom || "");
-    
-    // Determine percent based on protected user status
-    let percent;
-    if (senderUserId && isProtectedOwnerUid(senderUserId)) {
-        percent = Math.floor(Math.random() * 51) + 150; // 150-200
-    } else if (isProtectedOwnerUid(targetUserId)) {
-        percent = Math.floor(Math.random() * 16); // 0-15
-    } else {
-        percent = Math.floor(Math.random() * 101); // 0-100
-    }
+
+    const p = getProtectedRandomPercent(senderUserId, targetUserId);
+    const percent = Number.isFinite(p) && p !== null ? p : Math.floor(Math.random() * 101);
     const comment = getKarmaMessage(percent, displayName);
 
     let outputPath = "";

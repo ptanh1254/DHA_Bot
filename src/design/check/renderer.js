@@ -329,7 +329,7 @@ async function createCheckImage(payload, options = {}) {
     const displayName = String(payload?.displayName || "B\u1ea1n").trim();
     const title = String(payload?.title || "K\u1ebft Qu\u1ea3 Check").trim();
     const comment = String(payload?.comment || "").trim();
-    const percent = Math.max(0, Math.min(200, Number(payload?.percent) || 0));
+    const percent = Math.max(0, Math.min(300, Number(payload?.percent) || 0));
 
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
