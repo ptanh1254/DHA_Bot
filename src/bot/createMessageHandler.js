@@ -362,6 +362,28 @@ function resolveIdFromUnknown(raw) {
     return normalizeId(raw.userId || raw.uid || raw.id || raw.memberId || raw.user_id);
 }
 
+function stripLeadingMention(text, mentions) {
+    if (typeof text !== "string" || !Array.isArray(mentions) || mentions.length === 0) {
+        return text;
+    }
+
+    const firstMention = mentions
+        .filter((mention) => mention && typeof mention.pos !== "undefined" && typeof mention.len !== "undefined")
+        .sort((a, b) => Number(a.pos) - Number(b.pos))[0];
+
+    if (!firstMention) {
+        return text;
+    }
+
+    const pos = Number(firstMention.pos);
+    const len = Number(firstMention.len);
+    if (Number.isNaN(pos) || Number.isNaN(len) || pos !== 0 || len <= 0) {
+        return text;
+    }
+
+    return text.slice(len).trimStart();
+}
+
 function collectNormalizedIds(value) {
     if (!value) return [];
     if (!Array.isArray(value)) {
@@ -447,6 +469,7 @@ function createMessageHandler({
         afkCommand,
         loveCommand,
         askCommand,
+        timCommand,
         nghiepCommand,
         restrictedUidToggleCommand,
         thiepCuoiCommand,
@@ -478,6 +501,7 @@ function createMessageHandler({
         handleAFK,
         handleLove,
         handleAsk,
+        handleTim,
         handleNghiep,
         handleRestrictedUidToggle,
         handleThiepCuoi,
@@ -842,7 +866,7 @@ function createMessageHandler({
             const userId = String(message.data?.uidFrom || "unknown");
             const rawText =
                 typeof message.data?.content === "string" ? message.data.content : "";
-            const text = rawText.trim();
+            const text = stripLeadingMention(rawText, message.data?.mentions).trim();
             const normalized = text.toLowerCase();
             const hasText = normalized.length > 0;
 
@@ -1121,6 +1145,7 @@ function createMessageHandler({
             const isAFK = normalized === afkCommand || normalized.startsWith(`${afkCommand} `);
             const isLove = normalized === loveCommand || normalized.startsWith(`${loveCommand} `);
             const isNghiep = normalized === nghiepCommand || normalized.startsWith(`${nghiepCommand} `);
+            const isTim = normalized === timCommand || normalized.startsWith(`${timCommand} `);
             const isAsk = normalized === askCommand || normalized.startsWith(`${askCommand} `);
             const isRestrictedUidToggle =
                 normalized === restrictedUidToggleCommand ||
@@ -1193,6 +1218,7 @@ function createMessageHandler({
                 isAFK ||
                 isLove ||
                 isNghiep ||
+                isTim ||
                 isAsk ||
                 isRestrictedUidToggle ||
                 isThiepCuoi;
@@ -1235,7 +1261,7 @@ function createMessageHandler({
 
             if (!isBotSelf && isKnownCommand) {
                 // Member thuong duoc phep dung duy nhat !ingame
-                const isPublicCommand = isIngame || (isRestrictedUidToggle && isRestrictedTargetUser);
+                const isPublicCommand = isIngame || isTim || (isRestrictedUidToggle && isRestrictedTargetUser);
                 if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
@@ -1469,6 +1495,11 @@ function createMessageHandler({
 
             if (isNghiep) {
                 await handleNghiep(api, message, threadId);
+                return;
+            }
+
+            if (isTim) {
+                await handleTim(api, message, threadId);
                 return;
             }
 

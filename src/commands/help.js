@@ -81,7 +81,6 @@ function buildHelpPart7(prefix = "!") {
         `${prefix}checktt @user - Xem card thống kê chi tiết user`,
         `${prefix}check @user - Lệnh trêu vui (random %)`,
         `${prefix}checkingame @user - Xem danh sách người chưa set ingame`,
-        `${prefix}note @user ghi chú - Lưu ghi chú cho user`,
         `${prefix}xoanote @user - Xóa toàn bộ ghi chú của user`,
         `${prefix}xoanote @user 2 - Xóa dòng ghi chú số 2`,
         `${prefix}ingame <tên> - Lưu tên ingame của bạn`,

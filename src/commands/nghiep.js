@@ -77,8 +77,22 @@ async function resolveRealtimeProfile(api, userId) {
 async function handleNghiepCommand(api, message, threadId, prefix = "!") {
     const messageType = getMessageType(message);
     const targetUserId = getMentionedUserId(message);
-    
+    const senderUserId = String(message?.data?.uidFrom || "");
+    const isBossSender = senderUserId && isProtectedBossUid(senderUserId);
+    const isBossTarget = targetUserId && isProtectedBossUid(targetUserId);
+
     if (!targetUserId) {
+        if (isBossSender) {
+            await api.sendMessage(
+                {
+                    msg: "mày đòi check ai hả",
+                },
+                threadId,
+                messageType
+            );
+            return;
+        }
+
         await api.sendMessage(
             {
                 msg: `Hãy tag người bạn muốn check nghiệp. Ví dụ: ${prefix}nghiep @Tag`,
@@ -88,10 +102,6 @@ async function handleNghiepCommand(api, message, threadId, prefix = "!") {
         );
         return;
     }
-
-    const senderUserId = String(message?.data?.uidFrom || "");
-    const isBossSender = senderUserId && isProtectedBossUid(senderUserId);
-    const isBossTarget = targetUserId && isProtectedBossUid(targetUserId);
 
     if (isBossSender) {
         const targetProfile = await resolveRealtimeProfile(api, targetUserId);

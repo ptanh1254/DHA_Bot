@@ -38,6 +38,7 @@ const { handleAFKCommand } = require("./src/commands/afk");
 const { handleLoveCommand } = require("./src/commands/love");
 const { handleAskCommand } = require("./src/commands/ask");
 const { handleNghiepCommand } = require("./src/commands/nghiep");
+const { handleTimCommand } = require("./src/commands/timso");
 const { handleRestrictedUidToggleCommand } = require("./src/commands/camlenhbe");
 const { handleThiepCuoiCommand } = require("./src/commands/thiepcuoi");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
@@ -232,6 +233,7 @@ async function startBot() {
             loveCommand: `${prefix}love`.toLowerCase(),
             askCommand: `${prefix}ask`.toLowerCase(),
             nghiepCommand: `${prefix}nghiep`.toLowerCase(),
+            timCommand: `${prefix}tim`.toLowerCase(),
             restrictedUidToggleCommand: `${prefix}camlenhbe`.toLowerCase(),
             thiepCuoiCommand: `${prefix}thiepcuoi`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
@@ -356,6 +358,8 @@ async function startBot() {
                 handleAskCommand(api, message, threadId, argsText, prefix),
             handleNghiep: (api, message, threadId) =>
                 handleNghiepCommand(api, message, threadId, prefix),
+            handleTim: (api, message, threadId) =>
+                handleTimCommand(api, message, threadId, prefix),
             handleRestrictedUidToggle: (api, message, threadId, argsText) =>
                 handleRestrictedUidToggleCommand(
                     api,
@@ -371,7 +375,7 @@ async function startBot() {
 
         console.log("Zalo bot đã đăng nhập thành công");
         console.log(
-            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangWeekCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}, ${commands.nghiepCommand}, ${commands.restrictedUidToggleCommand}, ${commands.thiepCuoiCommand}`
+            `Lệnh đang nghe: ${commands.helpCommand}, ${commands.helloCommand}, ${commands.thongTinCommand}, ${commands.checkTTCommand}, ${commands.checkCommand}, ${commands.checkIngameCommand}, ${commands.kickCommand}, ${commands.muteCommand}, ${commands.unmuteCommand}, ${commands.camNoiBayCommand}, ${commands.autoKickCommand}, ${commands.autoKickListCommand}, ${commands.autoKickRemoveCommand}, ${commands.goAutoKickCommand}, ${commands.addQTVCommand}, ${commands.removeQTVCommand}, ${commands.xepHangDayCommand}, ${commands.xepHangWeekCommand}, ${commands.xepHangMonthCommand}, ${commands.xepHangTotalCommand}, ${commands.resetChatCommand}, ${commands.afkCommand}, ${commands.loveCommand}, ${commands.askCommand}, ${commands.nghiepCommand}, ${commands.timsoCommand}, ${commands.restrictedUidToggleCommand}, ${commands.thiepCuoiCommand}`
         );
 
         const messageHandler = createMessageHandler({
