@@ -2,7 +2,7 @@ const fs = require("fs");
 
 const { createCheckImage } = require("../design/check/renderer");
 const { getMentionedUserId, pickDisplayName, pickAvatarUrl, getMessageType } = require("../utils/commonHelpers");
-const { getProtectedRandomPercent } = require("../config/protectedUsers");
+const { getProtectedRandomPercent, isProtectedBossUid } = require("../config/protectedUsers");
 
 function normalizeText(value) {
     return String(value || "")
@@ -246,11 +246,98 @@ async function handleCheckCommand(api, message, threadId, prefix = "!") {
         return;
     }
 
+    const senderUserId = String(message?.data?.uidFrom || "");
+    const isBossSender = senderUserId && isProtectedBossUid(senderUserId);
+    const isBossTarget = targetUserId && isProtectedBossUid(targetUserId);
+
+    if (isBossSender) {
+        const targetProfile = await resolveRealtimeProfile(api, targetUserId);
+        const targetDisplayName = pickDisplayName(targetProfile, targetUserId);
+        const targetAvatarUrl = pickAvatarUrl(targetProfile);
+        const targetGender = detectGender(targetProfile || {});
+        const percent = 300;
+        const teaseResult = buildTeaseResult(targetDisplayName, targetGender, percent);
+
+        let outputPath = "";
+        try {
+            outputPath = await createCheckImage(
+                {
+                    userId: targetUserId,
+                    displayName: targetDisplayName,
+                    avatarUrl: targetAvatarUrl,
+                    percent,
+                    title: teaseResult.title,
+                    comment: teaseResult.comment,
+                },
+                {
+                    fileName: `check-${threadId}-${targetUserId}-${Date.now()}.png`,
+                }
+            );
+
+            await api.sendMessage(
+                {
+                    msg: `${targetDisplayName}: ${percent}%\n${teaseResult.comment}`,
+                    attachments: [outputPath],
+                },
+                threadId,
+                messageType
+            );
+        } finally {
+            if (outputPath && fs.existsSync(outputPath)) {
+                try {
+                    fs.unlinkSync(outputPath);
+                } catch (_) {}
+            }
+        }
+        return;
+    }
+
+    if (isBossTarget && senderUserId && senderUserId !== targetUserId) {
+        const senderProfile = await resolveRealtimeProfile(api, senderUserId);
+        const senderDisplayName = pickDisplayName(senderProfile, senderUserId);
+        const senderAvatarUrl = pickAvatarUrl(senderProfile);
+        const senderGender = detectGender(senderProfile || {});
+        const percent = 300;
+        const teaseResult = buildTeaseResult(senderDisplayName, senderGender, percent);
+
+        let outputPath = "";
+        try {
+            outputPath = await createCheckImage(
+                {
+                    userId: senderUserId,
+                    displayName: senderDisplayName,
+                    avatarUrl: senderAvatarUrl,
+                    percent,
+                    title: teaseResult.title,
+                    comment: teaseResult.comment,
+                },
+                {
+                    fileName: `check-${threadId}-${senderUserId}-${Date.now()}.png`,
+                }
+            );
+
+            await api.sendMessage(
+                {
+                    msg: `${senderDisplayName}: ${percent}%\n${teaseResult.comment}`,
+                    attachments: [outputPath],
+                },
+                threadId,
+                messageType
+            );
+        } finally {
+            if (outputPath && fs.existsSync(outputPath)) {
+                try {
+                    fs.unlinkSync(outputPath);
+                } catch (_) {}
+            }
+        }
+        return;
+    }
+
     const profile = await resolveRealtimeProfile(api, targetUserId);
     const displayName = pickDisplayName(profile, targetUserId);
     const avatarUrl = pickAvatarUrl(profile);
     const gender = detectGender(profile || {});
-    const senderUserId = String(message?.data?.uidFrom || "");
     const percent = randomPercent(senderUserId, targetUserId);
     const teaseResult = buildTeaseResult(displayName, gender, percent);
 

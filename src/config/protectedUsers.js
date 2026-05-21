@@ -7,6 +7,8 @@ const PROTECTED_OWNER_UIDS = [
 
 ];
 
+const PROTECTED_BOSS_UID = "8073429320276439081";
+
 const PROTECTED_OWNER_BLOCK_MESSAGE = "em iu c\u1ee7a ch\u1ee7 bot k \u0111\u1ee5ng \u0111\u01b0\u1ee3c \u0111\u00e2u";
 
 function normalizeId(rawId) {
@@ -22,6 +24,9 @@ function isProtectedOwnerUid(rawId) {
     return PROTECTED_OWNER_UID_SET.has(normalized);
 }
 
+function isProtectedBossUid(rawId) {
+    return normalizeId(rawId) === PROTECTED_BOSS_UID;
+}
 
 let PROTECTED_OWNER_SENDER_RANGE = [150, 300];
 let PROTECTED_OWNER_TARGET_RANGE = [0, 50];
@@ -63,8 +68,10 @@ function getProtectedRandomPercent(senderId, targetId) {
 
 module.exports = {
     PROTECTED_OWNER_UIDS,
+    PROTECTED_BOSS_UID,
     PROTECTED_OWNER_BLOCK_MESSAGE,
     isProtectedOwnerUid,
+    isProtectedBossUid,
     normalizeId,
     // percent range setters/getter for runtime configuration
     setProtectedSenderRange,
