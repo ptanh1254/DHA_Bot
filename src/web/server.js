@@ -236,6 +236,46 @@ function startWebServer(port = 3005, api = null, groupNameCache = {}) {
         }
     });
 
+    // Danh sách nhóm bot đang tham gia
+    app.get("/api/groups", async (req, res) => {
+        try {
+            if (!api) return res.json([]);
+            const allGroups = await api.getAllGroups();
+            const gridVerMap = allGroups?.gridVerMap || {};
+            const groupIds = Object.keys(gridVerMap).map(id => String(id).trim()).filter(Boolean);
+
+            const result = [];
+            for (const gid of groupIds) {
+                if (!groupNameCache[gid]) {
+                    try {
+                        const gInfo = await api.getGroupInfo(gid);
+                        const gridInfoMap = gInfo?.gridInfoMap || {};
+                        const groupInfo = gridInfoMap[gid] || Object.values(gridInfoMap)[0];
+                        groupNameCache[gid] = groupInfo?.name || "Nhóm " + gid;
+                    } catch (e) {
+                        groupNameCache[gid] = "Nhóm " + gid;
+                    }
+                }
+                result.push({ groupId: gid, groupName: groupNameCache[gid] || gid });
+            }
+            res.json(result);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // Lời nhắc mặc định
+    app.get("/api/reminder-defaults", (req, res) => {
+        res.json({
+            reminderMessage:
+                "⚠️ **THÔNG BÁO ĐUA ĐỘI - LƯU Ý GIỜ VÀO ĐUA**\n\n" +
+                "⏰ **Thời gian bắt đầu:** Đúng **20h05**.\n\n" +
+                "🚫 **CẢNH BÁO:** Để trải nghiệm tốt nhất cho cả đội, tuyệt đối không vào sớm. Phát hiện vi phạm sẽ bị kick.\n\n" +
+                "🙏 *Đây là tin nhắn nhắc nhở tự động. Chúc toàn bộ anh em tổ lái đua tốt!*",
+            startMessage: "🚀 **GIỜ G ĐÃ ĐẾN!** Cả nhà vào đua đội ngay thôi nào! Chúc anh em cuối tuần rực rỡ! 🔥"
+        });
+    });
+
     app.get("/api/chat-history", (req, res) => {
         res.json(chatHistory);
     });
@@ -268,7 +308,7 @@ function startWebServer(port = 3005, api = null, groupNameCache = {}) {
     app.post("/api/reminders", async (req, res) => {
         try {
             const {
-                groupId, enabled, startHour, startMinute, endHour, endMinute,
+                groupId, enabled, reminderType, onceDate, startHour, startMinute, endHour, endMinute,
                 intervalMinutes, daysOfWeek, reminderMessage, startMessage
             } = req.body;
 
@@ -280,6 +320,8 @@ function startWebServer(port = 3005, api = null, groupNameCache = {}) {
                 { groupId },
                 {
                     enabled: !!enabled,
+                    reminderType: reminderType || "recurring",
+                    onceDate: onceDate || "",
                     startHour: Number(startHour),
                     startMinute: Number(startMinute),
                     endHour: Number(endHour),

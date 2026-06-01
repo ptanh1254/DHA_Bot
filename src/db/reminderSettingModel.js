@@ -4,6 +4,8 @@ const reminderSettingSchema = new mongoose.Schema(
     {
         groupId: { type: String, required: true, unique: true },
         enabled: { type: Boolean, default: true },
+        reminderType: { type: String, enum: ["recurring", "once"], default: "recurring" },
+        onceDate: { type: String, default: "" }, // YYYY-MM-DD for one-time reminders
         startHour: { type: Number, default: 19 },
         startMinute: { type: Number, default: 59 },
         endHour: { type: Number, default: 20 },

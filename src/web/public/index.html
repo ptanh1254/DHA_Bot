@@ -22,6 +22,7 @@
             <button class="tab-btn active" data-target="tab-commands">Quản Lý Lệnh</button>
             <button class="tab-btn" data-target="tab-chat">Realtime Chat</button>
             <button class="tab-btn" data-target="tab-autokick">Auto Kick List</button>
+            <button class="tab-btn" data-target="tab-reminders">Lịch Nhắc</button>
         </nav>
 
         <main>
@@ -139,6 +140,110 @@
                                 </tr>
                             </thead>
                             <tbody id="autokickTbody">
+                                <!-- Data populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB: Lịch Nhắc -->
+            <div id="tab-reminders" class="tab-content">
+                <section class="glass-panel add-section">
+                    <h2>⏰ Cài Đặt Lịch Nhắc Tự Động</h2>
+                    <p style="color:#94a3b8; margin-bottom:1.5rem;">Thiết lập lời nhắn, khung giờ, và tần suất nhắc nhở cho từng nhóm.</p>
+                    <form id="reminderForm">
+                        <div class="input-group">
+                            <label for="reminderGroupId">Chọn Nhóm</label>
+                            <select id="reminderGroupId" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:0.75rem 1rem;color:#f8fafc;font-family:inherit;font-size:1rem;">
+                                <option value="">-- Đang tải danh sách nhóm... --</option>
+                            </select>
+                        <div class="input-group">
+                            <label>Loại nhắc</label>
+                            <div class="days-checkboxes">
+                                <label class="day-check"><input type="radio" name="reminderType" value="recurring" checked> 🔁 Lặp lại</label>
+                                <label class="day-check"><input type="radio" name="reminderType" value="once"> 📌 1 lần</label>
+                            </div>
+                        </div>
+
+                        <!-- ONE-TIME FIELDS -->
+                        <div id="onceFields" style="display:none;">
+                            <div class="input-group">
+                                <label for="reminderOnceDate">Ngày nhắc</label>
+                                <input type="date" id="reminderOnceDate" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:0.75rem 1rem;color:#f8fafc;font-family:inherit;font-size:1rem;">
+                            </div>
+                            <div class="input-group">
+                                <label>Giờ nhắc</label>
+                                <div class="time-inputs">
+                                    <input type="number" id="reminderOnceH" min="0" max="23" value="20" class="time-input"> <span class="time-sep">:</span>
+                                    <input type="number" id="reminderOnceM" min="0" max="59" value="0" class="time-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RECURRING FIELDS -->
+                        <div id="recurringFields">
+                            <div class="reminder-time-row">
+                                <div class="input-group">
+                                    <label>Bắt đầu</label>
+                                    <div class="time-inputs">
+                                        <input type="number" id="reminderStartH" min="0" max="23" value="19" class="time-input"> <span class="time-sep">:</span>
+                                        <input type="number" id="reminderStartM" min="0" max="59" value="59" class="time-input">
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label>Kết thúc</label>
+                                    <div class="time-inputs">
+                                        <input type="number" id="reminderEndH" min="0" max="23" value="20" class="time-input"> <span class="time-sep">:</span>
+                                        <input type="number" id="reminderEndM" min="0" max="59" value="5" class="time-input">
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label>Mỗi (phút)</label>
+                                    <input type="number" id="reminderInterval" min="1" max="60" value="2" class="time-input" style="width:100%">
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label>Ngày áp dụng</label>
+                                <div class="days-checkboxes" id="reminderDays">
+                                    <label class="day-check"><input type="checkbox" value="1"> T2</label>
+                                    <label class="day-check"><input type="checkbox" value="2"> T3</label>
+                                    <label class="day-check"><input type="checkbox" value="3"> T4</label>
+                                    <label class="day-check"><input type="checkbox" value="4"> T5</label>
+                                    <label class="day-check"><input type="checkbox" value="5"> T6</label>
+                                    <label class="day-check"><input type="checkbox" value="6" checked> T7</label>
+                                    <label class="day-check"><input type="checkbox" value="0" checked> CN</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="reminderMsg">Lời nhắc</label>
+                            <textarea id="reminderMsg" rows="4" placeholder="Nội dung tin nhắn nhắc nhở..."></textarea>
+                        </div>
+                        <div id="startMsgGroup" class="input-group">
+                            <label for="reminderStartMsg">Lời nhắc khi Giờ G đến</label>
+                            <textarea id="reminderStartMsg" rows="2" placeholder="VD: 🚀 GIỜ G ĐÃ ĐẾN! Vào đua ngay!"></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary">💾 Lưu Cấu Hình</button>
+                    </form>
+                </section>
+
+                <section class="glass-panel list-section">
+                    <h2>Danh Sách Nhóm Đang Được Nhắc</h2>
+                    <div class="table-wrapper">
+                        <table id="reminderTable">
+                            <thead>
+                                <tr>
+                                    <th>Nhóm</th>
+                                    <th>Khung Giờ</th>
+                                    <th>Tần Suất</th>
+                                    <th>Ngày</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Hành Động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reminderTbody">
                                 <!-- Data populated via JS -->
                             </tbody>
                         </table>

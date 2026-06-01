@@ -399,4 +399,300 @@ document.addEventListener("DOMContentLoaded", () => {
             }[tag] || tag)
         );
     }
+
+    // === REMINDER SETTINGS LOGIC ===
+    const DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    const reminderTbody = document.getElementById("reminderTbody");
+    const reminderForm = document.getElementById("reminderForm");
+    const reminderGroupSelect = document.getElementById("reminderGroupId");
+
+    loadReminders();
+    loadGroups();
+    loadReminderDefaults();
+
+    async function loadGroups() {
+        try {
+            const res = await fetch("/api/groups");
+            const groups = await res.json();
+            if (reminderGroupSelect) {
+                reminderGroupSelect.innerHTML = '<option value="">-- Chọn nhóm --</option>';
+                groups.forEach(g => {
+                    const opt = document.createElement("option");
+                    opt.value = g.groupId;
+                    opt.textContent = `${g.groupName} (${g.groupId})`;
+                    reminderGroupSelect.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error("Lỗi load groups:", e);
+        }
+    }
+
+    async function loadReminderDefaults() {
+        // Để trống, người dùng tự nhập
+    }
+
+    async function loadReminders() {
+        try {
+            const res = await fetch("/api/reminders");
+            const data = await res.json();
+            renderReminders(data);
+        } catch (e) {
+            console.error("Lỗi load reminders:", e);
+        }
+    }
+
+    function renderReminders(list) {
+        reminderTbody.innerHTML = "";
+        if (!list || list.length === 0) {
+            reminderTbody.innerHTML = "<tr><td colspan='6' style='text-align:center; color:#94a3b8;'>Chưa có lịch nhắc nào được cài đặt.</td></tr>";
+            return;
+        }
+
+        list.forEach(item => {
+            const tr = document.createElement("tr");
+            const isOnce = item.reminderType === "once";
+
+            // Group name
+            const groupTd = document.createElement("td");
+            groupTd.innerHTML = `
+                <div style="display:flex;flex-direction:column;">
+                    <strong style="color:var(--primary,#38bdf8);">${escapeHTML(item.groupName || item.groupId)}</strong>
+                    <span style="font-size:11px;color:#64748b;">${item.groupId}</span>
+                </div>
+            `;
+
+            // Time range
+            const timeTd = document.createElement("td");
+            if (isOnce) {
+                const h = String(item.startHour).padStart(2, "0");
+                const m = String(item.startMinute).padStart(2, "0");
+                timeTd.innerHTML = `<span class="days-badge" style="background:rgba(236,72,153,0.12);color:#ec4899;">📌 1 lần</span><br><span style="font-family:monospace;">${item.onceDate || "?"} ${h}:${m}</span>`;
+            } else {
+                const sh = String(item.startHour).padStart(2, "0");
+                const sm = String(item.startMinute).padStart(2, "0");
+                const eh = String(item.endHour).padStart(2, "0");
+                const em = String(item.endMinute).padStart(2, "0");
+                timeTd.innerHTML = `<span style="font-family:monospace;font-size:0.95rem;">${sh}:${sm} → ${eh}:${em}</span>`;
+            }
+
+            // Interval
+            const intTd = document.createElement("td");
+            intTd.textContent = isOnce ? "—" : (item.intervalMinutes + " phút");
+
+            // Days
+            const daysTd = document.createElement("td");
+            if (isOnce) {
+                daysTd.textContent = "—";
+            } else {
+                const days = (item.daysOfWeek || []).map(d => `<span class="days-badge">${DAY_NAMES[d] || d}</span>`).join(" ");
+                daysTd.innerHTML = days || "—";
+            }
+
+            // Status
+            const statusTd = document.createElement("td");
+            if (item.enabled) {
+                statusTd.innerHTML = `<span class="status-badge on">🟢 Bật</span>`;
+            } else {
+                statusTd.innerHTML = `<span class="status-badge off">🔴 Tắt</span>`;
+            }
+
+            // Actions
+            const actionTd = document.createElement("td");
+            actionTd.style.whiteSpace = "nowrap";
+
+            const toggleBtn = document.createElement("button");
+            toggleBtn.className = "btn-toggle";
+            toggleBtn.textContent = item.enabled ? "Tắt" : "Bật";
+            toggleBtn.onclick = () => toggleReminder(item.groupId, !item.enabled, item);
+
+            const editBtn = document.createElement("button");
+            editBtn.className = "btn-edit";
+            editBtn.textContent = "Sửa";
+            editBtn.onclick = () => fillReminderForm(item);
+
+            const delBtn = document.createElement("button");
+            delBtn.className = "btn-danger";
+            delBtn.style.padding = "4px 10px";
+            delBtn.style.fontSize = "0.8rem";
+            delBtn.textContent = "Xóa";
+            delBtn.onclick = () => removeReminder(item.groupId);
+
+            actionTd.appendChild(toggleBtn);
+            actionTd.appendChild(editBtn);
+            actionTd.appendChild(delBtn);
+
+            tr.appendChild(groupTd);
+            tr.appendChild(timeTd);
+            tr.appendChild(intTd);
+            tr.appendChild(daysTd);
+            tr.appendChild(statusTd);
+            tr.appendChild(actionTd);
+
+            reminderTbody.appendChild(tr);
+        });
+    }
+
+    // Type toggle: show/hide fields
+    const onceFields = document.getElementById("onceFields");
+    const recurringFields = document.getElementById("recurringFields");
+    const startMsgGroup = document.getElementById("startMsgGroup");
+    document.querySelectorAll("input[name='reminderType']").forEach(radio => {
+        radio.addEventListener("change", (e) => {
+            const isOnce = e.target.value === "once";
+            onceFields.style.display = isOnce ? "block" : "none";
+            recurringFields.style.display = isOnce ? "none" : "block";
+            startMsgGroup.style.display = isOnce ? "none" : "block";
+        });
+    });
+
+    function fillReminderForm(item) {
+        document.getElementById("reminderGroupId").value = item.groupId || "";
+
+        const isOnce = item.reminderType === "once";
+        document.querySelector(`input[name='reminderType'][value='${isOnce ? "once" : "recurring"}']`).checked = true;
+        onceFields.style.display = isOnce ? "block" : "none";
+        recurringFields.style.display = isOnce ? "none" : "block";
+        startMsgGroup.style.display = isOnce ? "none" : "block";
+
+        if (isOnce) {
+            document.getElementById("reminderOnceDate").value = item.onceDate || "";
+            document.getElementById("reminderOnceH").value = item.startHour ?? 20;
+            document.getElementById("reminderOnceM").value = item.startMinute ?? 0;
+        } else {
+            document.getElementById("reminderStartH").value = item.startHour ?? 19;
+            document.getElementById("reminderStartM").value = item.startMinute ?? 59;
+            document.getElementById("reminderEndH").value = item.endHour ?? 20;
+            document.getElementById("reminderEndM").value = item.endMinute ?? 5;
+            document.getElementById("reminderInterval").value = item.intervalMinutes ?? 2;
+        }
+
+        document.getElementById("reminderMsg").value = item.reminderMessage || "";
+        document.getElementById("reminderStartMsg").value = item.startMessage || "";
+
+        const dayCheckboxes = document.querySelectorAll("#reminderDays input[type='checkbox']");
+        dayCheckboxes.forEach(cb => {
+            cb.checked = (item.daysOfWeek || []).includes(Number(cb.value));
+        });
+
+        document.getElementById("reminderForm").scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function toggleReminder(groupId, newEnabled, existingItem) {
+        try {
+            const body = {
+                groupId,
+                enabled: newEnabled,
+                reminderType: existingItem.reminderType || "recurring",
+                onceDate: existingItem.onceDate || "",
+                startHour: existingItem.startHour,
+                startMinute: existingItem.startMinute,
+                endHour: existingItem.endHour,
+                endMinute: existingItem.endMinute,
+                intervalMinutes: existingItem.intervalMinutes,
+                daysOfWeek: existingItem.daysOfWeek,
+                reminderMessage: existingItem.reminderMessage,
+                startMessage: existingItem.startMessage
+            };
+            await fetch("/api/reminders", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            loadReminders();
+        } catch (e) {
+            alert("Lỗi: " + e.message);
+        }
+    }
+
+    async function removeReminder(groupId) {
+        if (!confirm("Bạn có chắc muốn xóa lịch nhắc của nhóm này?")) return;
+        try {
+            const res = await fetch("/api/reminders/" + groupId, { method: "DELETE" });
+            const result = await res.json();
+            if (result.success) {
+                loadReminders();
+            } else {
+                alert("Lỗi: " + result.error);
+            }
+        } catch (e) {
+            alert("Lỗi kết nối");
+        }
+    }
+
+    if (reminderForm) {
+        reminderForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const groupId = document.getElementById("reminderGroupId").value.trim();
+            if (!groupId) return alert("Vui lòng chọn nhóm");
+
+            const reminderType = document.querySelector("input[name='reminderType']:checked").value;
+            const isOnce = reminderType === "once";
+
+            let body;
+            if (isOnce) {
+                const onceDate = document.getElementById("reminderOnceDate").value;
+                if (!onceDate) return alert("Vui lòng chọn ngày nhắc");
+                body = {
+                    groupId,
+                    enabled: true,
+                    reminderType: "once",
+                    onceDate,
+                    startHour: Number(document.getElementById("reminderOnceH").value),
+                    startMinute: Number(document.getElementById("reminderOnceM").value),
+                    endHour: 0,
+                    endMinute: 0,
+                    intervalMinutes: 1,
+                    daysOfWeek: [],
+                    reminderMessage: document.getElementById("reminderMsg").value,
+                    startMessage: "",
+                };
+            } else {
+                const daysOfWeek = [];
+                document.querySelectorAll("#reminderDays input[type='checkbox']:checked").forEach(cb => {
+                    daysOfWeek.push(Number(cb.value));
+                });
+                body = {
+                    groupId,
+                    enabled: true,
+                    reminderType: "recurring",
+                    onceDate: "",
+                    startHour: Number(document.getElementById("reminderStartH").value),
+                    startMinute: Number(document.getElementById("reminderStartM").value),
+                    endHour: Number(document.getElementById("reminderEndH").value),
+                    endMinute: Number(document.getElementById("reminderEndM").value),
+                    intervalMinutes: Number(document.getElementById("reminderInterval").value),
+                    daysOfWeek,
+                    reminderMessage: document.getElementById("reminderMsg").value,
+                    startMessage: document.getElementById("reminderStartMsg").value,
+                };
+            }
+
+            try {
+                const res = await fetch("/api/reminders", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert("✅ Đã lưu cấu hình nhắc nhở thành công!");
+                    reminderForm.reset();
+                    document.querySelector("input[name='reminderType'][value='recurring']").checked = true;
+                    onceFields.style.display = "none";
+                    recurringFields.style.display = "block";
+                    startMsgGroup.style.display = "block";
+                    document.querySelector("#reminderDays input[value='6']").checked = true;
+                    document.querySelector("#reminderDays input[value='0']").checked = true;
+                    loadReminderDefaults();
+                    loadReminders();
+                } else {
+                    alert("Lỗi: " + result.error);
+                }
+            } catch (e) {
+                alert("Lỗi kết nối server");
+            }
+        });
+    }
 });

@@ -1,17 +1,7 @@
 const { VN_TIMEZONE } = require("../utils/vnTime");
+const { ReminderSetting } = require("../db/reminderSettingModel");
 
-const CHECK_INTERVAL_MS = 10 * 1000;
-const START_MINUTE = 19 * 60 + 59; // 19:59
-const END_MINUTE = 20 * 60 + 5; // 20:05
-const REMIND_INTERVAL_MINUTES = 2;
-
-const WEEKEND_REMINDER_TEXT = 
-    "⚠️ **THÔNG BÁO ĐUA ĐỘI - LƯU Ý GIỜ VÀO ĐUA**\n\n" +
-    "⏰ **Thời gian bắt đầu:** Đúng **20h05**.\n\n" +
-    "🚫 **CẢNH BÁO:** Để trải nghiệm tốt nhất cho cả đội, tuyệt đối không vào sớm. Phát hiện vi phạm sẽ bị kick.\n\n" +
-    "🙏 *Đây là tin nhắn nhắc nhở tự động 2 phút/lần (19h59 - 20h05).Tún Anh rất xin lỗi nếu làm phiền cả nhà DHA, chúc toàn bộ anh em tổ lái đua tốt!*";
-
-const WEEKEND_START_TEXT = "🚀 **GIỜ G ĐÃ ĐẾN!** Cả nhà vào đua đội ngay thôi nào! Chúc anh em cuối tuần rực rỡ! 🔥";
+const CHECK_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
 
 function parseVNClock(date = new Date()) {
     const formatter = new Intl.DateTimeFormat("en-GB", {
@@ -52,60 +42,6 @@ function parseVNClock(date = new Date()) {
     };
 }
 
-function buildSchedulePayload(date = new Date()) {
-    const vnClock = parseVNClock(date);
-    const isWeekend = vnClock.weekday === 0 || vnClock.weekday === 6;
-    if (!isWeekend) return null;
-
-    if (vnClock.minuteOfDay < START_MINUTE || vnClock.minuteOfDay > END_MINUTE) {
-        return null;
-    }
-
-    const isStartMinute = vnClock.minuteOfDay === END_MINUTE;
-    if (!isStartMinute) {
-        const diffFromStart = vnClock.minuteOfDay - START_MINUTE;
-        if (diffFromStart % REMIND_INTERVAL_MINUTES !== 0) {
-            return null;
-        }
-    }
-
-    return {
-        minuteKey: `${vnClock.dayKey} ${String(vnClock.hour).padStart(2, "0")}:${String(
-            vnClock.minute
-        ).padStart(2, "0")}`,
-        content: isStartMinute ? WEEKEND_START_TEXT : WEEKEND_REMINDER_TEXT,
-    };
-}
-
-async function listTargetGroupIds(api, GroupSetting) {
-    const groupIds = new Set();
-
-    try {
-        const allGroups = await api.getAllGroups();
-        const map = allGroups?.gridVerMap || {};
-        for (const groupId of Object.keys(map)) {
-            const normalized = String(groupId || "").trim();
-            if (normalized) groupIds.add(normalized);
-        }
-    } catch (error) {
-        console.error("[weekend-reminder] Loi lay danh sach nhom tu getAllGroups:", error);
-    }
-
-    if (groupIds.size === 0 && GroupSetting) {
-        try {
-            const fromSettings = await GroupSetting.distinct("groupId");
-            for (const groupId of fromSettings || []) {
-                const normalized = String(groupId || "").trim();
-                if (normalized) groupIds.add(normalized);
-            }
-        } catch (error) {
-            console.error("[weekend-reminder] Loi lay danh sach nhom tu GroupSetting:", error);
-        }
-    }
-
-    return [...groupIds];
-}
-
 function buildMentionPayload(content) {
     const mentionToken = "@all";
     return {
@@ -126,7 +62,7 @@ async function sendReminderToGroup(api, groupId, content) {
     try {
         await api.sendMessage(payload, groupId, 1);
     } catch (error) {
-        console.error(`[weekend-reminder] Loi gui nhac nho o nhom ${groupId}:`, error);
+        console.error(`[reminder] Loi gui nhac nho o nhom ${groupId}:`, error);
         if (payload?.mentions) {
             try {
                 await api.sendMessage({ msg: content }, groupId, 1);
@@ -137,31 +73,93 @@ async function sendReminderToGroup(api, groupId, content) {
 
 function createWeekendRaceReminder({ api, GroupSetting, targetGroupIds = [] }) {
     let timer = null;
-    let lastMinuteKey = "";
-    const fixedGroupIds = Array.isArray(targetGroupIds)
-        ? targetGroupIds
-              .map((groupId) => String(groupId || "").trim())
-              .filter(Boolean)
-        : [];
+    const sentKeys = new Map(); // groupId -> lastMinuteKey
 
     async function tick() {
-        const schedulePayload = buildSchedulePayload(new Date());
-        if (!schedulePayload) return;
-        if (schedulePayload.minuteKey === lastMinuteKey) return;
+        const vnClock = parseVNClock(new Date());
 
-        lastMinuteKey = schedulePayload.minuteKey;
-
-        const groupIds =
-            fixedGroupIds.length > 0
-                ? fixedGroupIds
-                : await listTargetGroupIds(api, GroupSetting);
-        if (groupIds.length === 0) {
-            console.warn("[weekend-reminder] Khong co nhom nao de gui nhac nho.");
+        // Load all enabled reminder configs from DB
+        let configs = [];
+        try {
+            configs = await ReminderSetting.find({ enabled: true }).lean();
+        } catch (err) {
+            console.error("[reminder] Loi doc cau hinh tu DB:", err);
             return;
         }
 
-        for (const groupId of groupIds) {
-            await sendReminderToGroup(api, groupId, schedulePayload.content);
+        // If no DB configs, fall back to legacy hardcoded behavior
+        if (configs.length === 0) {
+            return;
+        }
+
+        for (const cfg of configs) {
+            const isOnce = cfg.reminderType === "once";
+
+            if (isOnce) {
+                // ONE-TIME REMINDER: check exact date + time
+                if (!cfg.onceDate || cfg.onceDate !== vnClock.dayKey) continue;
+
+                const targetMin = (cfg.startHour || 0) * 60 + (cfg.startMinute || 0);
+                if (vnClock.minuteOfDay !== targetMin) continue;
+
+                // Prevent duplicate
+                const minuteKey = `once-${cfg.groupId}-${cfg.onceDate}-${targetMin}`;
+                if (sentKeys.get(cfg.groupId) === minuteKey) continue;
+                sentKeys.set(cfg.groupId, minuteKey);
+
+                const content = cfg.reminderMessage || "⏰ Nhắc nhở từ DHA Bot";
+                console.log(`[reminder] Gui nhac 1 lan den nhom ${cfg.groupId}`);
+                await sendReminderToGroup(api, cfg.groupId, content);
+
+                // Auto-disable after sending
+                try {
+                    await ReminderSetting.updateOne({ _id: cfg._id }, { $set: { enabled: false } });
+                    console.log(`[reminder] Da tu dong tat nhac 1 lan cho nhom ${cfg.groupId}`);
+                } catch (e) {
+                    console.error("[reminder] Loi tat nhac 1 lan:", e);
+                }
+                continue;
+            }
+
+            // RECURRING REMINDER
+            // Check day of week
+            if (Array.isArray(cfg.daysOfWeek) && cfg.daysOfWeek.length > 0) {
+                if (!cfg.daysOfWeek.includes(vnClock.weekday)) continue;
+            }
+
+            const startMinOfDay = (cfg.startHour || 0) * 60 + (cfg.startMinute || 0);
+            const endMinOfDay = (cfg.endHour || 0) * 60 + (cfg.endMinute || 0);
+            const interval = cfg.intervalMinutes || 2;
+
+            // Check if current time is within the window
+            if (vnClock.minuteOfDay < startMinOfDay || vnClock.minuteOfDay > endMinOfDay) {
+                continue;
+            }
+
+            // Build a unique minute key to prevent duplicate sends
+            const minuteKey = `${vnClock.dayKey} ${String(vnClock.hour).padStart(2, "0")}:${String(vnClock.minute).padStart(2, "0")}`;
+            const lastKey = sentKeys.get(cfg.groupId);
+            if (lastKey === minuteKey) continue;
+
+            // Check if this is the "start" minute (end of window = go time)
+            const isStartMinute = vnClock.minuteOfDay === endMinOfDay;
+
+            if (!isStartMinute) {
+                // Check interval
+                const diffFromStart = vnClock.minuteOfDay - startMinOfDay;
+                if (diffFromStart % interval !== 0) continue;
+            }
+
+            // Mark as sent
+            sentKeys.set(cfg.groupId, minuteKey);
+
+            // Determine which message to send
+            const content = isStartMinute
+                ? (cfg.startMessage || "🚀 **GIỜ G ĐÃ ĐẾN!** Cả nhà vào đua đội ngay thôi nào! 🔥")
+                : (cfg.reminderMessage || "⚠️ Nhắc nhở tự động từ DHA Bot");
+
+            console.log(`[reminder] Gui nhac nho den nhom ${cfg.groupId} (${minuteKey})`);
+            await sendReminderToGroup(api, cfg.groupId, content);
         }
     }
 
@@ -170,12 +168,12 @@ function createWeekendRaceReminder({ api, GroupSetting, targetGroupIds = [] }) {
             if (timer) return;
 
             tick().catch((error) => {
-                console.error("[weekend-reminder] Loi tick lan dau:", error);
+                console.error("[reminder] Loi tick lan dau:", error);
             });
 
             timer = setInterval(() => {
                 tick().catch((error) => {
-                    console.error("[weekend-reminder] Loi tick:", error);
+                    console.error("[reminder] Loi tick:", error);
                 });
             }, CHECK_INTERVAL_MS);
 
@@ -189,7 +187,6 @@ function createWeekendRaceReminder({ api, GroupSetting, targetGroupIds = [] }) {
             timer = null;
         },
         _debug: {
-            buildSchedulePayload,
             buildMentionPayload,
             parseVNClock,
         },
