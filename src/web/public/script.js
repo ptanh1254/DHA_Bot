@@ -297,12 +297,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Toggle stream
     const btnToggleStream = document.getElementById("btnToggleStream");
-    let isStreamPaused = false;
+    let isStreamPaused = true;
     if (btnToggleStream) {
         btnToggleStream.addEventListener("click", () => {
             isStreamPaused = !isStreamPaused;
             if (isStreamPaused) {
-                btnToggleStream.textContent = "Tiếp Tục";
+                btnToggleStream.textContent = "Bật Stream";
                 btnToggleStream.classList.add("paused");
             } else {
                 btnToggleStream.textContent = "Tạm Dừng";

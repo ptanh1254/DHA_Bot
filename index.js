@@ -435,7 +435,9 @@ async function startBot() {
                     if (!groupNameCache[threadId] && threadId.length > 5) {
                         try {
                             const gInfo = await api.getGroupInfo(threadId);
-                            groupNameCache[threadId] = gInfo?.data?.name || "Nhóm " + threadId;
+                            const gridInfoMap = gInfo?.gridInfoMap || {};
+                            const groupInfo = gridInfoMap[threadId] || Object.values(gridInfoMap)[0];
+                            groupNameCache[threadId] = groupInfo?.name || "Nhóm " + threadId;
                         } catch(e) {
                             groupNameCache[threadId] = "Nhóm " + threadId;
                         }

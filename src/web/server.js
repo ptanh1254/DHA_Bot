@@ -189,11 +189,15 @@ function startWebServer(port = 3005, api = null, groupNameCache = {}) {
                 for (let item of list) {
                     let needsSave = false;
 
-                    if (!item.groupName) {
-                        if (!groupNameCache[item.groupId]) {
+                    const isFallbackName = !item.groupName || item.groupName === ("Nhóm " + item.groupId);
+                    if (isFallbackName) {
+                        const isCacheFallback = !groupNameCache[item.groupId] || groupNameCache[item.groupId] === ("Nhóm " + item.groupId);
+                        if (isCacheFallback) {
                             try {
                                 const gInfo = await api.getGroupInfo(item.groupId);
-                                groupNameCache[item.groupId] = gInfo?.data?.name || "Nhóm " + item.groupId;
+                                const gridInfoMap = gInfo?.gridInfoMap || {};
+                                const groupInfo = gridInfoMap[item.groupId] || Object.values(gridInfoMap)[0];
+                                groupNameCache[item.groupId] = groupInfo?.name || "Nhóm " + item.groupId;
                             } catch (e) {
                                 groupNameCache[item.groupId] = "Nhóm " + item.groupId;
                             }
