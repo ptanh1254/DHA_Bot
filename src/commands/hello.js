@@ -10,9 +10,10 @@ async function handleHelloCommand(
 ) {
     await handleToggleCommand(api, message, threadId, GroupSetting, argsText, prefix, {
         settingKey: "welcomeEnabled",
+        commandName: "hello",
         messages: {
-            enabled: "Đã bật chào mừng thành viên mới cho nhóm này.",
-            disabled: "Đã tắt chào mừng thành viên mới cho nhóm này.",
+            enabled: "Loa loa loa! 📣 Đã BẬT còi báo động chào mừng tân binh DHA. Ai vào là réo tên ngay!",
+            disabled: "Suỵt! 🤐 Đã TẮT còi báo động chào mừng DHA. Cửa vào đang để chế độ đi nhẹ nói khẽ.",
         },
         statusLabel: "Chế độ welcome hiện tại",
     });

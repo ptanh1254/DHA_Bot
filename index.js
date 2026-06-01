@@ -1,4 +1,4 @@
-﻿const path = require("path");
+const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 const mongoose = require("mongoose");
 const { Zalo } = require("zca-js");
@@ -41,12 +41,18 @@ const { handleNghiepCommand } = require("./src/commands/nghiep");
 const { handleTimCommand } = require("./src/commands/timso");
 const { handleRestrictedUidToggleCommand } = require("./src/commands/camlenhbe");
 const { handleThiepCuoiCommand } = require("./src/commands/thiepcuoi");
+const { handleRandomCommand } = require("./src/commands/random");
+const { handleFindCommand } = require("./src/commands/find");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
 const { createMessageStore } = require("./src/runtime/messageStore");
 const { createWeekendRaceReminder } = require("./src/runtime/weekendRaceReminder");
 const { getVNDateParts } = require("./src/utils/vnTime");
+const { startWebServer, broadcastChatMessage } = require("./src/web/server");
+const { loadAliases } = require("./src/runtime/aliasManager");
+const { loadBotResponses } = require("./src/runtime/botResponseManager");
+
 console.log("=== BOT DANG KHOI DONG ===");
 const config = loadConfig();
 
@@ -129,6 +135,12 @@ async function startBot() {
         console.log("🤖 [BOT] Khởi động bot...");
         console.log("Đang kết nối MongoDB...");
         await mongoose.connect(process.env.MONGO_URI);
+        
+        console.log("Đang khởi tạo Web Server và Database cache...");
+        await loadAliases();
+        await loadBotResponses();
+        startWebServer(process.env.PORT || 3005);
+        
         const now = new Date();
         const vnParts = getVNDateParts(now);
         const backfillResult = await User.collection.updateMany(
@@ -236,6 +248,8 @@ async function startBot() {
             timCommand: `${prefix}tim`.toLowerCase(),
             restrictedUidToggleCommand: `${prefix}camlenhbe`.toLowerCase(),
             thiepCuoiCommand: `${prefix}thiepcuoi`.toLowerCase(),
+            randomCommand: `${prefix}random`.toLowerCase(),
+            findCommand: `${prefix}find`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
             handleHello: (api, message, threadId, argsText) =>
@@ -272,6 +286,8 @@ async function startBot() {
                 handleNoteCommand(api, message, threadId, prefix),
             handleXoaNote: (api, message, threadId) =>
                 handleXoaNoteCommand(api, message, threadId, prefix),
+            handleFind: (api, message, threadId, argsText) =>
+                handleFindCommand(api, message, threadId, User, argsText, prefix),
             handleKick: (api, message, threadId, argsText) =>
                 handleKickCommand(
                     api,
@@ -371,6 +387,8 @@ async function startBot() {
                 ),
             handleThiepCuoi: (api, message, threadId) =>
                 handleThiepCuoiCommand(api, message, threadId, prefix),
+            handleRandom: (api, message, threadId) =>
+                handleRandomCommand(api, message, threadId, prefix),
         };
 
         console.log("Zalo bot đã đăng nhập thành công");
@@ -402,7 +420,35 @@ async function startBot() {
             GroupSetting,
             targetGroupIds: ["8257388680843944123"],
         });
-        api.listener.on("message", messageHandler);
+        
+        const groupNameCache = {};
+        api.listener.on("message", async (message) => {
+            // Broadcast real-time message to web UI
+            try {
+                let threadId = String(message?.threadId || message?.data?.idTo || message?.data?.threadId || message?.data?.uidFrom || "").trim();
+                let userId = String(message?.data?.uidFrom || "unknown");
+                let text = typeof message?.data?.content === "string" ? message.data.content : "";
+                let dName = String(message?.data?.dName || "Người dùng").trim();
+                let avatar = message?.data?.avatar || message?.data?.senderAvatar || "";
+                
+                if (text && threadId) {
+                    if (!groupNameCache[threadId] && threadId.length > 5) {
+                        try {
+                            const gInfo = await api.getGroupInfo(threadId);
+                            groupNameCache[threadId] = gInfo?.data?.name || "Nhóm " + threadId;
+                        } catch(e) {
+                            groupNameCache[threadId] = "Nhóm " + threadId;
+                        }
+                    }
+                    const groupName = groupNameCache[threadId] || threadId;
+                    
+                    broadcastChatMessage({ threadId, userId, text, dName, groupName, avatar, timestamp: Date.now() });
+                }
+            } catch(e) {}
+            
+            messageHandler(message);
+        });
+        
         api.listener.on("group_event", groupEventHandler);
         weekendRaceReminder.start();
         console.log(

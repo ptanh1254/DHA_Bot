@@ -227,7 +227,8 @@ async function handleToggleCommand(
 ) {
     const messageType = getMessageType(message);
     const normalizedArgs = String(argsText || "").trim().toLowerCase();
-    const { settingKey, messages, statusLabel } = config;
+    const { settingKey, commandName, messages, statusLabel } = config;
+    const cmdStr = commandName || settingKey;
 
     // No args - show status
     if (!normalizedArgs) {
@@ -236,8 +237,8 @@ async function handleToggleCommand(
         const statusText = isEnabled ? "BẬT" : "TẮT";
         const statusMessage = [
             `${statusLabel}: ${statusText}`,
-            `Dùng \`${prefix}${settingKey} on\` để bật`,
-            `Dùng \`${prefix}${settingKey} off\` để tắt`,
+            `Dùng \`${prefix}${cmdStr} on\` để bật`,
+            `Dùng \`${prefix}${cmdStr} off\` để tắt`,
         ].join("\n");
         await sendMessage(api, { msg: statusMessage }, threadId, messageType);
         return;
@@ -247,7 +248,7 @@ async function handleToggleCommand(
     if (normalizedArgs !== "on" && normalizedArgs !== "off") {
         await sendMessage(
             api,
-            { msg: `Sai cú pháp. Dùng \`${prefix}${settingKey} on\` hoặc \`${prefix}${settingKey} off\`.` },
+            { msg: `Sai cú pháp. Dùng \`${prefix}${cmdStr} on\` hoặc \`${prefix}${cmdStr} off\`.` },
             threadId,
             messageType
         );

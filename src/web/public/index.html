@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DHABot Command Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+    <div class="bg-shape shape-3"></div>
+    
+    <div class="container">
+        <header>
+            <h1>DHABot Command Dashboard</h1>
+            <p>Quản lý các lối tắt, đổi tên lệnh nhanh chóng mà không cần code.</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-target="tab-commands">Quản Lý Lệnh</button>
+            <button class="tab-btn" data-target="tab-chat">Realtime Chat</button>
+            <button class="tab-btn" data-target="tab-autokick">Auto Kick List</button>
+        </nav>
+
+        <main>
+            <!-- TAB: Lệnh -->
+            <div id="tab-commands" class="tab-content active">
+                <section class="glass-panel add-section">
+                    <h2>Thêm Alias Mới</h2>
+                    <form id="aliasForm">
+                        <div class="input-group">
+                            <label for="aliasInput">Lệnh tùy chỉnh (VD: !chao)</label>
+                            <input type="text" id="aliasInput" placeholder="!chao" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="originalInput">Lệnh gốc (VD: !hello)</label>
+                            <input type="text" id="originalInput" placeholder="!hello" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="descInput">Ghi chú (Tùy chọn)</label>
+                            <input type="text" id="descInput" placeholder="Dùng để chào hỏi...">
+                        </div>
+                        <button type="submit" class="btn-primary">Thêm / Cập nhật Lệnh</button>
+                    </form>
+                </section>
+
+                <section class="glass-panel list-section">
+                    <h2>Danh Sách Lệnh (Alias) Đang Hoạt Động</h2>
+                    <div class="table-wrapper">
+                        <table id="aliasTable">
+                            <thead>
+                                <tr>
+                                    <th>Lệnh Tùy Chỉnh</th>
+                                    <th>Lệnh Gốc</th>
+                                    <th>Ghi Chú</th>
+                                    <th>Hành Động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="glass-panel commands-section">
+                    <h2>Danh Sách Lệnh Gốc Của Hệ Thống</h2>
+                    <div class="commands-grid" id="commandsGrid">
+                        <!-- Data populated via JS -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB: Realtime Chat -->
+            <div id="tab-chat" class="tab-content">
+                <section class="glass-panel chat-section">
+                    <div class="chat-layout">
+                        <!-- Top Stats (4 boxes) -->
+                        <div class="chat-stats-top">
+                            <div class="stats-container squares" id="chatStats">
+                                <div class="stat-card">
+                                    <span class="stat-label">Hôm nay</span>
+                                    <span class="stat-value" id="statDaily">0</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-label">Tuần này</span>
+                                    <span class="stat-value" id="statWeekly">0</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-label">Tháng này</span>
+                                    <span class="stat-value" id="statMonthly">0</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-label">Tổng cộng</span>
+                                    <span class="stat-value" id="statTotal">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Main Content (Stream + Filters) -->
+                        <div class="chat-content-wrapper">
+                            <div class="chat-main">
+                                <div class="chat-header-row">
+                                    <h3>Luồng Tin Nhắn</h3>
+                                    <button id="btnToggleStream" class="btn-toggle-stream">Tạm Dừng</button>
+                                </div>
+                                <div id="chatStream" class="chat-stream">
+                                    <!-- Messages populated via JS -->
+                                </div>
+                            </div>
+                            
+                            <div class="chat-sidebar">
+                                <h3>Bộ Lọc Nhóm</h3>
+                                <div id="groupFilters" class="group-filters">
+                                    <!-- Checkboxes populated via JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB: Auto Kick List -->
+            <div id="tab-autokick" class="tab-content">
+                <section class="glass-panel list-section">
+                    <h2>Danh Sách Auto Kick</h2>
+                    <p>Những người trong danh sách này sẽ bị kick tự động nếu họ vào lại nhóm.</p>
+                    <div class="table-wrapper">
+                        <table id="autokickTable">
+                            <thead>
+                                <tr>
+                                    <th>Tên / UID</th>
+                                    <th>Group ID</th>
+                                    <th>Bị Kick Bởi</th>
+                                    <th>Thời Gian</th>
+                                    <th>Hành Động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="autokickTbody">
+                                <!-- Data populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

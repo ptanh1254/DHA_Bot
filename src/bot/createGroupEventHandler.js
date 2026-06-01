@@ -449,7 +449,7 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
         if (failedSet.has(memberId)) {
             await api.sendMessage(
                 {
-                    msg: `AutoKick thất bại với ${toSafeName(memberProfile?.displayName, "thành viên mới")}.`,
+                    msg: `🤖 Chịu thua! Không thể sút ${toSafeName(memberProfile?.displayName, "thanh niên cứng")} này. Chắc do Bot chưa được cấp quyền làm trùm rồi! 🥲`,
                 },
                 threadId,
                 1
@@ -469,19 +469,20 @@ async function tryAutoKickRejoinMember(api, threadId, memberProfile, KickHistory
             history?.firstKickedByUserId,
             history?.lastKickedByUserId,
         ].some((value) => String(value || "").trim() === LEAVE_AUTOKICK_ACTOR_ID);
+        const safeName = toSafeName(memberProfile?.displayName, "Thành viên");
         const title = isLeaveMarker
-            ? `🚫 ${toSafeName(memberProfile?.displayName, "Thành viên")} đã từng rời nhóm và vừa bị auto kick khi vào lại.`
-            : `🚫 ${toSafeName(memberProfile?.displayName, "Thành viên")} đã từng bị kick và vừa bị auto kick.`;
+            ? `🚫 ${safeName} tưởng out group là xong à? Vừa mò vào đã bị DHA sút thẳng cẳng nhé! 🥾`
+            : `🚫 ${safeName} định giả mù sa mưa à? Đã bị DHA phong sát rồi thì đừng hòng lọt vào lại! ⚔️`;
         const reasonLine = isLeaveMarker
-            ? "Người này đã tự rời nhóm trước đó."
-            : `Người này đã từng bị kick bởi: ${kickedBy}`;
+            ? "(Tội danh: Tự ý bỏ nhà ra đi, nay vác mặt về)"
+            : `(Kẻ ra tay: ${kickedBy})`;
 
         await api.sendMessage(
             {
                 msg: [
                     title,
                     reasonLine,
-                    `Tên cũ: ${oldName}`,
+                    `Tên cũ hồi đó: ${oldName}`,
                 ].join("\n"),
             },
             threadId,
@@ -498,25 +499,23 @@ function buildLeaveKickMessage(type, members, actorMeta, actorOverrideByUserId =
     const actorName = actorMeta?.displayName || (actorMeta?.userId ? `UID ${actorMeta.userId}` : "");
 
     if (type === "remove_member") {
-        const lines = members.map((member, index) => {
+        const lines = members.map((member) => {
             const name = member.displayName || `UID ${member.userId}`;
+            // If it's autokick returning user
             const actorOverride = actorOverrideByUserId.get(member.userId);
-            const effectiveActorName = actorOverride?.actorName || actorName;
-            const effectiveActorId = actorOverride?.actorUserId || actorMeta?.userId || "";
-
-            if (effectiveActorId && effectiveActorId !== member.userId && effectiveActorName) {
-                return `#${index + 1} ${name}\n\u0110\u00e3 b\u1ecb ${effectiveActorName} s\u00fat kh\u1ecfi nh\u00f3m DHA.`;
+            if (actorOverride && actorOverride.actorName === "AutoKick") {
+                return `🚫 ${name} tưởng out group là xong à? Vừa mò vào đã bị DHA sút thẳng cẳng nhé! 🥾\n(Tội danh: Tự ý bỏ nhà ra đi, nay vác mặt về)`;
             }
-            return `#${index + 1} ${name}\n\u0110\u00e3 b\u1ecb s\u00fat kh\u1ecfi nh\u00f3m DHA b\u1edfi m\u1ed9t th\u1ebf l\u1ef1c b\u00ed \u1ea9n.`;
+            return `💥 Đã đá ${name} văng khỏi trái đất! Tạm biệt tình yêu! 🚀`;
         });
-        return ["\ud83d\udea8 Kicked Out Member \ud83d\udea8", ...lines].join("\n");
+        return lines.join("\n\n");
     }
 
     const leaveLines = members.map((member) => {
         const name = member.displayName || `UID ${member.userId}`;
-        return `- ${name} \u0111\u00e3 x\u00e1ch d\u00e9p ra v\u1ec1, h\u1eb9n ng\u00e0y t\u00e1i xu\u1ea5t!`;
+        return `🍂 Mưa buồn rụng lá rơi vàng, ${name} đã xách quần áo rời làng DHA! Hẹn ngày không gặp lại! 👋`;
     });
-    return ["\ud83d\udeaa Th\u00f4ng b\u00e1o r\u1eddi nh\u00f3m", ...leaveLines].join("\n");
+    return leaveLines.join("\n\n");
 }
 
 function resolveEffectiveActor(memberUserId, actorMeta, actorOverrideByUserId = new Map()) {
@@ -540,9 +539,11 @@ async function sendWelcomeForMember(api, threadId, memberProfile) {
             fileName: `welcome-${threadId}-${memberProfile.userId}-${Date.now()}.png`,
         });
 
+        const msgTpl = `🎉 Ối dồi ôi! ${memberProfile.displayName} đã dạt trôi vào vùng đất giải trí DHA rồi anh em ơi! Vào chào hỏi người ta đi nào! 🎊`;
+        
         await api.sendMessage(
             {
-                msg: `Ch\u00e0o m\u1eebng ${memberProfile.displayName} \u0111\u1ebfn v\u1edbi khu gi\u1ea3i tr\u00ed DHA`,
+                msg: msgTpl,
                 attachments: [outputPath],
             },
             threadId,
@@ -607,9 +608,10 @@ async function sendKickImageBundle(
                     }
                 );
 
+                const kickMsgTpl = `💥 ${member.displayName} đã chính thức nhận một vé bay màu khỏi DHA! Chúc bạn may mắn ở vũ trụ khác! 🚀`;
                 await api.sendMessage(
                     {
-                        msg: `${member.displayName} đã lên bảng phong thần.`,
+                        msg: kickMsgTpl,
                         attachments: [outputPath],
                     },
                     threadId,
@@ -652,9 +654,10 @@ async function sendLeaveImageBundle(api, threadId, memberProfiles) {
                     }
                 );
 
+                const leaveMsgTpl = `🍂 Mưa buồn rụng lá rơi vàng, ${member.displayName} đã xách quần áo rời làng DHA! Hẹn ngày không gặp lại! 👋`;
                 await api.sendMessage(
                     {
-                        msg: `${member.displayName} đã rời nhóm.`,
+                        msg: leaveMsgTpl,
                         attachments: [outputPath],
                     },
                     threadId,

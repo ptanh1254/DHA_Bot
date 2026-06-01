@@ -1,6 +1,9 @@
+const { getBotResponse } = require("../runtime/botResponseManager");
+
 function buildHelpPart1(prefix = "!") {
+    const title = getBotResponse("help_msg", { prefix });
     return [
-        "📘 HƯỚNG DẪN LỆNH DHA BOT",
+        title,
         "",
         "⚡ LƯU Ý CHUNG:",
         "• Các chế độ on/off (hello, kick) áp dụng theo từng nhóm",

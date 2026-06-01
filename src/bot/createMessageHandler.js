@@ -9,6 +9,7 @@ const { UserDailyMessage } = require("../db/userDailyMessageModel");
 const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { AskUsage } = require("../db/askUsageModel");
 const { BannedWordStrike } = require("../db/bannedWordStrikeModel");
+const { getBotResponse } = require("../runtime/botResponseManager");
 
 async function tryDeleteMutedMessage(api, message, threadId, userId) {
     const msgId = String(message?.data?.msgId || "").trim();
@@ -155,10 +156,7 @@ async function sendMuteNotice(api, message, threadId, userId, strikeCount, muteE
     const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
     const mentionText = `@${safeName}`;
     const remainingLabel = formatMuteRemainingLabel(muteEntry);
-    const statusLine = remainingLabel
-        ? `${mentionText} \u0111ang b\u1ecb mute ${remainingLabel}.`
-        : `${mentionText} \u0111ang b\u1ecb mute.`;
-    const msg = `${statusLine}\nTin nh\u1eafn vi ph\u1ea1m \u0111\u00e3 b\u1ecb x\u00f3a (${strikeCount}).`;
+    const msg = `🤫 Xuỵt! ${mentionText} đang bị khóa mõm 🤐${remainingLabel ? ` Ráng nhịn thêm ${remainingLabel} nữa nhé!` : ""}\n(Cố tình chat nhảm đã bị nghiệp quật xóa tin nhắn lần thứ ${strikeCount})`;
     const messageType = Number(message?.type) || 1;
 
     try {
@@ -190,19 +188,16 @@ async function sendAutoMuteNotice(
     strikeCount,
     mutePolicy
 ) {
-    const rawName =
-        typeof message?.data?.dName === "string" ? message.data.dName.trim() : "";
-    const safeName = rawName || "Ng\u01b0\u1eddi d\u00f9ng";
+    const rawName = typeof message?.data?.dName === "string" ? message.data.dName.trim() : "";
+    const safeName = rawName || "Người dùng";
     const mentionText = `@${safeName}`;
-    const strikeLabel = `L\u1ea7n vi ph\u1ea1m t\u1eeb c\u1ea5m: ${strikeCount}.`;
+    
     const muteLabel = mutePolicy?.requiresManualUnmute
-        ? "B\u1ea1n \u0111\u00e3 b\u1ecb mute \u0111\u1ebfn khi QTV m\u1edf."
-        : `B\u1ea1n \u0111\u00e3 b\u1ecb mute ${mutePolicy?.label || ""}.`;
-    const msg = [
-        `${mentionText} v\u1eeba d\u00f9ng t\u1eeb c\u1ea5m "${matchedWord}".`,
-        strikeLabel,
-        muteLabel,
-    ].join("\n");
+        ? "Hình phạt: Khóa mõm vĩnh viễn đến khi Admin DHA nhân từ mở lại. 💀"
+        : `Hình phạt: Khóa mõm ${mutePolicy?.label || ""}. ⏳`;
+    
+    const msg = `🚨 Cảnh sát DHA xin thông báo! 🚨\n${mentionText} vừa dính phải ngôn từ cấm...\n${muteLabel}`;
+    
     const messageType = Number(message?.type) || 1;
 
     try {
@@ -473,6 +468,8 @@ function createMessageHandler({
         nghiepCommand,
         restrictedUidToggleCommand,
         thiepCuoiCommand,
+        randomCommand,
+        findCommand,
         handleHelp,
         handleHello,
         handlePreventRecall,
@@ -505,6 +502,7 @@ function createMessageHandler({
         handleNghiep,
         handleRestrictedUidToggle,
         handleThiepCuoi,
+        handleRandom,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -867,7 +865,24 @@ function createMessageHandler({
             const rawText =
                 typeof message.data?.content === "string" ? message.data.content : "";
             const text = stripLeadingMention(rawText, message.data?.mentions).trim();
-            const normalized = text.toLowerCase();
+            let normalized = text.toLowerCase();
+            
+            // --- ALIAS INTERCEPTION ---
+            const { getAliasMap, isOriginalCommandDisabled } = require("../runtime/aliasManager");
+            const aliasMap = getAliasMap();
+            const firstWord = normalized.split(" ")[0];
+            
+            // Nếu người dùng gõ trực tiếp lệnh gốc mà lệnh gốc đã có alias => chặn!
+            if (firstWord && isOriginalCommandDisabled(firstWord)) {
+                // Ignore the command or send a message
+                return; // just ignore it for now, acting as if the command doesn't exist anymore
+            }
+            
+            if (firstWord && aliasMap[firstWord]) {
+                normalized = aliasMap[firstWord] + normalized.slice(firstWord.length);
+            }
+            // --------------------------
+            
             const hasText = normalized.length > 0;
 
             // Store message for recall event handling - only if preventRecallEnabled is true
@@ -1152,10 +1167,15 @@ function createMessageHandler({
                 normalized.startsWith(`${restrictedUidToggleCommand} `);
             const isThiepCuoi =
                 normalized === thiepCuoiCommand || normalized.startsWith(`${thiepCuoiCommand} `);
+            const isRandom =
+                normalized === randomCommand || normalized.startsWith(`${randomCommand} `);
+            const isFind =
+                normalized === findCommand || normalized.startsWith(`${findCommand} `);
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
             const muteArgs = isMute ? text.slice(muteCommand.length).trim() : "";
+            const findArgs = isFind ? normalized.slice(findCommand.length).trim() : "";
             const camNoiBayArgs = isCamNoiBay
                 ? normalized.slice(camNoiBayCommand.length).trim()
                 : "";
@@ -1221,7 +1241,9 @@ function createMessageHandler({
                 isTim ||
                 isAsk ||
                 isRestrictedUidToggle ||
-                isThiepCuoi;
+                isThiepCuoi ||
+                isRandom ||
+                isFind;
             const isRestrictedTargetUser = isRestrictedCommandUid(normalizedSenderId);
 
             if (!isBotSelf && isKnownCommand && isRestrictedTargetUser) {
@@ -1327,7 +1349,8 @@ function createMessageHandler({
                 !isNghiep &&
                 !isAsk &&
                 !isRestrictedUidToggle &&
-                !isThiepCuoi
+                !isThiepCuoi &&
+                !isFind
             ) {
                 return;
             }
@@ -1351,8 +1374,14 @@ function createMessageHandler({
             }
 
             if (isXoaNote) {
-                await handleXoaNote(api, message, threadId);
+                await commands.handleXoaNote(api, message, threadId);
                 console.log(`Da xu ly command ${xoaNoteCommand} tai thread ${threadId}`);
+                return;
+            }
+
+            if (isFind) {
+                await commands.handleFind(api, message, threadId, findArgs);
+                console.log(`Đã xử lý command ${findCommand} tại thread ${threadId}`);
                 return;
             }
 
@@ -1505,6 +1534,11 @@ function createMessageHandler({
 
             if (isThiepCuoi) {
                 await handleThiepCuoi(api, message, threadId);
+                return;
+            }
+
+            if (isRandom) {
+                await handleRandom(api, message, threadId);
                 return;
             }
 
