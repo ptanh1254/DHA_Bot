@@ -137,9 +137,9 @@ async function startBot() {
         await mongoose.connect(process.env.MONGO_URI);
         
         console.log("Đang khởi tạo Web Server và Database cache...");
+        console.log("Đang khởi tạo Database cache...");
         await loadAliases();
         await loadBotResponses();
-        startWebServer(process.env.PORT || 3005);
         
         const now = new Date();
         const vnParts = getVNDateParts(now);
@@ -448,6 +448,8 @@ async function startBot() {
             
             messageHandler(message);
         });
+        
+        startWebServer(process.env.PORT || 3005, api, groupNameCache);
         
         api.listener.on("group_event", groupEventHandler);
         weekendRaceReminder.start();

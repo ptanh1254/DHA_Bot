@@ -3,7 +3,9 @@ const mongoose = require("mongoose");
 const kickHistorySchema = new mongoose.Schema(
     {
         groupId: { type: String, required: true },
+        groupName: { type: String, default: "" },
         userId: { type: String, required: true },
+        avatarUrl: { type: String, default: "" },
         kickCount: { type: Number, default: 0 },
 
         firstKickedByUserId: { type: String, default: "" },

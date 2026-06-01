@@ -16,7 +16,7 @@ const { getVNDateParts, getVNWeekInfo } = require("../utils/vnTime");
 
 let io; // Global socket.io instance
 
-function startWebServer(port = 3005) {
+function startWebServer(port = 3005, api = null, groupNameCache = {}) {
     const app = express();
     const server = http.createServer(app);
     io = new Server(server, {
@@ -174,6 +174,47 @@ function startWebServer(port = 3005) {
     app.get("/api/autokick", async (req, res) => {
         try {
             const list = await KickHistory.find({}).sort({ lastKickAt: -1 }).lean();
+            if (api) {
+                const missingAvatarIds = list.filter(i => !i.avatarUrl).map(i => i.userId);
+                const uniqueMissing = [...new Set(missingAvatarIds)].slice(0, 50);
+                
+                let changedProfiles = {};
+                if (uniqueMissing.length > 0) {
+                    try {
+                        const userInfo = await api.getUserInfo(uniqueMissing);
+                        changedProfiles = userInfo?.changed_profiles || {};
+                    } catch (e) {}
+                }
+
+                for (let item of list) {
+                    let needsSave = false;
+
+                    if (!item.groupName) {
+                        if (!groupNameCache[item.groupId]) {
+                            try {
+                                const gInfo = await api.getGroupInfo(item.groupId);
+                                groupNameCache[item.groupId] = gInfo?.data?.name || "Nhóm " + item.groupId;
+                            } catch (e) {
+                                groupNameCache[item.groupId] = "Nhóm " + item.groupId;
+                            }
+                        }
+                        item.groupName = groupNameCache[item.groupId] || item.groupId;
+                        needsSave = true;
+                    }
+
+                    if (!item.avatarUrl && uniqueMissing.includes(item.userId)) {
+                        const profile = changedProfiles[item.userId] || changedProfiles[`${item.userId}_0`] || Object.values(changedProfiles).find(p => p.zId === item.userId);
+                        if (profile && profile.avatar) {
+                            item.avatarUrl = profile.avatar;
+                            needsSave = true;
+                        }
+                    }
+
+                    if (needsSave) {
+                        KickHistory.updateOne({ _id: item._id }, { $set: { groupName: item.groupName, avatarUrl: item.avatarUrl } }).exec().catch(()=>{});
+                    }
+                }
+            }
             res.json(list);
         } catch (e) {
             res.status(500).json({ error: e.message });

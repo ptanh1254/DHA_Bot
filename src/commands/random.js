@@ -50,7 +50,7 @@ async function handleRandomCommand(api, message, threadId, prefix = "!") {
 
     let videoPath = "";
     try {
-        await api.sendMessage({ msg: "🎬 Đang chuẩn bị vòng quay may mắn, đợi xíu nhé..." }, threadId);
+        const preparingMsgRes = await api.sendMessage({ msg: "🎬 Đang chuẩn bị vòng quay may mắn, đợi xíu nhé..." }, threadId, messageType);
 
         const participants = await buildParticipants(api, mentionedTargets);
         
@@ -64,7 +64,16 @@ async function handleRandomCommand(api, message, threadId, prefix = "!") {
         // Send text message first
         const msgText = `🎉 Đinh đinh đinh đàng đàng đàng! Chúc mừng tân lang tân nương @${winner.displayName} đã được vòng quay gọi tên! Đãi tiệc đi nào! 🍻`;
         
-        await api.sendMessage(
+        // Delete the preparing message
+        try {
+            if (preparingMsgRes && preparingMsgRes.message && preparingMsgRes.message.data) {
+                await api.undo(preparingMsgRes.message.data, threadId, messageType);
+            }
+        } catch (e) {
+            console.error("Failed to undo preparing message:", e);
+        }
+
+        const textMsgRes = await api.sendMessage(
             {
                 msg: msgText,
                 mentions: [
@@ -81,10 +90,26 @@ async function handleRandomCommand(api, message, threadId, prefix = "!") {
 
         // Send the generated gif directly
         // ZCA-JS will automatically upload and format it as a native animated image
-        await api.sendMessage({ msg: "Vòng Quay May Mắn", attachments: [videoPath] }, threadId, messageType);
+        const videoMsgRes = await api.sendMessage({ msg: "Vòng Quay May Mắn", attachments: [videoPath] }, threadId, messageType);
         
-        // Clean up
+        // Clean up video locally
         try { fs.unlinkSync(videoPath); } catch(e) {}
+
+        // Schedule deletion of the bot's messages after 60 seconds
+        setTimeout(async () => {
+            try {
+                if (textMsgRes && textMsgRes.message && textMsgRes.message.data) {
+                    await api.undo(textMsgRes.message.data, threadId, messageType);
+                }
+                if (videoMsgRes && videoMsgRes.message && videoMsgRes.message.data) {
+                    await api.undo(videoMsgRes.message.data, threadId, messageType);
+                } else if (videoMsgRes && videoMsgRes.attachment && videoMsgRes.attachment.length > 0 && videoMsgRes.attachment[0].data) {
+                    await api.undo(videoMsgRes.attachment[0].data, threadId, messageType);
+                }
+            } catch (err) {
+                console.error("Failed to auto-delete random messages:", err);
+            }
+        }, 60000);
 
     } catch (err) {
         console.error("Lỗi khi tạo vòng quay may mắn:", err);

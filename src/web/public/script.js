@@ -164,7 +164,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const nameTd = document.createElement("td");
             const name = escapeHTML(item.lastKnownName || item.userId);
-            const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=40`;
+            const fallbackAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=40`;
+            const avatarUrl = item.avatarUrl || fallbackAvatarUrl;
             
             nameTd.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 10px; justify-content: inherit;">
@@ -174,7 +175,12 @@ document.addEventListener("DOMContentLoaded", () => {
             `;
             
             const groupTd = document.createElement("td");
-            groupTd.textContent = item.groupId;
+            groupTd.innerHTML = `
+                <div style="display: flex; flex-direction: column;">
+                    <strong style="color: var(--primary);">${escapeHTML(item.groupName || item.groupId)}</strong>
+                    <span style="font-size: 11px; color: var(--text-muted);">${item.groupId}</span>
+                </div>
+            `;
 
             const kickedByTd = document.createElement("td");
             kickedByTd.textContent = item.lastKickedByName || item.lastKickedByUserId || "Auto";
