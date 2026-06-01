@@ -12,6 +12,7 @@ const { User } = require("../db/userModel");
 const { UserDailyMessage } = require("../db/userDailyMessageModel");
 const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { KickHistory } = require("../db/kickHistoryModel");
+const { ReminderSetting } = require("../db/reminderSettingModel");
 const { getVNDateParts, getVNWeekInfo } = require("../utils/vnTime");
 
 let io; // Global socket.io instance
@@ -237,6 +238,72 @@ function startWebServer(port = 3005, api = null, groupNameCache = {}) {
 
     app.get("/api/chat-history", (req, res) => {
         res.json(chatHistory);
+    });
+
+    // --- REMINDER SETTINGS API ---
+    app.get("/api/reminders", async (req, res) => {
+        try {
+            const list = await ReminderSetting.find({}).lean();
+            if (api) {
+                for (let item of list) {
+                    if (!groupNameCache[item.groupId]) {
+                        try {
+                            const gInfo = await api.getGroupInfo(item.groupId);
+                            const gridInfoMap = gInfo?.gridInfoMap || {};
+                            const groupInfo = gridInfoMap[item.groupId] || Object.values(gridInfoMap)[0];
+                            groupNameCache[item.groupId] = groupInfo?.name || "Nhóm " + item.groupId;
+                        } catch (e) {
+                            groupNameCache[item.groupId] = "Nhóm " + item.groupId;
+                        }
+                    }
+                    item.groupName = groupNameCache[item.groupId] || item.groupId;
+                }
+            }
+            res.json(list);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post("/api/reminders", async (req, res) => {
+        try {
+            const {
+                groupId, enabled, startHour, startMinute, endHour, endMinute,
+                intervalMinutes, daysOfWeek, reminderMessage, startMessage
+            } = req.body;
+
+            if (!groupId) {
+                return res.status(400).json({ error: "Thiếu groupId" });
+            }
+
+            await ReminderSetting.findOneAndUpdate(
+                { groupId },
+                {
+                    enabled: !!enabled,
+                    startHour: Number(startHour),
+                    startMinute: Number(startMinute),
+                    endHour: Number(endHour),
+                    endMinute: Number(endMinute),
+                    intervalMinutes: Number(intervalMinutes),
+                    daysOfWeek: Array.isArray(daysOfWeek) ? daysOfWeek.map(Number) : [0, 6],
+                    reminderMessage,
+                    startMessage
+                },
+                { upsert: true, new: true }
+            );
+            res.json({ success: true, message: "Lưu cấu hình nhắc nhở thành công" });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.delete("/api/reminders/:groupId", async (req, res) => {
+        try {
+            await ReminderSetting.findOneAndDelete({ groupId: req.params.groupId });
+            res.json({ success: true, message: "Đã xóa lịch nhắc" });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
     });
 
     app.get("/api/test-upload", async (req, res) => {
