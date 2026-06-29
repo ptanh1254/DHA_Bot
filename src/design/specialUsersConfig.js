@@ -169,7 +169,7 @@ const SPECIAL_USERS = {
         },
     },
 
-"8073429320276439081": {
+"7678683608712964658": {
         themes: {
             userCard: {
                 background: {
@@ -387,7 +387,7 @@ const SPECIAL_USERS = {
             },
         },
     },
-    "9095318723300347162": {
+    "7251832302630164225": {
         themes: {
             userCard: {
                 background: {

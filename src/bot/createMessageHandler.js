@@ -1,10 +1,5 @@
 const { getVNDateParts, getVNWeekInfo } = require("../utils/vnTime");
 const { findMatchedBannedWord } = require("../config/bannedWords");
-const {
-    RESTRICTED_COMMAND_BLOCK_MESSAGE,
-    isRestrictedCommandUid,
-} = require("../config/restrictedCommandUsers");
-const { getRestrictedUidCommandEnabled } = require("../commands/camlenhbe");
 const { UserDailyMessage } = require("../db/userDailyMessageModel");
 const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { AskUsage } = require("../db/askUsageModel");
@@ -225,7 +220,58 @@ async function updateUserMessageCounters(User, threadId, userId, senderName) {
     const { dayKey, monthKey } = getVNDateParts(now);
     const { weekKey, weekStartDayKey, weekEndDayKey } = getVNWeekInfo(now);
 
-    const current = await User.findOne({ groupId: threadId, userId }).lean();
+    let current = await User.findOne({ groupId: threadId, userId }).lean();
+    
+    // AUTO-MIGRATION LOGIC: Tìm dữ liệu cũ dựa vào Tên hiển thị (để gộp nếu chưa gộp)
+    if (senderName) {
+        // Tìm tất cả các record cũ có cùng Tên hiển thị (ưu tiên record có dữ liệu gần nhất)
+        const oldRecords = await User.find({ displayName: senderName }).sort({ lastMessageAt: -1 }).lean();
+        const oldRecord = oldRecords.find(r => r.userId !== userId && (r.msgCount > 0 || r.totalMsgCount > 0));
+        
+        if (oldRecord) {
+            console.log(`[Auto-Migration] Đã tìm thấy dữ liệu cũ của ${senderName} (Cũ: ${oldRecord.userId}, Mới: ${userId}). Đang gộp...`);
+            // Gộp dữ liệu
+            current = {
+                ...current,
+                groupId: threadId,
+                userId: userId,
+                displayName: senderName,
+                avatarUrl: current?.avatarUrl || oldRecord.avatarUrl || "",
+                msgCount: (current?.msgCount || 0) + (oldRecord.msgCount || 0),
+                totalMsgCount: (current?.totalMsgCount || 0) + (oldRecord.totalMsgCount || 0),
+                dailyMsgCount: (current?.dailyMsgCount || 0),
+                monthlyMsgCount: (current?.monthlyMsgCount || 0),
+                joinDate: oldRecord.joinDate || current?.joinDate || now,
+                lastMessageAt: now,
+                ingameName: oldRecord.ingameName || current?.ingameName || "",
+                ingameSetAt: oldRecord.ingameSetAt || current?.ingameSetAt || null,
+                addedByUserId: oldRecord.addedByUserId || current?.addedByUserId || "",
+                addedByName: oldRecord.addedByName || current?.addedByName || ""
+            };
+            await User.updateOne({ groupId: threadId, userId }, { $set: current }, { upsert: true });
+            
+            // Xoá record cũ để tránh trùng lặp gộp nhiều lần
+            await User.deleteOne({ _id: oldRecord._id });
+            
+            // Migrate các collection phụ
+            const { KickHistory } = require("../db/kickHistoryModel");
+            const { MutedMember } = require("../db/mutedMemberModel");
+            const { BannedWordStrike } = require("../db/bannedWordStrikeModel");
+            const { CommandViolation } = require("../db/commandViolationModel");
+            
+            try {
+                await KickHistory.updateMany({ userId: oldRecord.userId }, { $set: { userId: userId, groupId: threadId } });
+                await KickHistory.updateMany({ kickedBy: oldRecord.userId }, { $set: { kickedBy: userId } });
+                await MutedMember.updateMany({ userId: oldRecord.userId }, { $set: { userId: userId, groupId: threadId } });
+                await MutedMember.updateMany({ mutedBy: oldRecord.userId }, { $set: { mutedBy: userId } });
+                await BannedWordStrike.updateMany({ userId: oldRecord.userId }, { $set: { userId: userId, groupId: threadId } });
+                await CommandViolation.updateMany({ userId: oldRecord.userId }, { $set: { userId: userId, groupId: threadId } });
+            } catch(e) {
+                console.error("[Auto-Migration] Lỗi gộp collection phụ:", e);
+            }
+        }
+    }
+
     const currentDaily =
         current?.dayKey === dayKey ? Number(current?.dailyMsgCount) || 0 : 0;
     const currentMonthly =
@@ -333,7 +379,7 @@ function buildIdVariants(rawId) {
 
 function buildSuperAdminSet() {
     const defaults = [
-        "8073429320276439081", "9095318723300347162"
+        "7678683608712964658", "9095318723300347162"
 
     ];
     const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "9095318723300347162")
@@ -465,11 +511,14 @@ function createMessageHandler({
         loveCommand,
         askCommand,
         timCommand,
-        nghiepCommand,
-        restrictedUidToggleCommand,
+                    nghiepCommand,
         thiepCuoiCommand,
         randomCommand,
         findCommand,
+        aliasCommand,
+    } = commands;
+
+    const {
         handleHelp,
         handleHello,
         handlePreventRecall,
@@ -500,9 +549,9 @@ function createMessageHandler({
         handleAsk,
         handleTim,
         handleNghiep,
-        handleRestrictedUidToggle,
         handleThiepCuoi,
         handleRandom,
+        handleAlias,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -1162,20 +1211,20 @@ function createMessageHandler({
             const isNghiep = normalized === nghiepCommand || normalized.startsWith(`${nghiepCommand} `);
             const isTim = normalized === timCommand || normalized.startsWith(`${timCommand} `);
             const isAsk = normalized === askCommand || normalized.startsWith(`${askCommand} `);
-            const isRestrictedUidToggle =
-                normalized === restrictedUidToggleCommand ||
-                normalized.startsWith(`${restrictedUidToggleCommand} `);
             const isThiepCuoi =
                 normalized === thiepCuoiCommand || normalized.startsWith(`${thiepCuoiCommand} `);
             const isRandom =
                 normalized === randomCommand || normalized.startsWith(`${randomCommand} `);
             const isFind =
                 normalized === findCommand || normalized.startsWith(`${findCommand} `);
+            const isAlias = 
+                normalized === aliasCommand || normalized.startsWith(`${aliasCommand} `);
             const helloArgs = isHello ? normalized.slice(helloCommand.length).trim() : "";
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
             const muteArgs = isMute ? text.slice(muteCommand.length).trim() : "";
             const findArgs = isFind ? normalized.slice(findCommand.length).trim() : "";
+            const aliasArgs = isAlias ? text.slice(aliasCommand.length).trim() : "";
             const camNoiBayArgs = isCamNoiBay
                 ? normalized.slice(camNoiBayCommand.length).trim()
                 : "";
@@ -1205,9 +1254,6 @@ function createMessageHandler({
                     .trim()
                 : "";
             const askArgs = isAsk ? text.slice(askCommand.length).trim() : "";
-            const restrictedUidToggleArgs = isRestrictedUidToggle
-                ? normalized.slice(restrictedUidToggleCommand.length).trim()
-                : "";
 
             const isKnownCommand =
                 isHelp ||
@@ -1240,34 +1286,10 @@ function createMessageHandler({
                 isNghiep ||
                 isTim ||
                 isAsk ||
-                isRestrictedUidToggle ||
                 isThiepCuoi ||
                 isRandom ||
-                isFind;
-            const isRestrictedTargetUser = isRestrictedCommandUid(normalizedSenderId);
-
-            if (!isBotSelf && isKnownCommand && isRestrictedTargetUser) {
-                const isRestrictionEnabled = await getRestrictedUidCommandEnabled(GroupSetting);
-                if (isRestrictionEnabled) {
-                    const messageType = Number(message?.type) || 1;
-                    await api.sendMessage(
-                        { msg: RESTRICTED_COMMAND_BLOCK_MESSAGE },
-                        threadId,
-                        messageType
-                    );
-                    return;
-                }
-            }
-
-            if (!isBotSelf && isRestrictedUidToggle && !isSuperAdminUser) {
-                const messageType = Number(message?.type) || 1;
-                await api.sendMessage(
-                    { msg: "Lệnh này chỉ super admin được dùng." },
-                    threadId,
-                    messageType
-                );
-                return;
-            }
+                isFind ||
+                isAlias;
 
             if (!isBotSelf && isKick && kickBlockedUids.has(normalizedSenderId)) {
                 const messageType = Number(message?.type) || 1;
@@ -1283,7 +1305,7 @@ function createMessageHandler({
 
             if (!isBotSelf && isKnownCommand) {
                 // Member thuong duoc phep dung duy nhat !ingame
-                const isPublicCommand = isIngame || isTim || (isRestrictedUidToggle && isRestrictedTargetUser);
+                const isPublicCommand = isIngame || isTim;
                 if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
@@ -1348,9 +1370,9 @@ function createMessageHandler({
                 !isLove &&
                 !isNghiep &&
                 !isAsk &&
-                !isRestrictedUidToggle &&
                 !isThiepCuoi &&
-                !isFind
+                !isFind &&
+                !isAlias
             ) {
                 return;
             }
@@ -1374,14 +1396,20 @@ function createMessageHandler({
             }
 
             if (isXoaNote) {
-                await commands.handleXoaNote(api, message, threadId);
+                await handleXoaNote(api, message, threadId);
                 console.log(`Da xu ly command ${xoaNoteCommand} tai thread ${threadId}`);
                 return;
             }
 
             if (isFind) {
-                await commands.handleFind(api, message, threadId, findArgs);
+                await handleFind(api, message, threadId, findArgs);
                 console.log(`Đã xử lý command ${findCommand} tại thread ${threadId}`);
+                return;
+            }
+
+            if (isAlias) {
+                await handleAlias(api, message, threadId, aliasArgs, userId, isSuperAdminUser);
+                console.log(`Đã xử lý command ${aliasCommand} tại thread ${threadId}`);
                 return;
             }
 
@@ -1447,15 +1475,6 @@ function createMessageHandler({
                 return;
             }
 
-            if (isRestrictedUidToggle) {
-                await handleRestrictedUidToggle(
-                    api,
-                    message,
-                    threadId,
-                    restrictedUidToggleArgs
-                );
-                return;
-            }
 
             if (isCamNoiBay) {
                 await handleCamNoiBay(api, message, threadId, camNoiBayArgs);

@@ -39,7 +39,7 @@ const { handleLoveCommand } = require("./src/commands/love");
 const { handleAskCommand } = require("./src/commands/ask");
 const { handleNghiepCommand } = require("./src/commands/nghiep");
 const { handleTimCommand } = require("./src/commands/timso");
-const { handleRestrictedUidToggleCommand } = require("./src/commands/camlenhbe");
+const { handleAliasCommand } = require("./src/commands/alias");
 const { handleThiepCuoiCommand } = require("./src/commands/thiepcuoi");
 const { handleRandomCommand } = require("./src/commands/random");
 const { handleFindCommand } = require("./src/commands/find");
@@ -246,12 +246,14 @@ async function startBot() {
             askCommand: `${prefix}ask`.toLowerCase(),
             nghiepCommand: `${prefix}nghiep`.toLowerCase(),
             timCommand: `${prefix}tim`.toLowerCase(),
-            restrictedUidToggleCommand: `${prefix}camlenhbe`.toLowerCase(),
             thiepCuoiCommand: `${prefix}thiepcuoi`.toLowerCase(),
             randomCommand: `${prefix}random`.toLowerCase(),
             findCommand: `${prefix}find`.toLowerCase(),
+            aliasCommand: `${prefix}alias`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
+            handleAlias: (api, message, threadId, argsText, userId, isSuperAdminUser) =>
+                handleAliasCommand(api, message, threadId, argsText, userId, isSuperAdminUser),
             handleHello: (api, message, threadId, argsText) =>
                 handleHelloCommand(api, message, threadId, GroupSetting, argsText, prefix),
             handleThongTin: handleThongTinCommand,
@@ -376,15 +378,6 @@ async function startBot() {
                 handleNghiepCommand(api, message, threadId, prefix),
             handleTim: (api, message, threadId) =>
                 handleTimCommand(api, message, threadId, prefix),
-            handleRestrictedUidToggle: (api, message, threadId, argsText) =>
-                handleRestrictedUidToggleCommand(
-                    api,
-                    message,
-                    threadId,
-                    GroupSetting,
-                    argsText,
-                    prefix
-                ),
             handleThiepCuoi: (api, message, threadId) =>
                 handleThiepCuoiCommand(api, message, threadId, prefix),
             handleRandom: (api, message, threadId) =>
