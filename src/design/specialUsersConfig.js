@@ -59,7 +59,7 @@ const SPECIAL_USERS = {
         },
     },
 
-    "2370937689986813380": {
+    "4214802428438009823": {
         themes: {
             userCard: {
                 background: {
