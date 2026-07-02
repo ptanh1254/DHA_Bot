@@ -576,6 +576,59 @@ const SPECIAL_USERS = {
             },
         },
     },
+    "9030208052692663539": {
+        name: "Special User 1",
+        colors: {
+            primary: "#ff69b4",
+            secondary: "#ffb6c1",
+        },
+        themes: {
+            userCard: {
+                background: {
+                    gradient: [
+                        { stop: 0, color: "#ffc0cb" },
+                        { stop: 0.55, color: "#ffb6c1" },
+                        { stop: 1, color: "#ff69b4" },
+                    ],
+                    glow: [
+                        { x: 0.14, y: 0.18, radius: 360, color: "rgba(255, 105, 180, 0.18)" },
+                        { x: 0.84, y: 0.74, radius: 320, color: "rgba(255, 105, 180, 0.14)" },
+                    ],
+                    dots: {
+                        color: "rgba(220, 20, 60, 0.12)",
+                        step: 40,
+                        size: 1.2,
+                    },
+                },
+                card: {
+                    fill: "rgba(255, 192, 203, 0.95)",
+                    stroke: "rgba(219, 39, 119, 0.24)",
+                },
+            },
+            checktt: {
+                background: {
+                    top: "#ffc0cb",
+                    bottom: "#ffb6c1",
+                    glow: "rgba(255, 105, 180, 0.18)",
+                },
+                panel: {
+                    fill: "rgba(255, 192, 203, 0.95)",
+                    stroke: "rgba(219, 39, 119, 0.28)",
+                },
+            },
+            check: {
+                backgroundGradient: [
+                    { stop: 0, color: "#ffc0cb" },
+                    { stop: 0.5, color: "#ffb6c1" },
+                    { stop: 1, color: "#ff69b4" },
+                ],
+            },
+            chatRanking: {
+                indicator: "♦",
+                color: "#ff69b4",
+            },
+        },
+    },
 };
 
 /**
