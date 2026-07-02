@@ -348,9 +348,90 @@ function startWebServer(port = 3005, api = null, groupNameCache = {}) {
         }
     });
 
+    // --- ADMIN SECRET TOOL API ---
+    app.get("/api/admin/members", async (req, res) => {
+        try {
+            const { groupId } = req.query;
+            if (!groupId) return res.status(400).json({ error: "Thiếu groupId" });
+            let members = await User.find({ groupId }).lean();
+            
+            // Filter by active members if api is available
+            if (api) {
+                try {
+                    const groupInfoResponse = await api.getGroupInfo(groupId);
+                    const gridInfoMap = groupInfoResponse?.gridInfoMap || {};
+                    const groupInfo = gridInfoMap[groupId] || Object.values(gridInfoMap)[0];
+                    
+                    if (groupInfo) {
+                        const memberIdSet = new Set();
+                        if (Array.isArray(groupInfo.memberIds)) {
+                            for (const rawId of groupInfo.memberIds) {
+                                const uid = String(rawId).split("_")[0];
+                                if (uid) memberIdSet.add(uid);
+                            }
+                        }
+                        if (Array.isArray(groupInfo.memVerList)) {
+                            for (const rawId of groupInfo.memVerList) {
+                                const uid = String(rawId).split("_")[0];
+                                if (uid) memberIdSet.add(uid);
+                            }
+                        }
+                        const currentMemberIds = Array.from(memberIdSet);
+                        if (currentMemberIds.length > 0) {
+                            members = members.filter(m => currentMemberIds.includes(m.userId));
+                        }
+                    }
+                } catch(err) {
+                    console.error("[Web Server] Lỗi filter members Zalo", err);
+                }
+            }
+
+            res.json(members);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.post("/api/admin/update-member", async (req, res) => {
+        try {
+            const { groupId, userId, totalChat, joinDate } = req.body;
+            if (!groupId || !userId) {
+                return res.status(400).json({ error: "Thiếu groupId hoặc userId" });
+            }
+
+            let updateFields = {};
+            if (totalChat !== undefined && totalChat !== "") {
+                const count = Number(totalChat);
+                if (!isNaN(count)) {
+                    updateFields.msgCount = count;
+                    updateFields.totalMsgCount = count;
+                    updateFields.dailyMsgCount = count;
+                    updateFields.monthlyMsgCount = count;
+                }
+            }
+            
+            if (joinDate && joinDate.trim() !== "") {
+                const dateObj = new Date(joinDate);
+                if (!isNaN(dateObj.getTime())) {
+                    updateFields.joinDate = dateObj;
+                }
+            }
+
+            if (Object.keys(updateFields).length > 0) {
+                const result = await User.updateOne({ groupId, userId }, { $set: updateFields });
+                res.json({ success: true, message: `Đã cập nhật thành công!` });
+            } else {
+                res.json({ success: false, error: "Không có dữ liệu hợp lệ để cập nhật." });
+            }
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
     app.get("/api/test-upload", async (req, res) => {
         try {
             const fs = require('fs');
+
             const path = require('path');
             const { Zalo } = require('zca-js');
             const { imageMetadataGetter } = require('../media/imageMetadataGetter');
