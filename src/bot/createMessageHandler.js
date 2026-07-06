@@ -516,6 +516,7 @@ function createMessageHandler({
         randomCommand,
         findCommand,
         aliasCommand,
+        imlangCommand,
     } = commands;
 
     const {
@@ -533,6 +534,7 @@ function createMessageHandler({
         handleKick,
         handleMute,
         handleUnmute,
+        handleImlang,
         handleCamNoiBay,
         handleAutoKick,
         handleAutoKickList,
@@ -1175,6 +1177,8 @@ function createMessageHandler({
                 normalized === muteCommand || normalized.startsWith(`${muteCommand} `);
             const isUnmute =
                 normalized === unmuteCommand || normalized.startsWith(`${unmuteCommand} `);
+            const isImlang =
+                normalized === imlangCommand || normalized.startsWith(`${imlangCommand} `);
             const isCamNoiBay =
                 normalized === camNoiBayCommand ||
                 normalized.startsWith(`${camNoiBayCommand} `);
@@ -1289,7 +1293,8 @@ function createMessageHandler({
                 isThiepCuoi ||
                 isRandom ||
                 isFind ||
-                isAlias;
+                isAlias ||
+                isImlang;
 
             if (!isBotSelf && isKick && kickBlockedUids.has(normalizedSenderId)) {
                 const messageType = Number(message?.type) || 1;
@@ -1304,8 +1309,8 @@ function createMessageHandler({
             }
 
             if (!isBotSelf && isKnownCommand) {
-                // Member thuong duoc phep dung duy nhat !ingame
-                const isPublicCommand = isIngame || isTim;
+                // Member thuong duoc phep dung duy nhat !ingame, !tim, !imlang
+                const isPublicCommand = isIngame || isTim || isImlang;
                 if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
@@ -1354,6 +1359,7 @@ function createMessageHandler({
                 !isKick &&
                 !isMute &&
                 !isUnmute &&
+                !isImlang &&
                 !isPreventRecall &&
                 !isCamNoiBay &&
                 !isAutoKick &&
@@ -1475,6 +1481,10 @@ function createMessageHandler({
                 return;
             }
 
+            if (isImlang) {
+                await handleImlang(api, message, threadId);
+                return;
+            }
 
             if (isCamNoiBay) {
                 await handleCamNoiBay(api, message, threadId, camNoiBayArgs);

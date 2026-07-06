@@ -629,6 +629,97 @@ const SPECIAL_USERS = {
             },
         },
     },
+    "2721266574503736929": {
+        themes: {
+            userCard: {
+                background: {
+                    gradient: [
+                        { stop: 0, color: "#2B1B22" },
+                        { stop: 0.5, color: "#FFB6C1" },
+                        { stop: 1, color: "#FF1493" },
+                    ],
+                    glow: [
+                        { x: 0.2, y: 0.2, radius: 450, color: "rgba(255, 182, 193, 0.3)" },
+                        { x: 0.8, y: 0.8, radius: 450, color: "rgba(255, 20, 147, 0.3)" },
+                    ],
+                    dots: {
+                        color: "rgba(255, 255, 255, 0.15)",
+                        step: 35,
+                        size: 1.5,
+                    },
+                },
+                card: {
+                    fill: "rgba(40, 20, 30, 0.85)",
+                    stroke: "rgba(255, 182, 193, 0.6)",
+                    strokeGradient: {
+                        from: { x: 0, y: 0 },
+                        to: { x: 1, y: 0 },
+                        colors: ["#FFB6C1", "#FF1493"],
+                    },
+                    lineWidth: 2,
+                    shadow: "rgba(255, 182, 193, 0.4)",
+                    shadowBlur: 30,
+                    shadowOffsetY: 10,
+                },
+                title: {
+                    titleColor: "#ffffff",
+                    subColor: "rgba(255, 230, 240, 0.9)",
+                },
+                name: {
+                    color: "#ffffff",
+                },
+                userId: {
+                    color: "rgba(255, 230, 240, 0.88)",
+                },
+                rows: {
+                    fill: "rgba(255, 255, 255, 0.1)",
+                    stroke: "rgba(255, 182, 193, 0.3)",
+                    labelColor: "rgba(255, 230, 240, 0.9)",
+                    valueColor: "#ffffff",
+                },
+                footer: {
+                    color: "rgba(255, 230, 240, 0.7)",
+                },
+                rainbow: true,
+                colors: ["#FFB6C1", "#FF1493", "#FF69B4", "#FF1493", "#FFB6C1"],
+            },
+            checktt: {
+                background: {
+                    top: "#FFB6C1",
+                    bottom: "#FF1493",
+                    glow: "rgba(255, 182, 193, 0.3)",
+                },
+                panel: {
+                    fill: "rgba(40, 20, 30, 0.9)",
+                    stroke: "rgba(255, 182, 193, 0.8)",
+                },
+                title: "#ffffff",
+                displayName: "#ffffff",
+                uid: "rgba(255, 230, 240, 0.9)",
+                rowLabel: "rgba(255, 230, 240, 0.9)",
+                rowValue: "#ffffff",
+                rowFill: "rgba(255, 255, 255, 0.1)",
+                rowStroke: "rgba(255, 182, 193, 0.4)",
+                noteFill: "rgba(255, 255, 255, 0.08)",
+                noteStroke: "rgba(255, 182, 193, 0.5)",
+                rainbow: true,
+                colors: ["#FFB6C1", "#FF1493", "#FF69B4", "#FF1493", "#FFB6C1"],
+            },
+            check: {
+                backgroundGradient: [
+                    { stop: 0, color: "#FFB6C1" },
+                    { stop: 1, color: "#FF1493" },
+                ],
+                rainbow: true,
+                colors: ["#FFB6C1", "#FF1493", "#FF69B4", "#FF1493", "#FFB6C1"],
+            },
+            chatRanking: {
+                indicator: "🌸",
+                rainbow: true,
+                colors: ["#FFB6C1", "#FF1493", "#FF69B4", "#FF1493", "#FFB6C1"],
+            },
+        },
+    },
 };
 
 /**

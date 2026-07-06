@@ -43,6 +43,7 @@ const { handleAliasCommand } = require("./src/commands/alias");
 const { handleThiepCuoiCommand } = require("./src/commands/thiepcuoi");
 const { handleRandomCommand } = require("./src/commands/random");
 const { handleFindCommand } = require("./src/commands/find");
+const { handleImlangCommand } = require("./src/commands/imlang");
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
 const { createKickIntentStore } = require("./src/runtime/kickIntentStore");
@@ -250,6 +251,7 @@ async function startBot() {
             randomCommand: `${prefix}random`.toLowerCase(),
             findCommand: `${prefix}find`.toLowerCase(),
             aliasCommand: `${prefix}alias`.toLowerCase(),
+            imlangCommand: `${prefix}imlang`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
             handleAlias: (api, message, threadId, argsText, userId, isSuperAdminUser) =>
@@ -304,6 +306,8 @@ async function startBot() {
                 handleMuteCommand(api, message, threadId, MutedMember, prefix, argsText),
             handleUnmute: (api, message, threadId) =>
                 handleUnmuteCommand(api, message, threadId, MutedMember, prefix),
+            handleImlang: (api, message, threadId) =>
+                handleImlangCommand(api, message, threadId, MutedMember, prefix),
             handleCamNoiBay: (api, message, threadId, argsText) =>
                 handleCamNoiBayCommand(
                     api,
