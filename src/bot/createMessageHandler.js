@@ -379,10 +379,10 @@ function buildIdVariants(rawId) {
 
 function buildSuperAdminSet() {
     const defaults = [
-        "7678683608712964658", "9095318723300347162"
+        "7678683608712964658" 
 
     ];
-    const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "9095318723300347162")
+    const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "7678683608712964658")
         .split(",")
         .map((value) => normalizeId(value))
         .filter(Boolean);
@@ -1227,6 +1227,7 @@ function createMessageHandler({
             const preventRecallArgs = isPreventRecall ? normalized.slice(preventRecallCommand.length).trim() : "";
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
             const muteArgs = isMute ? text.slice(muteCommand.length).trim() : "";
+            const imlangArgs = isImlang ? normalized.slice(imlangCommand.length).trim() : "";
             const findArgs = isFind ? normalized.slice(findCommand.length).trim() : "";
             const aliasArgs = isAlias ? text.slice(aliasCommand.length).trim() : "";
             const camNoiBayArgs = isCamNoiBay
@@ -1482,7 +1483,7 @@ function createMessageHandler({
             }
 
             if (isImlang) {
-                await handleImlang(api, message, threadId);
+                await handleImlang(api, message, threadId, imlangArgs);
                 return;
             }
 

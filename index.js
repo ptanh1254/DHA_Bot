@@ -306,8 +306,8 @@ async function startBot() {
                 handleMuteCommand(api, message, threadId, MutedMember, prefix, argsText),
             handleUnmute: (api, message, threadId) =>
                 handleUnmuteCommand(api, message, threadId, MutedMember, prefix),
-            handleImlang: (api, message, threadId) =>
-                handleImlangCommand(api, message, threadId, MutedMember, prefix),
+            handleImlang: (api, message, threadId, argsText) =>
+                handleImlangCommand(api, message, threadId, MutedMember, prefix, argsText),
             handleCamNoiBay: (api, message, threadId, argsText) =>
                 handleCamNoiBayCommand(
                     api,
