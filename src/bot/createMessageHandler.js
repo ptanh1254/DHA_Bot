@@ -553,6 +553,7 @@ function createMessageHandler({
         handleNghiep,
         handleThiepCuoi,
         handleRandom,
+        handleFind,
         handleAlias,
     } = commands;
 
@@ -1310,8 +1311,8 @@ function createMessageHandler({
             }
 
             if (!isBotSelf && isKnownCommand) {
-                // Member thuong duoc phep dung duy nhat !ingame, !tim, !imlang
-                const isPublicCommand = isIngame || isTim || isImlang;
+                // Member thuong duoc phep dung duy nhat !ingame, !tim, !imlang, !find
+                const isPublicCommand = isIngame || isTim || isImlang || isFind;
                 if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
