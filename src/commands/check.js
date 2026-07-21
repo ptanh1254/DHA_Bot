@@ -234,27 +234,16 @@ function randomPercent(senderUserId, targetUserId) {
 
 async function handleCheckCommand(api, message, threadId, prefix = "!") {
     const messageType = getMessageType(message);
-    const targetUserId = getMentionedUserId(message);
-    const senderUserId = String(message?.data?.uidFrom || "");
+    const mentionedUserId = getMentionedUserId(message);
+    const senderUserId = String(message?.data?.uidFrom || "").replace(/_\d+$/, "").trim();
+    // Nếu không tag ai → check chính mình
+    const targetUserId = mentionedUserId || senderUserId;
     const isBossSender = senderUserId && isProtectedBossUid(senderUserId);
     const isBossTarget = targetUserId && isProtectedBossUid(targetUserId);
 
     if (!targetUserId) {
-        if (isBossSender) {
-            await api.sendMessage(
-                {
-                    msg: "mày đòi check ai hả",
-                },
-                threadId,
-                messageType
-            );
-            return;
-        }
-
         await api.sendMessage(
-            {
-                msg: `Bạn hãy tag 1 người dùng. Ví dụ: ${prefix}check @TenNguoiDung`,
-            },
+            { msg: `Không xác định được người dùng. Vui lòng thử lại!` },
             threadId,
             messageType
         );

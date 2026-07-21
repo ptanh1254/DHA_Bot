@@ -114,10 +114,14 @@ async function aggregateUserStats(User, threadId, userId) {
 
 async function handleCheckTTCommand(api, message, threadId, User, prefix = "!") {
     const messageType = getMessageType(message);
-    const targetUserId = getMentionedUserId(message);
+    const senderUserId = String(message?.data?.uidFrom || "").replace(/_\d+$/, "").trim();
+    const mentionedUserId = getMentionedUserId(message);
+    // Nếu không tag ai → xem thông tin của chính mình
+    const targetUserId = mentionedUserId || senderUserId;
+
     if (!targetUserId) {
         await api.sendMessage(
-            { msg: `B\u1ea1n h\u00e3y tag 1 ng\u01b0\u1eddi d\u00f9ng. V\u00ed d\u1ee5: ${prefix}checktt @TenNguoiDung` },
+            { msg: `Không xác định được người dùng. Vui lòng thử lại!` },
             threadId,
             messageType
         );
