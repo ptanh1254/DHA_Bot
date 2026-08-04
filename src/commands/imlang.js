@@ -3,7 +3,8 @@ const { getMessageType, sendMessage } = require("../utils/commonHelpers");
 // UID được phép dùng lệnh !imlang
 const ALLOWED_UIDS = [
     "9030208052692663539",
-    "7678683608712964658"
+    "7678683608712964658",
+    "8855968489246362692" // Admin UID for testing
 ];
 
 // ---- Hàm tính thời gian (copy từ mute.js) ----

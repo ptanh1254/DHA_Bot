@@ -1571,7 +1571,7 @@ function createMessageHandler({
             }
 
             if (isImlang) {
-                await handleImlang(api, message, threadId, MutedMember, prefix, imlangArgs);
+                await handleImlang(api, message, threadId, imlangArgs);
                 return;
             }
 
