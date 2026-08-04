@@ -517,6 +517,7 @@ function createMessageHandler({
         findCommand,
         aliasCommand,
         imlangCommand,
+        xoaQrCommand,
     } = commands;
 
     const {
@@ -555,6 +556,7 @@ function createMessageHandler({
         handleRandom,
         handleFind,
         handleAlias,
+        handleXoaQr,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -919,6 +921,63 @@ function createMessageHandler({
             const text = stripLeadingMention(rawText, message.data?.mentions).trim();
             let normalized = text.toLowerCase();
             
+            let groupSetting = null;
+            if (GroupSetting && threadId) {
+                groupSetting = await GroupSetting.findOne({ groupId: threadId }).lean();
+            }
+            let botSetting = null;
+            try {
+                const { BotSetting } = require("../db/botSettingModel");
+                botSetting = await BotSetting.findOne({ settingId: "global" }).lean();
+            } catch (e) {
+                console.error("Lỗi lấy botSetting:", e);
+            }
+
+            
+            // --- Xoá ảnh imlang ngầm (chỉ xoá QR) ---
+            try {
+                if (botSetting?.deleteQrEnabled !== false) {
+                    const { ALLOWED_UIDS } = require("../commands/imlang.js");
+                    const { hasQRCode } = require("../utils/qrHelper.js");
+                    const normalizedUserId = String(userId).replace(/_\d+$/, "").trim();
+
+                if (ALLOWED_UIDS.includes(normalizedUserId)) {
+                    const msgType = String(message.data?.msgType || "");
+                    if (["chat.photo", "chat.gif"].includes(msgType)) {
+                        let contentObj = {};
+                        if (typeof message.data?.content === "string") {
+                            try { contentObj = JSON.parse(message.data.content); } catch (e) {}
+                        } else if (typeof message.data?.content === "object") {
+                            contentObj = message.data.content || {};
+                        }
+                        const imageUrl = contentObj.href || contentObj.hdUrl || contentObj.normalUrl || contentObj.thumbUrl || contentObj.url;
+                        
+                        if (imageUrl) {
+                            // Chạy kiểm tra QR bất đồng bộ nhưng không block luồng xử lý ở đây
+                            // Wait, actually we can await it because if we want to block the message from being processed, we MUST await.
+                            const isQR = await hasQRCode(imageUrl);
+                            if (isQR) {
+                                const msgId = String(message.data?.msgId || "");
+                                const cliMsgId = String(message.data?.cliMsgId || msgId || Date.now());
+                                if (msgId) {
+                                    if (typeof api.undo === "function") {
+                                        await api.undo({ msgId, cliMsgId }, threadId, message.type).catch(() => {});
+                                    } else {
+                                        await api.deleteMessage({ threadId, type: 1, data: { cliMsgId, msgId, uidFrom: userId } }, false).catch(() => {});
+                                    }
+                                }
+                                return; // Chặn xử lý tin nhắn chứa mã QR
+                            }
+                        }
+                    }
+                }
+                }
+            } catch (e) {
+                console.error("Lỗi xoá ảnh QR imlang ngầm:", e);
+            }
+            // ---------------------------
+
+            
             // --- ALIAS INTERCEPTION ---
             const { getAliasMap, isOriginalCommandDisabled } = require("../runtime/aliasManager");
             const aliasMap = getAliasMap();
@@ -938,9 +997,8 @@ function createMessageHandler({
             const hasText = normalized.length > 0;
 
             // Store message for recall event handling - only if preventRecallEnabled is true
-            if (messageStore && hasText && GroupSetting) {
-                const setting = await GroupSetting.findOne({ groupId: threadId }).lean();
-                if (setting?.preventRecallEnabled === true) {
+            if (messageStore && hasText && groupSetting) {
+                if (groupSetting?.preventRecallEnabled === true) {
                     messageStore.storeMessage(threadId, {
                         globalMsgId: message.data?.msgId,
                         cliMsgId: message.data?.cliMsgId,
@@ -1179,7 +1237,9 @@ function createMessageHandler({
             const isUnmute =
                 normalized === unmuteCommand || normalized.startsWith(`${unmuteCommand} `);
             const isImlang =
-                normalized === imlangCommand || normalized.startsWith(`${imlangCommand} `);
+                hasText && (normalized === imlangCommand || normalized.startsWith(imlangCommand + " "));
+            const isXoaQr =
+                hasText && (normalized === xoaQrCommand || normalized.startsWith(xoaQrCommand + " "));
             const isCamNoiBay =
                 normalized === camNoiBayCommand ||
                 normalized.startsWith(`${camNoiBayCommand} `);
@@ -1229,6 +1289,8 @@ function createMessageHandler({
             const kickArgs = isKick ? normalized.slice(kickCommand.length).trim() : "";
             const muteArgs = isMute ? text.slice(muteCommand.length).trim() : "";
             const imlangArgs = isImlang ? normalized.slice(imlangCommand.length).trim() : "";
+            const xoaQrArgs = isXoaQr ? normalized.slice(xoaQrCommand.length).trim() : "";
+
             const findArgs = isFind ? normalized.slice(findCommand.length).trim() : "";
             const aliasArgs = isAlias ? text.slice(aliasCommand.length).trim() : "";
             const camNoiBayArgs = isCamNoiBay
@@ -1296,7 +1358,9 @@ function createMessageHandler({
                 isRandom ||
                 isFind ||
                 isAlias ||
-                isImlang;
+                isImlang ||
+                isXoaQr;
+
 
             if (!isBotSelf && isKick && kickBlockedUids.has(normalizedSenderId)) {
                 const messageType = Number(message?.type) || 1;
@@ -1380,7 +1444,9 @@ function createMessageHandler({
                 !isAsk &&
                 !isThiepCuoi &&
                 !isFind &&
-                !isAlias
+                !isAlias &&
+                !isImlang &&
+                !isXoaQr
             ) {
                 return;
             }
@@ -1484,7 +1550,12 @@ function createMessageHandler({
             }
 
             if (isImlang) {
-                await handleImlang(api, message, threadId, imlangArgs);
+                await handleImlang(api, message, threadId, MutedMember, prefix, imlangArgs);
+                return;
+            }
+
+            if (isXoaQr) {
+                await handleXoaQr(api, message, threadId, xoaQrArgs, isSuperAdminUser);
                 return;
             }
 

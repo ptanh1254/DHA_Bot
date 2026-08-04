@@ -9,6 +9,7 @@ const groupSettingSchema = new mongoose.Schema(
         bannedWordMuteEnabled: { type: Boolean, default: true },
         preventRecallEnabled: { type: Boolean, default: false },
         restrictedUidCommandEnabled: { type: Boolean, default: true },
+        deleteQrEnabled: { type: Boolean, default: true },
     },
     {
         timestamps: { createdAt: false, updatedAt: true },
