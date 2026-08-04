@@ -943,7 +943,9 @@ function createMessageHandler({
 
                 if (ALLOWED_UIDS.includes(normalizedUserId)) {
                     const msgType = String(message.data?.msgType || "");
-                    if (["chat.photo", "chat.gif"].includes(msgType)) {
+                    
+                    // Kiểm tra ảnh/sticker chứa QR
+                    if (["chat.photo", "chat.gif", "chat.sticker"].includes(msgType)) {
                         let contentObj = {};
                         if (typeof message.data?.content === "string") {
                             try { contentObj = JSON.parse(message.data.content); } catch (e) {}
@@ -970,10 +972,29 @@ function createMessageHandler({
                             }
                         }
                     }
+                    
+                    // Kiểm tra tin nhắn văn bản chứa STK hoặc SĐT
+                    if (normalized.length > 0) {
+                        const hasBankKeyword = /(stk|số tài khoản|so tai khoan|bank|ngân hàng|ngan hang|vcb|mbbank|bidv|techcom|agri|vietin|sacom|vpbank|ck|chuyển khoản)/i.test(normalized);
+                        const hasLongDigits = /\b\d{9,16}\b/.test(normalized);
+                        
+                        if (hasBankKeyword || hasLongDigits) {
+                            const msgId = String(message.data?.msgId || "");
+                            const cliMsgId = String(message.data?.cliMsgId || msgId || Date.now());
+                            if (msgId) {
+                                if (typeof api.undo === "function") {
+                                    await api.undo({ msgId, cliMsgId }, threadId, message.type).catch(() => {});
+                                } else {
+                                    await api.deleteMessage({ threadId, type: 1, data: { cliMsgId, msgId, uidFrom: userId } }, false).catch(() => {});
+                                }
+                            }
+                            return; // Chặn xử lý tin nhắn chứa STK
+                        }
+                    }
                 }
                 }
             } catch (e) {
-                console.error("Lỗi xoá ảnh QR imlang ngầm:", e);
+                console.error("Lỗi xoá ảnh QR/STK imlang ngầm:", e);
             }
             // ---------------------------
 
