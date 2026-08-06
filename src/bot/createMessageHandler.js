@@ -5,6 +5,7 @@ const { UserWeeklyMessage } = require("../db/userWeeklyMessageModel");
 const { AskUsage } = require("../db/askUsageModel");
 const { BannedWordStrike } = require("../db/bannedWordStrikeModel");
 const { getBotResponse } = require("../runtime/botResponseManager");
+const { getAfkData, removeAfkData, addAfkMention, formatDuration } = require("../commands/afk");
 
 async function tryDeleteMutedMessage(api, message, threadId, userId) {
     const msgId = String(message?.data?.msgId || "").trim();
@@ -1017,6 +1018,92 @@ function createMessageHandler({
             
             const hasText = normalized.length > 0;
 
+            // --- AFK STATUS HANDLING ---
+            // 1. Check if the sender was AFK
+            const senderAfkData = getAfkData(threadId, userId);
+            if (senderAfkData) {
+                const { reason, startTime, mentions } = senderAfkData;
+                removeAfkData(threadId, userId);
+                
+                const timeStr = formatDuration(startTime);
+                const senderName = typeof message.data?.dName === "string" ? message.data.dName.trim() : `UID ${userId}`;
+                const normUserId = String(userId).replace(/_\d+$/, "").trim();
+                
+                let welcomeMsg = `👋 Hế lô @${senderName} đã ngoi lên sau khoảng thời gian ${timeStr} treo máy (${reason}). Chào mừng dân tổ DHA trở lại!\n`;
+                let msgMentions = [{ uid: normUserId, pos: welcomeMsg.indexOf(`@${senderName}`), len: senderName.length + 1 }];
+                
+                if (mentions.length > 0) {
+                    welcomeMsg += `\n🔔 Nãy giờ có ${mentions.length} tin nhắn réo tên bạn:\n`;
+                    for (let i = 0; i < mentions.length; i++) {
+                        const m = mentions[i];
+                        const normSenderId = String(m.senderId).replace(/_\d+$/, "").trim();
+                        const mStr = ` ➣ ${m.content} (${m.senderName})`;
+                        welcomeMsg += mStr + `\n`;
+                    }
+                }
+                
+                api.sendMessage({ msg: welcomeMsg.trim(), mentions: msgMentions }, threadId, message.type).catch(() => {});
+            }
+
+            // 2. Check if this message mentions/quotes an AFK user
+            if (hasText || message?.data?.quote) {
+                const incomingMentions = Array.isArray(message.data?.mentions) ? message.data.mentions : [];
+                let quotedUserId = null;
+                if (message?.data?.quote?.ownerId) {
+                    quotedUserId = String(message.data.quote.ownerId).replace(/_\d+$/, "").trim();
+                }
+
+                const afkUsersMentioned = new Set();
+                for (const m of incomingMentions) {
+                    if (m.uid) {
+                        const normalizedUid = String(m.uid).replace(/_\d+$/, "").trim();
+                        if (getAfkData(threadId, normalizedUid)) {
+                            afkUsersMentioned.add(normalizedUid);
+                        }
+                    }
+                }
+                if (quotedUserId && getAfkData(threadId, quotedUserId)) {
+                    afkUsersMentioned.add(quotedUserId);
+                }
+
+                if (afkUsersMentioned.size > 0) {
+                    const currentSenderName = typeof message.data?.dName === "string" ? message.data.dName.trim() : `UID ${userId}`;
+                    for (const afkUid of afkUsersMentioned) {
+                        const data = getAfkData(threadId, afkUid);
+                        if (data) {
+                            let strippedText = rawText || "Gửi ảnh/sticker/khác";
+                            if (rawText) {
+                                const relevantMentions = incomingMentions
+                                    .filter(m => m.uid && String(m.uid).replace(/_\d+$/, "").trim() === afkUid)
+                                    .sort((a, b) => {
+                                        const posA = Number(a.pos !== undefined ? a.pos : a.offset);
+                                        const posB = Number(b.pos !== undefined ? b.pos : b.offset);
+                                        return posB - posA;
+                                    });
+                                for (const m of relevantMentions) {
+                                    const pos = Number(m.pos !== undefined ? m.pos : m.offset);
+                                    const len = Number(m.len !== undefined ? m.len : m.length);
+                                    if (!Number.isNaN(pos) && !Number.isNaN(len) && pos >= 0 && len > 0) {
+                                        strippedText = strippedText.slice(0, pos) + strippedText.slice(pos + len);
+                                    }
+                                }
+                                strippedText = strippedText.trim();
+                            }
+                            addAfkMention(threadId, afkUid, userId, currentSenderName, strippedText || "Đã tag bạn");
+                            
+                            // Bot phản hồi báo đang bận và tag người vừa gọi
+                            const mentionStr = `@${currentSenderName}`;
+                            const normUserId = String(userId).replace(/_\d+$/, "").trim();
+                            const autoReplyMsg = `🤫 Ssst ${mentionStr}, người ta đang bận: ${data.reason}`;
+                            api.sendMessage({ 
+                                msg: autoReplyMsg,
+                                mentions: [{ uid: normUserId, pos: autoReplyMsg.indexOf(mentionStr), len: mentionStr.length }] 
+                            }, threadId, message.type).catch(() => {});
+                        }
+                    }
+                }
+            }
+            // ---------------------------
             // Store message for recall event handling - only if preventRecallEnabled is true
             if (messageStore && hasText && groupSetting) {
                 if (groupSetting?.preventRecallEnabled === true) {
@@ -1396,8 +1483,8 @@ function createMessageHandler({
             }
 
             if (!isBotSelf && isKnownCommand) {
-                // Member thuong duoc phep dung duy nhat !ingame, !tim, !imlang, !find
-                const isPublicCommand = isIngame || isTim || isImlang || isFind;
+                // Member thuong duoc phep dung duy nhat !ingame, !tim, !imlang, !find, !afk
+                const isPublicCommand = isIngame || isTim || isImlang || isFind || isAFK;
                 if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
