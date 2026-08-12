@@ -935,64 +935,120 @@ function createMessageHandler({
             }
 
             
-            // --- Xoá ảnh imlang ngầm (chỉ xoá QR) ---
+            // --- Xoá ảnh imlang ngầm (chỉ xoá QR / Sticker chứa QR / STK) ---
             try {
                 if (botSetting?.deleteQrEnabled !== false) {
                     const { ALLOWED_UIDS } = require("../commands/imlang.js");
                     const { hasQRCode } = require("../utils/qrHelper.js");
                     const normalizedUserId = String(userId).replace(/_\d+$/, "").trim();
 
-                if (ALLOWED_UIDS.includes(normalizedUserId)) {
-                    const msgType = String(message.data?.msgType || "");
-                    
-                    // Kiểm tra ảnh/sticker chứa QR
-                    if (["chat.photo", "chat.gif", "chat.sticker"].includes(msgType)) {
+                    if (ALLOWED_UIDS.includes(normalizedUserId)) {
+                        const msgType = String(message.data?.msgType || "");
+                        
                         let contentObj = {};
                         if (typeof message.data?.content === "string") {
                             try { contentObj = JSON.parse(message.data.content); } catch (e) {}
-                        } else if (typeof message.data?.content === "object") {
-                            contentObj = message.data.content || {};
+                        } else if (typeof message.data?.content === "object" && message.data?.content !== null) {
+                            contentObj = message.data.content;
                         }
-                        const imageUrl = contentObj.href || contentObj.hdUrl || contentObj.normalUrl || contentObj.thumbUrl || contentObj.url;
-                        
-                        if (imageUrl) {
-                            // Chạy kiểm tra QR bất đồng bộ nhưng không block luồng xử lý ở đây
-                            // Wait, actually we can await it because if we want to block the message from being processed, we MUST await.
-                            const isQR = await hasQRCode(imageUrl);
-                            if (isQR) {
-                                const msgId = String(message.data?.msgId || "");
-                                const cliMsgId = String(message.data?.cliMsgId || msgId || Date.now());
-                                if (msgId) {
-                                    if (typeof api.undo === "function") {
-                                        await api.undo({ msgId, cliMsgId }, threadId, message.type).catch(() => {});
-                                    } else {
-                                        await api.deleteMessage({ threadId, type: 1, data: { cliMsgId, msgId, uidFrom: userId } }, false).catch(() => {});
-                                    }
+
+                        const candidateUrls = new Set();
+                        const addIfValid = (u) => {
+                            if (typeof u === "string" && (u.startsWith("http://") || u.startsWith("https://"))) {
+                                candidateUrls.add(u);
+                            }
+                        };
+
+                        addIfValid(contentObj.href);
+                        addIfValid(contentObj.hdUrl);
+                        addIfValid(contentObj.normalUrl);
+                        addIfValid(contentObj.thumbUrl);
+                        addIfValid(contentObj.url);
+                        addIfValid(contentObj.fileUrl);
+                        addIfValid(contentObj.oriUrl);
+                        addIfValid(contentObj.spriteUrl);
+                        addIfValid(contentObj.stickerUrl);
+                        addIfValid(contentObj.staticUrl);
+                        addIfValid(contentObj.animationUrl);
+                        addIfValid(contentObj.webUrl);
+                        addIfValid(message.data?.href);
+                        addIfValid(message.data?.url);
+                        addIfValid(message.data?.hdUrl);
+                        addIfValid(message.data?.spriteUrl);
+
+                        const catId = contentObj.catId || message.data?.catId;
+                        const stickerId = contentObj.id || message.data?.id || message.data?.stickerId;
+
+                        if (catId && stickerId) {
+                            addIfValid(`https://zalo-api.zdn.vn/sticker/static/${catId}/${stickerId}/sprite.png`);
+                            addIfValid(`https://stc-laban.zdn.vn/stickers/${catId}/${stickerId}.png`);
+                            addIfValid(`https://stc-laban.zdn.vn/stickers/v2/${catId}/${stickerId}.png`);
+                        }
+
+                        const isSticker = msgType.includes("sticker") || Boolean(catId && stickerId);
+
+                        let isQR = false;
+                        if (isSticker) {
+                            console.log(`[🎭 Sticker Check] UID ${normalizedUserId} gửi sticker -> Chặn và xoá ngay!`);
+                            isQR = true;
+                        } else if (candidateUrls.size > 0) {
+                            console.log(`[📷 QR Check] UID ${normalizedUserId} gửi media (${msgType}) - quét ${candidateUrls.size} URL...`);
+                            for (const imgUrl of candidateUrls) {
+                                if (await hasQRCode(imgUrl)) {
+                                    isQR = true;
+                                    break;
                                 }
-                                return; // Chặn xử lý tin nhắn chứa mã QR
                             }
                         }
-                    }
-                    
-                    // Kiểm tra tin nhắn văn bản chứa STK hoặc SĐT
-                    if (normalized.length > 0) {
-                        const hasBankKeyword = /(stk|số tài khoản|so tai khoan|bank|ngân hàng|ngan hang|vcb|mbbank|bidv|techcom|agri|vietin|sacom|vpbank|ck|chuyển khoản)/i.test(normalized);
-                        const hasLongDigits = /\b\d{9,16}\b/.test(normalized);
-                        
-                        if (hasBankKeyword || hasLongDigits) {
+
+                        // Kiểm tra tin nhắn văn bản chứa STK hoặc SĐT
+                        let isSTK = false;
+                        if (!isQR && normalized.length > 0) {
+                            const hasBankKeyword = /(stk|số tài khoản|so tai khoan|bank|ngân hàng|ngan hang|vcb|mbbank|bidv|techcom|agri|vietin|sacom|vpbank|ck|chuyển khoản)/i.test(normalized);
+                            const hasLongDigits = /\b\d{9,16}\b/.test(normalized);
+                            if (hasBankKeyword || hasLongDigits) {
+                                isSTK = true;
+                            }
+                        }
+
+                        if (isQR || isSTK) {
+                            console.log(`[🚨 Delete & Warn] Xoá tin nhắn QR/STK từ UID ${normalizedUserId} và gửi lời dặn!`);
                             const msgId = String(message.data?.msgId || "");
                             const cliMsgId = String(message.data?.cliMsgId || msgId || Date.now());
                             if (msgId) {
                                 if (typeof api.undo === "function") {
                                     await api.undo({ msgId, cliMsgId }, threadId, message.type).catch(() => {});
-                                } else {
-                                    await api.deleteMessage({ threadId, type: 1, data: { cliMsgId, msgId, uidFrom: userId } }, false).catch(() => {});
                                 }
+                                await api.deleteMessage({ threadId, type: 1, data: { cliMsgId, msgId, uidFrom: userId } }, false).catch(() => {});
                             }
-                            return; // Chặn xử lý tin nhắn chứa STK
+
+                            // Gửi lời dặn không được ăn xin
+                            const rawSenderName = typeof message.data?.dName === "string" ? message.data.dName.trim() : "";
+                            const safeSenderName = rawSenderName || "Người dùng";
+                            const mentionLabel = `@${safeSenderName}`;
+
+                            try {
+                                await api.sendMessage(
+                                    {
+                                        msg: `${mentionLabel} Chòn dặn không được ăn xin`,
+                                        mentions: [
+                                            {
+                                                pos: 0,
+                                                uid: String(userId),
+                                                len: mentionLabel.length,
+                                            },
+                                        ],
+                                    },
+                                    threadId,
+                                    Number(message.type) || 1
+                                );
+                            } catch (e) {
+                                console.error("Lỗi gửi lời dặn ăn xin:", e);
+                            }
+
+                            return; // Chặn xử lý tiếp
                         }
                     }
-                }
                 }
             } catch (e) {
                 console.error("Lỗi xoá ảnh QR/STK imlang ngầm:", e);
