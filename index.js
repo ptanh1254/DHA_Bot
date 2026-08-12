@@ -38,13 +38,21 @@ const { handleAFKCommand } = require("./src/commands/afk");
 const { handleLoveCommand } = require("./src/commands/love");
 const { handleAskCommand } = require("./src/commands/ask");
 const { handleNghiepCommand } = require("./src/commands/nghiep");
-const { handleTimCommand } = require("./src/commands/timso");
+const {
+    handleTimCommand,
+    handleLikeCommand,
+    handleHahaCommand,
+    handleWowCommand,
+    handleKhocCommand,
+    handlePhanNoCommand,
+} = require("./src/commands/timso");
 const { handleAliasCommand } = require("./src/commands/alias");
 const { handleThiepCuoiCommand } = require("./src/commands/thiepcuoi");
 const { handleRandomCommand } = require("./src/commands/random");
 const { handleFindCommand } = require("./src/commands/find");
 const { handleImlangCommand } = require("./src/commands/imlang");
 const { handleXoaQrCommand } = require("./src/commands/xoaqr");
+const { handleXoaTnCommand } = require("./src/commands/xoatn");
 
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
@@ -249,12 +257,18 @@ async function startBot() {
             askCommand: `${prefix}ask`.toLowerCase(),
             nghiepCommand: `${prefix}nghiep`.toLowerCase(),
             timCommand: `${prefix}tim`.toLowerCase(),
+            likeCommand: `${prefix}like`.toLowerCase(),
+            hahaCommand: `${prefix}haha`.toLowerCase(),
+            wowCommand: `${prefix}wow`.toLowerCase(),
+            khocCommand: `${prefix}khoc`.toLowerCase(),
+            phanNoCommand: `${prefix}phanno`.toLowerCase(),
             thiepCuoiCommand: `${prefix}thiepcuoi`.toLowerCase(),
             randomCommand: `${prefix}random`.toLowerCase(),
             findCommand: `${prefix}find`.toLowerCase(),
             aliasCommand: `${prefix}alias`.toLowerCase(),
             imlangCommand: `${prefix}imlang`.toLowerCase(),
             xoaQrCommand: `${prefix}xoaqr`.toLowerCase(),
+            xoaTnCommand: `${prefix}xoatn`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
             handleAlias: (api, message, threadId, argsText, userId, isSuperAdminUser) =>
@@ -387,10 +401,22 @@ async function startBot() {
                 handleNghiepCommand(api, message, threadId, prefix),
             handleTim: (api, message, threadId) =>
                 handleTimCommand(api, message, threadId, prefix),
+            handleLike: (api, message, threadId) =>
+                handleLikeCommand(api, message, threadId, prefix),
+            handleHaha: (api, message, threadId) =>
+                handleHahaCommand(api, message, threadId, prefix),
+            handleWow: (api, message, threadId) =>
+                handleWowCommand(api, message, threadId, prefix),
+            handleKhoc: (api, message, threadId) =>
+                handleKhocCommand(api, message, threadId, prefix),
+            handlePhanNo: (api, message, threadId) =>
+                handlePhanNoCommand(api, message, threadId, prefix),
             handleThiepCuoi: (api, message, threadId) =>
                 handleThiepCuoiCommand(api, message, threadId, prefix),
             handleRandom: (api, message, threadId) =>
                 handleRandomCommand(api, message, threadId, prefix),
+            handleXoaTn: (api, message, threadId) =>
+                handleXoaTnCommand(api, message, threadId, prefix),
         };
 
         console.log("Zalo bot đã đăng nhập thành công");
@@ -408,6 +434,7 @@ async function startBot() {
             commands,
             botUserId,
             messageStore,
+            prefix,
         });
         const groupEventHandler = createGroupEventHandler({
             api,

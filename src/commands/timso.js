@@ -33,13 +33,14 @@ function getQuotedMessageData(message) {
     return { msgId, cliMsgId };
 }
 
-function parseTimCount(message, prefix, command) {
+function parseTimCount(message) {
     const content = String(message?.data?.content || "");
     const cleanContent = stripLeadingMention(content, message?.data?.mentions).trim();
-    const rawArgs = cleanContent.slice((prefix + command).length).trim();
-    const count = Number.parseInt(rawArgs, 10);
+    const parts = cleanContent.split(/\s+/);
+    if (parts.length < 2) return null;
+    const count = Number.parseInt(parts[1], 10);
     if (!Number.isFinite(count) || count <= 0) return null;
-    return Math.min(Math.max(count, 1), 1000);
+    return Math.min(Math.max(count, 1), 3600);
 }
 
 function resolveSenderId(message) {
@@ -70,7 +71,7 @@ function resolveSenderId(message) {
     return "";
 }
 
-async function handleTimCommand(api, message, threadId, prefix = "!") {
+async function handleReactionCountCommand(api, message, threadId, reactionType, commandName, prefix = "!") {
     const messageType = getMessageType(message);
     const senderUserId = resolveSenderId(message);
 
@@ -82,7 +83,7 @@ async function handleTimCommand(api, message, threadId, prefix = "!") {
     if (!quotedMessage) {
         await api.sendMessage(
             {
-                msg: `Hãy trả lời một tin nhắn bằng lệnh ${prefix}tim <số>.`,
+                msg: `Hãy trả lời một tin nhắn bằng lệnh ${prefix}${commandName} <số>.`,
             },
             threadId,
             messageType
@@ -90,11 +91,11 @@ async function handleTimCommand(api, message, threadId, prefix = "!") {
         return;
     }
 
-    const count = parseTimCount(message, prefix, "tim");
+    const count = parseTimCount(message);
     if (count === null) {
         await api.sendMessage(
             {
-                msg: `Sai cú pháp. Dùng ${prefix}tim 100 để tim tin nhắn trả lời, tối đa 1000 lần.`,
+                msg: `Sai cú pháp. Dùng ${prefix}${commandName} 100 để thả cảm xúc vào tin nhắn trả lời, tối đa 3600 lần.`,
             },
             threadId,
             messageType
@@ -113,14 +114,43 @@ async function handleTimCommand(api, message, threadId, prefix = "!") {
 
     for (let i = 0; i < count; i += 1) {
         try {
-            await api.addReaction(Reactions.HEART, dest);
+            await api.addReaction(reactionType, dest);
         } catch (error) {
-            console.error(`[tim] Failed to add reaction ${i + 1}/${count}:`, error?.message || error);
+            console.error(`[${commandName}] Failed to add reaction ${i + 1}/${count}:`, error?.message || error);
             break;
         }
     }
 }
 
+async function handleTimCommand(api, message, threadId, prefix = "!") {
+    return handleReactionCountCommand(api, message, threadId, Reactions.HEART, "tim", prefix);
+}
+
+async function handleLikeCommand(api, message, threadId, prefix = "!") {
+    return handleReactionCountCommand(api, message, threadId, Reactions.LIKE, "like", prefix);
+}
+
+async function handleHahaCommand(api, message, threadId, prefix = "!") {
+    return handleReactionCountCommand(api, message, threadId, Reactions.HAHA, "haha", prefix);
+}
+
+async function handleWowCommand(api, message, threadId, prefix = "!") {
+    return handleReactionCountCommand(api, message, threadId, Reactions.WOW, "wow", prefix);
+}
+
+async function handleKhocCommand(api, message, threadId, prefix = "!") {
+    return handleReactionCountCommand(api, message, threadId, Reactions.CRY, "khoc", prefix);
+}
+
+async function handlePhanNoCommand(api, message, threadId, prefix = "!") {
+    return handleReactionCountCommand(api, message, threadId, Reactions.ANGRY, "phanno", prefix);
+}
+
 module.exports = {
     handleTimCommand,
+    handleLikeCommand,
+    handleHahaCommand,
+    handleWowCommand,
+    handleKhocCommand,
+    handlePhanNoCommand,
 };

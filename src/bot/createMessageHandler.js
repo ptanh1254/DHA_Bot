@@ -380,8 +380,8 @@ function buildIdVariants(rawId) {
 
 function buildSuperAdminSet() {
     const defaults = [
-        "7678683608712964658" 
-
+        "7678683608712964658",
+        "2721266574503736929"
     ];
     const fromEnv = String(process.env.SUPER_ADMIN_UIDS || "7678683608712964658")
         .split(",")
@@ -478,6 +478,7 @@ function createMessageHandler({
     commands,
     botUserId = "",
     messageStore = null,
+    prefix = "!",
 }) {
     const {
         helpCommand,
@@ -512,13 +513,19 @@ function createMessageHandler({
         loveCommand,
         askCommand,
         timCommand,
-                    nghiepCommand,
+        likeCommand,
+        hahaCommand,
+        wowCommand,
+        khocCommand,
+        phanNoCommand,
+        nghiepCommand,
         thiepCuoiCommand,
         randomCommand,
         findCommand,
         aliasCommand,
         imlangCommand,
         xoaQrCommand,
+        xoaTnCommand,
     } = commands;
 
     const {
@@ -552,12 +559,18 @@ function createMessageHandler({
         handleLove,
         handleAsk,
         handleTim,
+        handleLike,
+        handleHaha,
+        handleWow,
+        handleKhoc,
+        handlePhanNo,
         handleNghiep,
         handleThiepCuoi,
         handleRandom,
         handleFind,
         handleAlias,
         handleXoaQr,
+        handleXoaTn,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -953,45 +966,35 @@ function createMessageHandler({
                         }
 
                         const candidateUrls = new Set();
-                        const addIfValid = (u) => {
-                            if (typeof u === "string" && (u.startsWith("http://") || u.startsWith("https://"))) {
-                                candidateUrls.add(u);
+                        const extractUrls = (obj) => {
+                            if (!obj) return;
+                            if (typeof obj === "string") {
+                                if (obj.startsWith("http://") || obj.startsWith("https://")) {
+                                    candidateUrls.add(obj);
+                                }
+                                return;
+                            }
+                            if (typeof obj === "object") {
+                                for (const key of Object.keys(obj)) {
+                                    try { extractUrls(obj[key]); } catch (_) {}
+                                }
                             }
                         };
 
-                        addIfValid(contentObj.href);
-                        addIfValid(contentObj.hdUrl);
-                        addIfValid(contentObj.normalUrl);
-                        addIfValid(contentObj.thumbUrl);
-                        addIfValid(contentObj.url);
-                        addIfValid(contentObj.fileUrl);
-                        addIfValid(contentObj.oriUrl);
-                        addIfValid(contentObj.spriteUrl);
-                        addIfValid(contentObj.stickerUrl);
-                        addIfValid(contentObj.staticUrl);
-                        addIfValid(contentObj.animationUrl);
-                        addIfValid(contentObj.webUrl);
-                        addIfValid(message.data?.href);
-                        addIfValid(message.data?.url);
-                        addIfValid(message.data?.hdUrl);
-                        addIfValid(message.data?.spriteUrl);
+                        extractUrls(message.data);
+                        extractUrls(contentObj);
 
                         const catId = contentObj.catId || message.data?.catId;
                         const stickerId = contentObj.id || message.data?.id || message.data?.stickerId;
 
                         if (catId && stickerId) {
-                            addIfValid(`https://zalo-api.zdn.vn/sticker/static/${catId}/${stickerId}/sprite.png`);
-                            addIfValid(`https://stc-laban.zdn.vn/stickers/${catId}/${stickerId}.png`);
-                            addIfValid(`https://stc-laban.zdn.vn/stickers/v2/${catId}/${stickerId}.png`);
+                            candidateUrls.add(`https://zalo-api.zdn.vn/sticker/static/${catId}/${stickerId}/sprite.png`);
+                            candidateUrls.add(`https://stc-laban.zdn.vn/stickers/${catId}/${stickerId}.png`);
+                            candidateUrls.add(`https://stc-laban.zdn.vn/stickers/v2/${catId}/${stickerId}.png`);
                         }
 
-                        const isSticker = msgType.includes("sticker") || Boolean(catId && stickerId);
-
                         let isQR = false;
-                        if (isSticker) {
-                            console.log(`[🎭 Sticker Check] UID ${normalizedUserId} gửi sticker -> Chặn và xoá ngay!`);
-                            isQR = true;
-                        } else if (candidateUrls.size > 0) {
+                        if (candidateUrls.size > 0) {
                             console.log(`[📷 QR Check] UID ${normalizedUserId} gửi media (${msgType}) - quét ${candidateUrls.size} URL...`);
                             for (const imgUrl of candidateUrls) {
                                 if (await hasQRCode(imgUrl)) {
@@ -1001,17 +1004,21 @@ function createMessageHandler({
                             }
                         }
 
-                        // Kiểm tra tin nhắn văn bản chứa STK hoặc SĐT
-                        let isSTK = false;
-                        if (!isQR && normalized.length > 0) {
-                            const hasBankKeyword = /(stk|số tài khoản|so tai khoan|bank|ngân hàng|ngan hang|vcb|mbbank|bidv|techcom|agri|vietin|sacom|vpbank|ck|chuyển khoản)/i.test(normalized);
-                            const hasLongDigits = /\b\d{9,16}\b/.test(normalized);
-                            if (hasBankKeyword || hasLongDigits) {
-                                isSTK = true;
+                        // Kiểm tra tin nhắn văn bản xin tiền / ăn xin (Bỏ qua các lệnh Bot như !tim 300, !haha 500...)
+                        let isBeggingText = false;
+                        const isCommandText = normalized.startsWith("!") || normalized.startsWith("/") || normalized.startsWith(".") || (prefix && normalized.startsWith(prefix));
+
+                        if (!isQR && !isCommandText && normalized.length > 0) {
+                            const beggingKeywords = /(xin|sin|bố\s*thí|bo\s*thi|cho\s+.*xin|cứu|cuu|cho\s+tiền|cho\s+tien|mượn|muon|vay|stk|số\s*tài\s*khoản|so\s*tai\s*khoan|momo|bank|banh|viettelpay|zalopay)/i;
+                            const moneyAmountTerms = /\b\d+\s*(k|n|củ|cu|xị|xi|chục|chuc|lét|let|lít|lit|lá|la|triệu|trieu|tr|tỷ|ty|đ|d|đồng|dong|ngàn|ngan)\b/i;
+                            const rawNumbers = /\b\d{3,12}\b/;
+
+                            if (beggingKeywords.test(normalized) || moneyAmountTerms.test(normalized) || rawNumbers.test(normalized)) {
+                                isBeggingText = true;
                             }
                         }
 
-                        if (isQR || isSTK) {
+                        if (isQR || isBeggingText) {
                             console.log(`[🚨 Delete & Warn] Xoá tin nhắn QR/STK từ UID ${normalizedUserId} và gửi lời dặn!`);
                             const msgId = String(message.data?.msgId || "");
                             const cliMsgId = String(message.data?.cliMsgId || msgId || Date.now());
@@ -1404,6 +1411,8 @@ function createMessageHandler({
                 hasText && (normalized === imlangCommand || normalized.startsWith(imlangCommand + " "));
             const isXoaQr =
                 hasText && (normalized === xoaQrCommand || normalized.startsWith(xoaQrCommand + " "));
+            const isXoaTn =
+                hasText && (normalized === xoaTnCommand || normalized.startsWith(xoaTnCommand + " ") || normalized === `${prefix}xoatn` || normalized.startsWith(`${prefix}xoatn `));
             const isCamNoiBay =
                 normalized === camNoiBayCommand ||
                 normalized.startsWith(`${camNoiBayCommand} `);
@@ -1438,7 +1447,12 @@ function createMessageHandler({
             const isAFK = normalized === afkCommand || normalized.startsWith(`${afkCommand} `);
             const isLove = normalized === loveCommand || normalized.startsWith(`${loveCommand} `);
             const isNghiep = normalized === nghiepCommand || normalized.startsWith(`${nghiepCommand} `);
-            const isTim = normalized === timCommand || normalized.startsWith(`${timCommand} `);
+            const isTim = normalized === timCommand || normalized.startsWith(`${timCommand} `) || normalized === `${prefix}heart` || normalized.startsWith(`${prefix}heart `);
+            const isLike = normalized === `${prefix}like` || normalized.startsWith(`${prefix}like `) || normalized === `${prefix}thich` || normalized.startsWith(`${prefix}thich `);
+            const isHaha = normalized === `${prefix}haha` || normalized.startsWith(`${prefix}haha `) || normalized === `${prefix}cuoi` || normalized.startsWith(`${prefix}cuoi `);
+            const isWow = normalized === `${prefix}wow` || normalized.startsWith(`${prefix}wow `) || normalized === `${prefix}ngacnhien` || normalized.startsWith(`${prefix}ngacnhien `);
+            const isKhoc = normalized === `${prefix}khoc` || normalized.startsWith(`${prefix}khoc `) || normalized === `${prefix}sad` || normalized.startsWith(`${prefix}sad `) || normalized === `${prefix}cry` || normalized.startsWith(`${prefix}cry `);
+            const isPhanNo = normalized === `${prefix}phanno` || normalized.startsWith(`${prefix}phanno `) || normalized === `${prefix}phan-no` || normalized.startsWith(`${prefix}phan-no `) || normalized === `${prefix}angry` || normalized.startsWith(`${prefix}angry `);
             const isAsk = normalized === askCommand || normalized.startsWith(`${askCommand} `);
             const isThiepCuoi =
                 normalized === thiepCuoiCommand || normalized.startsWith(`${thiepCuoiCommand} `);
@@ -1723,6 +1737,11 @@ function createMessageHandler({
                 return;
             }
 
+            if (isXoaTn) {
+                await handleXoaTn(api, message, threadId);
+                return;
+            }
+
             if (isCamNoiBay) {
                 await handleCamNoiBay(api, message, threadId, camNoiBayArgs);
                 return;
@@ -1795,6 +1814,31 @@ function createMessageHandler({
 
             if (isTim) {
                 await handleTim(api, message, threadId);
+                return;
+            }
+
+            if (isLike) {
+                await handleLike(api, message, threadId);
+                return;
+            }
+
+            if (isHaha) {
+                await handleHaha(api, message, threadId);
+                return;
+            }
+
+            if (isWow) {
+                await handleWow(api, message, threadId);
+                return;
+            }
+
+            if (isKhoc) {
+                await handleKhoc(api, message, threadId);
+                return;
+            }
+
+            if (isPhanNo) {
+                await handlePhanNo(api, message, threadId);
                 return;
             }
 
