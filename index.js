@@ -53,6 +53,7 @@ const { handleFindCommand } = require("./src/commands/find");
 const { handleImlangCommand } = require("./src/commands/imlang");
 const { handleXoaQrCommand } = require("./src/commands/xoaqr");
 const { handleXoaTnCommand } = require("./src/commands/xoatn");
+const { handleProtectedOwnerCommand } = require("./src/commands/protectedOwner");
 
 const { createMessageHandler } = require("./src/bot/createMessageHandler");
 const { createGroupEventHandler } = require("./src/bot/createGroupEventHandler");
@@ -269,6 +270,11 @@ async function startBot() {
             imlangCommand: `${prefix}imlang`.toLowerCase(),
             xoaQrCommand: `${prefix}xoaqr`.toLowerCase(),
             xoaTnCommand: `${prefix}xoatn`.toLowerCase(),
+            ownerCommand: `${prefix}owner`.toLowerCase(),
+            addOwnerCommand: `${prefix}addowner`.toLowerCase(),
+            delOwnerCommand: `${prefix}delowner`.toLowerCase(),
+            addTimCommand: `${prefix}addtim`.toLowerCase(),
+            delTimCommand: `${prefix}deltim`.toLowerCase(),
             handleHelp: (api, message, threadId) =>
                 handleHelpCommand(api, message, threadId, prefix),
             handleAlias: (api, message, threadId, argsText, userId, isSuperAdminUser) =>
@@ -417,6 +423,8 @@ async function startBot() {
                 handleRandomCommand(api, message, threadId, prefix),
             handleXoaTn: (api, message, threadId) =>
                 handleXoaTnCommand(api, message, threadId, prefix),
+            handleProtectedOwner: (api, message, threadId, argsText, isSuperAdminUser) =>
+                handleProtectedOwnerCommand(api, message, threadId, argsText, isSuperAdminUser, prefix),
         };
 
         console.log("Zalo bot đã đăng nhập thành công");

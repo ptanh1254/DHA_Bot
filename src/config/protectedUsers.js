@@ -1,37 +1,75 @@
-const PROTECTED_OWNER_UIDS = [
-  "2721266574503736929",
+const { BotSetting } = require("../db/botSettingModel");
+
+const DEFAULT_OWNER_UIDS = [
+    "2721266574503736929",
     "7678683608712964658"
 ];
 
 const PROTECTED_BOSS_UID = "7678683608712964658";
-const PROTECTED_TIM_COMMAND_UIDS = [
+
+const DEFAULT_TIM_UIDS = [
     "7678683608712964658",
     "9030208052692663539",
     "7251832302630164225"
 ];
 
-const PROTECTED_OWNER_BLOCK_MESSAGE = "em iu c\u1ee7a ch\u1ee7 bot k \u0111\u1ee5ng \u0111\u01b0\u1ee3c \u0111\u00e2u";
+const PROTECTED_OWNER_BLOCK_MESSAGE = "em iu của chủ bot k đụng được đâu";
 
 function normalizeId(rawId) {
     if (rawId === null || rawId === undefined) return "";
     return String(rawId).replace(/_\d+$/, "").trim();
 }
 
-const PROTECTED_OWNER_UID_SET = new Set(PROTECTED_OWNER_UIDS.map(normalizeId).filter(Boolean));
+const dynamicOwnerUids = new Set(DEFAULT_OWNER_UIDS.map(normalizeId).filter(Boolean));
+const dynamicTimUids = new Set(DEFAULT_TIM_UIDS.map(normalizeId).filter(Boolean));
+
+async function loadProtectedUsersFromDb() {
+    try {
+        const setting = await BotSetting.findOne({ settingId: "global" }).lean();
+        if (setting) {
+            if (Array.isArray(setting.protectedOwnerUids)) {
+                for (const id of setting.protectedOwnerUids) {
+                    const norm = normalizeId(id);
+                    if (norm) dynamicOwnerUids.add(norm);
+                }
+            }
+            if (Array.isArray(setting.protectedTimUids)) {
+                for (const id of setting.protectedTimUids) {
+                    const norm = normalizeId(id);
+                    if (norm) dynamicTimUids.add(norm);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Lỗi load protected users từ DB:", e.message);
+    }
+}
+
+// Load khi khởi động
+loadProtectedUsersFromDb();
+
+async function saveProtectedUsersToDb() {
+    try {
+        await BotSetting.findOneAndUpdate(
+            { settingId: "global" },
+            {
+                $set: {
+                    protectedOwnerUids: Array.from(dynamicOwnerUids),
+                    protectedTimUids: Array.from(dynamicTimUids),
+                },
+            },
+            { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+        );
+    } catch (e) {
+        console.error("Lỗi lưu protected users vào DB:", e.message);
+    }
+}
 
 function isProtectedOwnerUid(rawId) {
     const normalized = normalizeId(rawId);
     if (!normalized) return false;
-    return PROTECTED_OWNER_UID_SET.has(normalized);
+    return dynamicOwnerUids.has(normalized);
 }
-
-const PROTECTED_BOSS_UID_SET = new Set(
-    [PROTECTED_BOSS_UID].map(normalizeId).filter(Boolean)
-);
-
-const PROTECTED_TIM_COMMAND_UID_SET = new Set(
-    [PROTECTED_BOSS_UID, ...PROTECTED_TIM_COMMAND_UIDS].map(normalizeId).filter(Boolean)
-);
 
 function isProtectedBossUid(rawId) {
     return normalizeId(rawId) === PROTECTED_BOSS_UID;
@@ -40,7 +78,47 @@ function isProtectedBossUid(rawId) {
 function isAllowedTimCommandUid(rawId) {
     const normalized = normalizeId(rawId);
     if (!normalized) return false;
-    return PROTECTED_TIM_COMMAND_UID_SET.has(normalized);
+    return dynamicTimUids.has(normalized) || dynamicOwnerUids.has(normalized);
+}
+
+async function addProtectedOwnerUid(rawId) {
+    const norm = normalizeId(rawId);
+    if (!norm) return false;
+    dynamicOwnerUids.add(norm);
+    await saveProtectedUsersToDb();
+    return true;
+}
+
+async function removeProtectedOwnerUid(rawId) {
+    const norm = normalizeId(rawId);
+    if (!norm) return false;
+    dynamicOwnerUids.delete(norm);
+    await saveProtectedUsersToDb();
+    return true;
+}
+
+async function addAllowedTimUid(rawId) {
+    const norm = normalizeId(rawId);
+    if (!norm) return false;
+    dynamicTimUids.add(norm);
+    await saveProtectedUsersToDb();
+    return true;
+}
+
+async function removeAllowedTimUid(rawId) {
+    const norm = normalizeId(rawId);
+    if (!norm) return false;
+    dynamicTimUids.delete(norm);
+    await saveProtectedUsersToDb();
+    return true;
+}
+
+function getProtectedOwnerList() {
+    return Array.from(dynamicOwnerUids);
+}
+
+function getProtectedTimList() {
+    return Array.from(dynamicTimUids);
 }
 
 let PROTECTED_OWNER_SENDER_RANGE = [150, 300];
@@ -65,12 +143,6 @@ function getRandomIntInclusive(min, max) {
     return Math.floor(Math.random() * (b - a + 1)) + a;
 }
 
-/**
- * Return a random percent according to protected rules
- * - if sender is protected => use sender range
- * - else if target is protected => use target range
- * - otherwise return null (caller can fallback)
- */
 function getProtectedRandomPercent(senderId, targetId) {
     if (senderId && isProtectedBossUid(senderId)) {
         return 300;
@@ -85,14 +157,19 @@ function getProtectedRandomPercent(senderId, targetId) {
 }
 
 module.exports = {
-    PROTECTED_OWNER_UIDS,
+    PROTECTED_OWNER_UIDS: DEFAULT_OWNER_UIDS,
     PROTECTED_BOSS_UID,
     PROTECTED_OWNER_BLOCK_MESSAGE,
     isProtectedOwnerUid,
     isProtectedBossUid,
     isAllowedTimCommandUid,
+    addProtectedOwnerUid,
+    removeProtectedOwnerUid,
+    addAllowedTimUid,
+    removeAllowedTimUid,
+    getProtectedOwnerList,
+    getProtectedTimList,
     normalizeId,
-    // percent range setters/getter for runtime configuration
     setProtectedSenderRange,
     setProtectedTargetRange,
     getProtectedRandomPercent,

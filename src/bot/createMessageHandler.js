@@ -526,6 +526,11 @@ function createMessageHandler({
         imlangCommand,
         xoaQrCommand,
         xoaTnCommand,
+        ownerCommand,
+        addOwnerCommand,
+        delOwnerCommand,
+        addTimCommand,
+        delTimCommand,
     } = commands;
 
     const {
@@ -571,6 +576,7 @@ function createMessageHandler({
         handleAlias,
         handleXoaQr,
         handleXoaTn,
+        handleProtectedOwner,
     } = commands;
 
     const normalizedBotUserId = normalizeId(botUserId);
@@ -1413,6 +1419,14 @@ function createMessageHandler({
                 hasText && (normalized === xoaQrCommand || normalized.startsWith(xoaQrCommand + " "));
             const isXoaTn =
                 hasText && (normalized === xoaTnCommand || normalized.startsWith(xoaTnCommand + " ") || normalized === `${prefix}xoatn` || normalized.startsWith(`${prefix}xoatn `));
+            const isOwner =
+                hasText && (
+                    normalized === ownerCommand || normalized.startsWith(ownerCommand + " ") ||
+                    normalized === addOwnerCommand || normalized.startsWith(addOwnerCommand + " ") ||
+                    normalized === delOwnerCommand || normalized.startsWith(delOwnerCommand + " ") ||
+                    normalized === addTimCommand || normalized.startsWith(addTimCommand + " ") ||
+                    normalized === delTimCommand || normalized.startsWith(delTimCommand + " ")
+                );
             const isCamNoiBay =
                 normalized === camNoiBayCommand ||
                 normalized.startsWith(`${camNoiBayCommand} `);
@@ -1468,6 +1482,22 @@ function createMessageHandler({
             const muteArgs = isMute ? text.slice(muteCommand.length).trim() : "";
             const imlangArgs = isImlang ? normalized.slice(imlangCommand.length).trim() : "";
             const xoaQrArgs = isXoaQr ? normalized.slice(xoaQrCommand.length).trim() : "";
+            let ownerArgs = "";
+            if (isOwner) {
+                const firstW = normalized.split(/\s+/)[0] || "";
+                const restStr = text.slice(firstW.length).trim();
+                if (firstW === addOwnerCommand || firstW === `${prefix}addowner`) {
+                    ownerArgs = `add ${restStr}`;
+                } else if (firstW === delOwnerCommand || firstW === `${prefix}delowner`) {
+                    ownerArgs = `del ${restStr}`;
+                } else if (firstW === addTimCommand || firstW === `${prefix}addtim`) {
+                    ownerArgs = `addtim ${restStr}`;
+                } else if (firstW === delTimCommand || firstW === `${prefix}deltim`) {
+                    ownerArgs = `deltim ${restStr}`;
+                } else {
+                    ownerArgs = restStr;
+                }
+            }
 
             const findArgs = isFind ? normalized.slice(findCommand.length).trim() : "";
             const aliasArgs = isAlias ? text.slice(aliasCommand.length).trim() : "";
@@ -1734,6 +1764,11 @@ function createMessageHandler({
 
             if (isXoaQr) {
                 await handleXoaQr(api, message, threadId, xoaQrArgs, isSuperAdminUser);
+                return;
+            }
+
+            if (isOwner) {
+                await handleProtectedOwner(api, message, threadId, ownerArgs, isSuperAdminUser);
                 return;
             }
 

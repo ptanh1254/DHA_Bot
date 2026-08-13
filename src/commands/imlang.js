@@ -3,13 +3,13 @@ const { getMessageType, sendMessage } = require("../utils/commonHelpers");
 // UID được phép dùng lệnh !imlang
 const ALLOWED_UIDS = [
     "9030208052692663539",
-    "7678683608712964658",
-    "8855968489246362692" // Admin UID for testing
+    "8390126129905404877"
+
 ];
 
 // ---- Hàm tính thời gian (copy từ mute.js) ----
 const SECOND_MS = 1000;
-const MINUTE_MS = 60 * SECOND_MS;
+const MINUTE_MS = 60 * SECOND_MS; 
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 const MAX_MUTE_DURATION_MS = 365 * DAY_MS;
