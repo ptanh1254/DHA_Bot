@@ -1561,13 +1561,20 @@ function createMessageHandler({
                 isLove ||
                 isNghiep ||
                 isTim ||
+                isLike ||
+                isHaha ||
+                isWow ||
+                isKhoc ||
+                isPhanNo ||
                 isAsk ||
                 isThiepCuoi ||
                 isRandom ||
                 isFind ||
                 isAlias ||
                 isImlang ||
-                isXoaQr;
+                isXoaQr ||
+                isXoaTn ||
+                isOwner;
 
 
             if (!isBotSelf && isKick && kickBlockedUids.has(normalizedSenderId)) {
@@ -1583,8 +1590,8 @@ function createMessageHandler({
             }
 
             if (!isBotSelf && isKnownCommand) {
-                // Member thuong duoc phep dung duy nhat !ingame, !tim, !imlang, !find, !afk
-                const isPublicCommand = isIngame || isTim || isImlang || isFind || isAFK;
+                // Member thuong duoc phep dung duy nhat !ingame, !tim, !like, !haha, !wow, !khoc, !phanno, !imlang, !find, !afk
+                const isPublicCommand = isIngame || isTim || isLike || isHaha || isWow || isKhoc || isPhanNo || isImlang || isFind || isAFK;
                 if (!isPublicCommand) {
                     const normalizedUserId = normalizeId(userId);
                     const isAdmin = isSuperAdminUser ? true : await isGroupAdmin(threadId, userId);
